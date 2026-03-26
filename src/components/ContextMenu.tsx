@@ -19,7 +19,7 @@ export function ContextMenu({ x, y, items, onClose }: ContextMenuProps) {
     <div className="fixed inset-0 z-40">
       <button
         type="button"
-        aria-label="Close context menu"
+        aria-label="关闭上下文菜单"
         className="absolute inset-0 cursor-default"
         onClick={onClose}
       />

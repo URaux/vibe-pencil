@@ -68,7 +68,7 @@ export async function POST(request: Request) {
   const payload = (await request.json()) as ChatRequest
 
   if (!payload.message?.trim()) {
-    return Response.json({ error: 'Message is required.' }, { status: 400 })
+    return Response.json({ error: '消息内容不能为空。' }, { status: 400 })
   }
 
   const agentId = agentRunner.spawnAgent('chat', buildPrompt(payload), getBackend(), process.cwd())
@@ -102,7 +102,7 @@ export async function POST(request: Request) {
         const status = agentRunner.getStatus(agentId)
 
         if (!status) {
-          push({ type: 'error', error: 'Chat agent was not found.' })
+          push({ type: 'error', error: '未找到对话代理。' })
           close()
           return
         }
@@ -121,7 +121,7 @@ export async function POST(request: Request) {
         }
 
         if (status.status === 'error') {
-          push({ type: 'error', error: status.errorMessage ?? 'Chat agent failed.' })
+          push({ type: 'error', error: status.errorMessage ?? 'AI 对话失败。' })
           close()
         }
       }, 125)

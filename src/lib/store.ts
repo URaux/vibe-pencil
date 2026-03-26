@@ -75,7 +75,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         n.id === id ? { ...n, data: { ...n.data, status, summary, errorMessage } } : n
       ),
     }),
-  projectName: 'untitled',
+  projectName: '未命名项目',
   setProjectName: (name) => set({ projectName: name }),
   config: { agent: 'claude-code', workDir: './output', maxParallel: 3 },
   setConfig: (config) => set({ config: { ...get().config, ...config } }),

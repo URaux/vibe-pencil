@@ -3,12 +3,12 @@
 import type { NodeType } from '@/lib/types'
 
 const paletteItems: Array<{ type: NodeType; label: string; icon: string }> = [
-  { type: 'service', label: 'Service', icon: 'S' },
-  { type: 'frontend', label: 'Frontend', icon: 'FE' },
-  { type: 'api', label: 'API', icon: 'API' },
-  { type: 'database', label: 'Database', icon: 'DB' },
-  { type: 'queue', label: 'Queue', icon: 'Q' },
-  { type: 'external', label: 'External', icon: 'EXT' },
+  { type: 'service', label: '服务', icon: 'S' },
+  { type: 'frontend', label: '前端', icon: 'FE' },
+  { type: 'api', label: '接口', icon: 'API' },
+  { type: 'database', label: '数据库', icon: 'DB' },
+  { type: 'queue', label: '消息队列', icon: 'Q' },
+  { type: 'external', label: '外部服务', icon: 'EXT' },
 ]
 
 export function NodePalette() {
@@ -20,8 +20,8 @@ export function NodePalette() {
   return (
     <aside className="vp-panel flex shrink-0 flex-col border-b border-white/10 p-4 text-white xl:h-full xl:w-56 xl:min-w-[14rem] xl:border-r xl:border-b-0">
       <div className="mb-4">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-300">Nodes</h2>
-        <p className="mt-1 text-xs text-gray-500">Drag onto the canvas to create a new node.</p>
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-300">节点</h2>
+        <p className="mt-1 text-xs text-gray-500">拖拽到画布上即可创建新节点。</p>
       </div>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-1">
         {paletteItems.map((item) => (

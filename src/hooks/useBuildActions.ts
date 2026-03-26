@@ -16,7 +16,7 @@ function buildWaveSummary(waves: string[][], nodeNames: Map<string, string>) {
   return waves
     .map(
       (wave, index) =>
-        `Wave ${index + 1}: ${wave.map((nodeId) => nodeNames.get(nodeId) ?? nodeId).join(', ')}`
+        `波次 ${index + 1}: ${wave.map((nodeId) => nodeNames.get(nodeId) ?? nodeId).join(', ')}`
     )
     .join('\n')
 }
@@ -105,7 +105,7 @@ export function useBuildActions() {
       })
 
       if (!response.ok) {
-        throw new Error('Failed to start build')
+        throw new Error('启动构建失败。')
       }
     } catch (error) {
       setBuildState({ active: false, currentWave: 0, totalWaves: 0, targetNodeIds: [] })
@@ -115,7 +115,7 @@ export function useBuildActions() {
           nodeId,
           'error',
           undefined,
-          error instanceof Error ? error.message : 'Failed to start build'
+          error instanceof Error ? error.message : '启动构建失败。'
         )
       }
     }
@@ -169,7 +169,7 @@ export function useBuildActions() {
       })
 
       if (!response.ok) {
-        throw new Error('Failed to start build')
+        throw new Error('启动构建失败。')
       }
     } catch (error) {
       setBuildState({ active: false, currentWave: 0, totalWaves: 0, targetNodeIds: [] })
@@ -177,7 +177,7 @@ export function useBuildActions() {
         nodeId,
         'error',
         undefined,
-        error instanceof Error ? error.message : 'Failed to start build'
+        error instanceof Error ? error.message : '启动构建失败。'
       )
     }
   }

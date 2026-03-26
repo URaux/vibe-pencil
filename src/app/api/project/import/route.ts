@@ -74,7 +74,7 @@ async function waitForCompletion(agentId: string, timeoutMs = 300000) {
     const status = agentRunner.getStatus(agentId)
 
     if (!status) {
-      throw new Error('Import agent was not found.')
+      throw new Error('未找到导入代理。')
     }
 
     if (status.status === 'done') {
@@ -82,14 +82,14 @@ async function waitForCompletion(agentId: string, timeoutMs = 300000) {
     }
 
     if (status.status === 'error') {
-      throw new Error(status.errorMessage ?? 'Import agent failed.')
+      throw new Error(status.errorMessage ?? '项目导入失败。')
     }
 
     await new Promise((resolve) => setTimeout(resolve, 250))
   }
 
   agentRunner.stopAgent(agentId)
-  throw new Error('Import agent timed out.')
+  throw new Error('项目导入超时。')
 }
 
 function normalizeNodes(rawNodes: unknown): Node<ArchitectNodeData>[] {
@@ -181,13 +181,13 @@ function normalizeCanvas(payload: unknown) {
   const root = isObject(payload) && isObject(payload.canvas) ? payload.canvas : payload
 
   if (!isObject(root)) {
-    throw new Error('Agent did not return a JSON object.')
+    throw new Error('代理没有返回 JSON 对象。')
   }
 
   const nodes = normalizeNodes(root.nodes)
 
   if (nodes.length === 0) {
-    throw new Error('Agent returned no nodes to import.')
+    throw new Error('代理没有返回可导入的节点。')
   }
 
   const edges = normalizeEdges(root.edges, new Set(nodes.map((node) => node.id)))
@@ -199,11 +199,11 @@ export async function POST(request: Request) {
   const { dir } = (await request.json()) as ImportProjectRequest
 
   if (!dir?.trim()) {
-    return Response.json({ error: 'Directory path is required.' }, { status: 400 })
+    return Response.json({ error: '项目目录路径不能为空。' }, { status: 400 })
   }
 
   if (!fs.existsSync(dir) || !fs.statSync(dir).isDirectory()) {
-    return Response.json({ error: 'Directory does not exist.' }, { status: 400 })
+    return Response.json({ error: '项目目录不存在。' }, { status: 400 })
   }
 
   try {
@@ -213,7 +213,7 @@ export async function POST(request: Request) {
     const parsed = extractJsonObject(agentText)
 
     if (!parsed) {
-      throw new Error('Failed to parse structured JSON from the agent output.')
+      throw new Error('无法从代理输出中解析结构化 JSON。')
     }
 
     const canvas = normalizeCanvas(parsed)
@@ -221,7 +221,7 @@ export async function POST(request: Request) {
     return Response.json(canvas)
   } catch (error) {
     return Response.json(
-      { error: error instanceof Error ? error.message : 'Project import failed.' },
+      { error: error instanceof Error ? error.message : '项目导入失败。' },
       { status: 500 }
     )
   }

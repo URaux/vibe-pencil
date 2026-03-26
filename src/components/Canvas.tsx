@@ -16,6 +16,7 @@ import { edgeTypes } from '@/components/edges/edgeTypes'
 import { nodeTypes } from '@/components/nodes/nodeTypes'
 import { useBuildActions } from '@/hooks/useBuildActions'
 import { useAppStore } from '@/lib/store'
+import { getNodeTypeLabel } from '@/lib/ui-text'
 import type { ArchitectNodeData, NodeType } from '@/lib/types'
 
 type ContextMenuState =
@@ -155,23 +156,23 @@ export function Canvas({ onOpenImportDialog }: CanvasProps) {
     contextMenu?.kind === 'node'
       ? [
           {
-            label: 'Discuss with AI',
+            label: '与AI讨论',
             onSelect: () => {
               setSelectedNodeId(contextMenu.nodeId)
               setChatOpen(true)
             },
           },
           {
-            label: 'Build this node',
+            label: '构建此节点',
             onSelect: () => buildNode(contextMenu.nodeId),
             disabled: isBuilding,
           },
           {
-            label: 'Edit',
+            label: '编辑',
             onSelect: () => openNodeEditor(contextMenu.nodeId),
           },
           {
-            label: 'Delete',
+            label: '删除',
             onSelect: () => removeNode(contextMenu.nodeId),
             tone: 'danger' as const,
           },
@@ -181,12 +182,12 @@ export function Canvas({ onOpenImportDialog }: CanvasProps) {
     contextMenu?.kind === 'canvas'
       ? [
           {
-            label: 'Build All',
+            label: '全部构建',
             onSelect: buildAll,
             disabled: nodes.length === 0 || isBuilding,
           },
           {
-            label: 'Import Project',
+            label: '导入项目',
             onSelect: onOpenImportDialog,
           },
         ]
@@ -273,14 +274,22 @@ export function Canvas({ onOpenImportDialog }: CanvasProps) {
           onClose={() => setContextMenu(null)}
         />
       ) : null}
+      {nodes.length === 0 ? (
+        <div className="pointer-events-none absolute inset-x-6 top-6 z-10 flex justify-center">
+          <div className="max-w-md rounded-2xl border border-dashed border-white/15 bg-slate-950/85 px-4 py-3 text-center text-sm text-gray-400 shadow-lg shadow-black/20 backdrop-blur">
+            <p>将左侧节点拖到画布上开始设计</p>
+            <p className="mt-1 text-xs text-gray-500">也可以右键打开菜单，导入项目或发起构建</p>
+          </div>
+        </div>
+      ) : null}
       {editingNode ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-950/80 p-6 backdrop-blur-sm">
           <div className="w-full max-w-lg rounded-3xl border border-gray-800 bg-gray-900 p-6 shadow-2xl shadow-black/50">
             <div className="mb-5 flex items-start justify-between gap-4">
               <div>
-                <h2 className="text-lg font-semibold text-white">Edit Node</h2>
+                <h2 className="text-lg font-semibold text-white">编辑节点</h2>
                 <p className="mt-1 text-sm text-gray-400">
-                  Update the name and description for {editingNode.type ?? 'node'}.
+                  更新{getNodeTypeLabel(editingNode.type)}的名称和描述。
                 </p>
               </div>
               <button
@@ -288,33 +297,33 @@ export function Canvas({ onOpenImportDialog }: CanvasProps) {
                 onClick={closeNodeEditor}
                 className="rounded-full border border-gray-700 px-3 py-1 text-xs uppercase tracking-[0.2em] text-gray-300 transition hover:border-gray-500 hover:text-white"
               >
-                Close
+                关闭
               </button>
             </div>
 
             <form onSubmit={saveNodeEdits} className="space-y-4">
               <label className="block">
                 <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-gray-400">
-                  Name
+                  名称
                 </span>
                 <input
                   type="text"
                   value={draftName}
                   onChange={(event) => setDraftName(event.target.value)}
-                  placeholder="UserService"
+                  placeholder="用户服务"
                   className="w-full rounded-2xl border border-gray-700 bg-gray-950 px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-500"
                 />
               </label>
 
               <label className="block">
                 <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-gray-400">
-                  Description
+                  描述
                 </span>
                 <textarea
                   value={draftDescription}
                   onChange={(event) => setDraftDescription(event.target.value)}
                   rows={4}
-                  placeholder="What this node is responsible for"
+                  placeholder="说明该节点负责的能力和职责"
                   className="w-full rounded-2xl border border-gray-700 bg-gray-950 px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-500"
                 />
               </label>
@@ -325,13 +334,13 @@ export function Canvas({ onOpenImportDialog }: CanvasProps) {
                   onClick={closeNodeEditor}
                   className="rounded-xl border border-gray-700 px-4 py-2 text-sm text-gray-300 transition hover:border-gray-500 hover:text-white"
                 >
-                  Cancel
+                  取消
                 </button>
                 <button
                   type="submit"
                   className="rounded-xl border border-cyan-500/60 bg-cyan-500/10 px-4 py-2 text-sm font-medium text-cyan-100 transition hover:border-cyan-400 hover:bg-cyan-500/20"
                 >
-                  Save
+                  保存
                 </button>
               </div>
             </form>

@@ -16,7 +16,7 @@ export function BuildButton() {
           disabled={isBuilding}
           className="rounded-full border border-cyan-500/60 bg-cyan-500/10 px-4 py-2 text-sm font-medium text-cyan-100 transition hover:border-cyan-400 hover:bg-cyan-500/20 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          Build Selected ({selectedCount})
+          构建选中 ({selectedCount})
         </button>
       ) : null}
       <button
@@ -25,7 +25,7 @@ export function BuildButton() {
         disabled={nodes.length === 0 || isBuilding}
         className="rounded-full border border-emerald-500/60 bg-emerald-500/10 px-4 py-2 text-sm font-medium text-emerald-100 transition hover:border-emerald-400 hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-50"
       >
-        Build All
+        全部构建
       </button>
     </div>
   )

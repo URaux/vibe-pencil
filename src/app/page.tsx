@@ -26,7 +26,7 @@ export default function Home() {
         <header className="vp-panel flex flex-wrap items-center justify-between gap-3 border-b border-white/10 px-5 py-3">
           <div>
             <h1 className="text-sm font-semibold uppercase tracking-[0.3em] text-gray-100">Vibe Pencil</h1>
-            <p className="text-xs text-gray-500">Topology-aware builds for architecture nodes</p>
+            <p className="text-xs text-gray-500">面向架构节点的拓扑感知构建</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <button
@@ -34,7 +34,7 @@ export default function Home() {
               onClick={() => setImportOpen(true)}
               className="rounded-full border border-gray-700 bg-gray-900 px-4 py-2 text-sm font-medium text-gray-100 transition hover:border-gray-500 hover:bg-gray-800"
             >
-              Import Project
+              导入项目
             </button>
             <BuildButton />
           </div>

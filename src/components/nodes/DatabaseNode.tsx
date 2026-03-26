@@ -3,5 +3,13 @@ import { BaseNode } from './BaseNode'
 import type { ArchitectNodeData } from '@/lib/types'
 
 export function DatabaseNode({ data, selected }: NodeProps) {
-  return <BaseNode icon="🟪" color="bg-purple-600" typeLabel="Database" data={data as ArchitectNodeData} selected={selected} />
+  return (
+    <BaseNode
+      icon="DB"
+      color="bg-purple-600"
+      typeLabel="数据库"
+      data={data as ArchitectNodeData}
+      selected={selected}
+    />
+  )
 }
