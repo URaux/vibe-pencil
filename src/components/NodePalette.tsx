@@ -1,17 +1,21 @@
 'use client'
 
+import { t } from '@/lib/i18n'
+import { useAppStore } from '@/lib/store'
 import type { NodeType } from '@/lib/types'
 
-const paletteItems: Array<{ type: NodeType; label: string; icon: string }> = [
-  { type: 'service', label: '服务', icon: 'S' },
-  { type: 'frontend', label: '前端', icon: 'FE' },
-  { type: 'api', label: '接口', icon: 'API' },
-  { type: 'database', label: '数据库', icon: 'DB' },
-  { type: 'queue', label: '消息队列', icon: 'Q' },
-  { type: 'external', label: '外部服务', icon: 'EXT' },
+const paletteItems: Array<{ type: NodeType; labelKey: string; icon: string }> = [
+  { type: 'service', labelKey: 'service', icon: 'S' },
+  { type: 'frontend', labelKey: 'frontend', icon: 'FE' },
+  { type: 'api', labelKey: 'api', icon: 'API' },
+  { type: 'database', labelKey: 'database', icon: 'DB' },
+  { type: 'queue', labelKey: 'queue', icon: 'Q' },
+  { type: 'external', labelKey: 'external', icon: 'EXT' },
 ]
 
 export function NodePalette() {
+  useAppStore((state) => state.locale)
+
   const onDragStart = (event: React.DragEvent<HTMLButtonElement>, nodeType: NodeType) => {
     event.dataTransfer.setData('application/reactflow', nodeType)
     event.dataTransfer.effectAllowed = 'move'
@@ -20,8 +24,8 @@ export function NodePalette() {
   return (
     <aside className="vp-panel flex shrink-0 flex-col border-b border-slate-200/80 p-4 text-slate-800 xl:h-full xl:w-56 xl:min-w-[14rem] xl:border-r xl:border-b-0">
       <div className="mb-4">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700">节点</h2>
-        <p className="mt-1 text-xs text-slate-500">拖拽到画布即可创建新节点。</p>
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700">{t('nodes')}</h2>
+        <p className="mt-1 text-xs text-slate-500">{t('palette_hint')}</p>
       </div>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-1">
         {paletteItems.map((item) => (
@@ -35,7 +39,7 @@ export function NodePalette() {
             <span className="flex min-w-10 items-center justify-center rounded-xl bg-slate-100 px-2 py-1 text-[10px] font-semibold tracking-wide text-slate-600">
               {item.icon}
             </span>
-            <span className="text-sm text-slate-700">{item.label}</span>
+            <span className="text-sm text-slate-700">{t(item.labelKey)}</span>
           </button>
         ))}
       </div>

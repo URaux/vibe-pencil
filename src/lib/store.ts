@@ -1,16 +1,17 @@
 import { create } from 'zustand'
 import {
-  type Node,
   type Edge,
-  type OnNodesChange,
-  type OnEdgesChange,
+  type Node,
   type OnConnect,
-  applyNodeChanges,
-  applyEdgeChanges,
+  type OnEdgesChange,
+  type OnNodesChange,
   addEdge,
+  applyEdgeChanges,
+  applyNodeChanges,
 } from '@xyflow/react'
-import type { ArchitectNodeData, ProjectConfig, HistoryEntry, BuildStatus } from './types'
 import { clampMaxParallel } from './config'
+import { getLocale, setLocale as setI18nLocale, translate, type Locale } from './i18n'
+import type { ArchitectNodeData, BuildStatus, HistoryEntry, ProjectConfig } from './types'
 
 type SaveState = 'saved' | 'saving'
 
@@ -37,6 +38,8 @@ interface AppState {
   setProjectName: (name: string) => void
   config: ProjectConfig
   setConfig: (config: Partial<ProjectConfig>) => void
+  locale: Locale
+  setLocale: (locale: Locale) => void
   history: HistoryEntry[]
   addHistory: (entry: HistoryEntry) => void
   saveState: SaveState
@@ -48,6 +51,8 @@ interface AppState {
   chatOpen: boolean
   setChatOpen: (open: boolean) => void
 }
+
+const initialLocale = getLocale()
 
 export const useAppStore = create<AppState>((set, get) => ({
   nodes: [],
@@ -66,17 +71,17 @@ export const useAppStore = create<AppState>((set, get) => ({
     }),
   updateNodeData: (id, data) =>
     set({
-      nodes: get().nodes.map((n) =>
-        n.id === id ? { ...n, data: { ...n.data, ...data } } : n
+      nodes: get().nodes.map((node) =>
+        node.id === id ? { ...node, data: { ...node.data, ...data } } : node
       ),
     }),
   updateNodeStatus: (id, status, summary, errorMessage) =>
     set({
-      nodes: get().nodes.map((n) =>
-        n.id === id ? { ...n, data: { ...n.data, status, summary, errorMessage } } : n
+      nodes: get().nodes.map((node) =>
+        node.id === id ? { ...node, data: { ...node.data, status, summary, errorMessage } } : node
       ),
     }),
-  projectName: '未命名项目',
+  projectName: translate(initialLocale, 'untitled'),
   setProjectName: (name) => set({ projectName: name }),
   config: { agent: 'claude-code', workDir: './output', maxParallel: 3 },
   setConfig: (config) =>
@@ -89,6 +94,16 @@ export const useAppStore = create<AppState>((set, get) => ({
           : {}),
       },
     }),
+  locale: initialLocale,
+  setLocale: (locale) => {
+    const current = get()
+    const previousUntitled = translate(current.locale, 'untitled')
+    const nextProjectName =
+      current.projectName === previousUntitled ? translate(locale, 'untitled') : current.projectName
+
+    setI18nLocale(locale)
+    set({ locale, projectName: nextProjectName })
+  },
   history: [],
   addHistory: (entry) => set({ history: [...get().history, entry] }),
   saveState: 'saved',

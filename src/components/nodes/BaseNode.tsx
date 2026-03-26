@@ -1,6 +1,8 @@
 import { Handle, Position } from '@xyflow/react'
+import { t } from '@/lib/i18n'
+import { useAppStore } from '@/lib/store'
 import type { ArchitectNodeData } from '@/lib/types'
-import { buildStatusLabels } from '@/lib/ui-text'
+import { getBuildStatusLabel } from '@/lib/ui-text'
 
 const statusClasses: Record<string, string> = {
   idle: 'border-slate-200 bg-slate-50 text-slate-500',
@@ -18,6 +20,8 @@ interface BaseNodeProps {
 }
 
 export function BaseNode({ icon, color, typeLabel, data, selected }: BaseNodeProps) {
+  useAppStore((state) => state.locale)
+
   return (
     <div
       className={`vp-node vp-node--${data.status} min-w-[220px] max-w-[300px] rounded-3xl border bg-white shadow-xl shadow-slate-200/70 ${
@@ -27,13 +31,13 @@ export function BaseNode({ icon, color, typeLabel, data, selected }: BaseNodePro
       <Handle type="target" position={Position.Left} className="!bg-slate-300" />
       <div className={`flex items-center gap-2 rounded-t-[1.4rem] px-3 py-2.5 ${color}`}>
         <span>{icon}</span>
-        <span className="truncate text-sm font-semibold">{data.name || '未命名'}</span>
+        <span className="truncate text-sm font-semibold">{data.name || t('untitled')}</span>
         <span className="ml-auto rounded-full bg-white/65 px-2 py-0.5 text-[10px] uppercase tracking-[0.18em] text-current/70">
           {typeLabel}
         </span>
       </div>
       <div className="px-3 py-3 text-xs leading-5 text-slate-600">
-        {data.description || <span className="italic text-slate-400">双击添加描述</span>}
+        {data.description || <span className="italic text-slate-400">{t('double_click_desc')}</span>}
       </div>
       <div className="flex items-center justify-between gap-2 border-t border-slate-100 px-3 py-2">
         <span
@@ -41,7 +45,7 @@ export function BaseNode({ icon, color, typeLabel, data, selected }: BaseNodePro
             statusClasses[data.status]
           }`}
         >
-          {buildStatusLabels[data.status]}
+          {getBuildStatusLabel(data.status)}
         </span>
         {data.summary ? <span className="truncate text-xs text-slate-400">{data.summary}</span> : null}
       </div>

@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import type { Edge, Node } from '@xyflow/react'
+import { t } from '@/lib/i18n'
 import { canvasToYaml } from '@/lib/schema-engine'
 import { useAppStore } from '@/lib/store'
 import { getNodeTypeLabel } from '@/lib/ui-text'
@@ -142,6 +143,7 @@ export function ChatPanel() {
   const addCanvasEdge = useAppStore((state) => state.addCanvasEdge)
   const removeNode = useAppStore((state) => state.removeNode)
   const updateNodeData = useAppStore((state) => state.updateNodeData)
+  useAppStore((state) => state.locale)
   const [message, setMessage] = useState('')
   const [histories, setHistories] = useState<Map<string, Message[]>>(() => new Map())
   const [isSending, setIsSending] = useState(false)
@@ -252,7 +254,7 @@ export function ChatPanel() {
     } catch (applyError) {
       setActionErrors((current) => ({
         ...current,
-        [actionKey]: applyError instanceof Error ? applyError.message : '应用到画布失败。',
+        [actionKey]: applyError instanceof Error ? applyError.message : t('apply_canvas_failed'),
       }))
     }
   }
@@ -290,7 +292,7 @@ export function ChatPanel() {
       })
 
       if (!response.ok || !response.body) {
-        throw new Error('启动对话失败。')
+        throw new Error(t('chat_start_failed'))
       }
 
       const reader = response.body.getReader()
@@ -315,15 +317,12 @@ export function ChatPanel() {
           }
 
           if (streamEvent.type === 'error') {
-            throw new Error(streamEvent.error ?? 'AI 对话失败。')
+            throw new Error(streamEvent.error ?? t('chat_failed'))
           }
         }
       }
     } catch (sendError) {
-      const errorMessage =
-        sendError instanceof Error ? sendError.message : '发送消息时出现问题。'
-
-      setError(errorMessage)
+      setError(sendError instanceof Error ? sendError.message : t('send_failed'))
       updateHistory(chatKey, (current) => {
         const lastMessage = current.at(-1)
 
@@ -349,15 +348,15 @@ export function ChatPanel() {
         }`}
       >
         <div className={`${chatOpen ? '' : 'xl:flex xl:flex-col xl:items-center xl:gap-2'}`}>
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700">AI对话</h2>
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700">{t('ai_chat')}</h2>
           {chatOpen ? (
             <p className="mt-1 text-xs text-slate-500">
               {selectedNode
-                ? `节点模式：${selectedNode.data.name || selectedNode.id}`
-                : '全局模式：讨论整个画布'}
+                ? t('node_mode', { name: selectedNode.data.name || selectedNode.id })
+                : t('global_mode')}
             </p>
           ) : (
-            <p className="mt-1 text-xs text-slate-500 xl:mt-0">点击展开</p>
+            <p className="mt-1 text-xs text-slate-500 xl:mt-0">{t('click_expand')}</p>
           )}
         </div>
         <div className={`${chatOpen ? 'flex items-center gap-2' : 'xl:flex xl:flex-col xl:items-center'}`}>
@@ -367,7 +366,7 @@ export function ChatPanel() {
             </span>
           ) : null}
           <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-1 text-[10px] uppercase tracking-[0.2em] text-slate-500">
-            {chatOpen ? '收起' : '展开'}
+            {chatOpen ? t('collapse') : t('expand')}
           </span>
         </div>
       </button>
@@ -377,7 +376,7 @@ export function ChatPanel() {
           <div className="min-h-0 flex-1 space-y-3 overflow-y-auto py-4">
             {activeMessages.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-500">
-                可以讨论架构取舍、实现顺序，或直接让 AI 调整画布。
+                {t('chat_empty_state')}
               </div>
             ) : null}
 
@@ -394,7 +393,7 @@ export function ChatPanel() {
                   }`}
                 >
                   <div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-400">
-                    {entry.role === 'user' ? '用户' : 'AI'}
+                    {entry.role === 'user' ? t('user') : t('assistant')}
                   </div>
                   <div className="whitespace-pre-wrap break-words">{entry.content || '...'}</div>
                   {actionBlocks.length > 0 ? (
@@ -409,7 +408,7 @@ export function ChatPanel() {
                               onClick={() => applyCanvasAction(rawAction, actionKey)}
                               className="vp-button-primary rounded-full px-3 py-1 text-xs font-medium"
                             >
-                              应用到画布
+                              {t('apply_to_canvas')}
                             </button>
                             {actionErrors[actionKey] ? (
                               <div className="text-xs text-rose-600">{actionErrors[actionKey]}</div>
@@ -431,7 +430,7 @@ export function ChatPanel() {
                 type="text"
                 value={message}
                 onChange={(event) => setMessage(event.target.value)}
-                placeholder={selectedNode ? '输入你想讨论的节点问题...' : '输入你想讨论的架构问题...'}
+                placeholder={t('type_message')}
                 className="vp-input flex-1 rounded-xl px-4 py-3 text-sm"
                 disabled={isSending}
               />
@@ -440,7 +439,7 @@ export function ChatPanel() {
                 disabled={isSending || !message.trim()}
                 className="vp-button-primary rounded-xl px-4 py-3 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {isSending ? '发送中...' : '发送'}
+                {isSending ? t('sending') : t('send')}
               </button>
             </div>
           </form>

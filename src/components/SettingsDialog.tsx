@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { clampMaxParallel } from '@/lib/config'
+import { t, type Locale } from '@/lib/i18n'
 import { useAppStore } from '@/lib/store'
 
 interface SettingsDialogProps {
@@ -11,10 +12,13 @@ interface SettingsDialogProps {
 
 export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
   const config = useAppStore((state) => state.config)
+  const locale = useAppStore((state) => state.locale)
+  const setStoreLocale = useAppStore((state) => state.setLocale)
   const setConfig = useAppStore((state) => state.setConfig)
   const [agent, setAgent] = useState(config.agent)
   const [workDir, setWorkDir] = useState(config.workDir)
   const [maxParallel, setMaxParallel] = useState(String(config.maxParallel))
+  const [draftLocale, setDraftLocale] = useState<Locale>(locale)
 
   useEffect(() => {
     if (!open) {
@@ -24,7 +28,8 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
     setAgent(config.agent)
     setWorkDir(config.workDir)
     setMaxParallel(String(config.maxParallel))
-  }, [config.agent, config.maxParallel, config.workDir, open])
+    setDraftLocale(locale)
+  }, [config.agent, config.maxParallel, config.workDir, locale, open])
 
   function handleSave(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -35,6 +40,7 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
       return
     }
 
+    setStoreLocale(draftLocale)
     setConfig({
       agent,
       workDir: trimmedWorkDir,
@@ -52,22 +58,22 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
       <div className="vp-dialog-card w-full max-w-lg rounded-[2rem] p-6">
         <div className="mb-5 flex items-start justify-between gap-4">
           <div>
-            <h2 className="text-lg font-semibold text-slate-900">设置</h2>
-            <p className="mt-1 text-sm text-slate-500">配置默认 Agent 后端、工作目录和并行构建数量。</p>
+            <h2 className="text-lg font-semibold text-slate-900">{t('settings')}</h2>
+            <p className="mt-1 text-sm text-slate-500">{t('settings_desc')}</p>
           </div>
           <button
             type="button"
             onClick={onClose}
             className="vp-button-secondary rounded-full px-3 py-1 text-xs uppercase tracking-[0.2em]"
           >
-            关闭
+            {t('close')}
           </button>
         </div>
 
         <form onSubmit={handleSave} className="space-y-5">
           <fieldset className="space-y-3">
             <legend className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
-              Agent后端
+              {t('agent_backend')}
             </legend>
             <label className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
               <input
@@ -95,7 +101,21 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
 
           <label className="block">
             <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
-              工作目录
+              {t('language')}
+            </span>
+            <select
+              value={draftLocale}
+              onChange={(event) => setDraftLocale(event.target.value as Locale)}
+              className="vp-input rounded-2xl px-4 py-3 text-sm"
+            >
+              <option value="zh">{t('chinese')}</option>
+              <option value="en">{t('english')}</option>
+            </select>
+          </label>
+
+          <label className="block">
+            <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+              {t('work_directory')}
             </span>
             <input
               type="text"
@@ -108,7 +128,7 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
 
           <label className="block">
             <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
-              最大并行数
+              {t('max_parallel')}
             </span>
             <input
               type="number"
@@ -127,14 +147,14 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
               onClick={onClose}
               className="vp-button-secondary rounded-xl px-4 py-2 text-sm"
             >
-              取消
+              {t('cancel')}
             </button>
             <button
               type="submit"
               disabled={!workDir.trim()}
               className="vp-button-primary rounded-xl px-4 py-2 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50"
             >
-              保存
+              {t('save')}
             </button>
           </div>
         </form>

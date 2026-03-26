@@ -1,10 +1,12 @@
 'use client'
 
 import { useBuildActions } from '@/hooks/useBuildActions'
+import { t } from '@/lib/i18n'
 import { useAppStore } from '@/lib/store'
 
 export function BuildButton() {
   const nodes = useAppStore((state) => state.nodes)
+  useAppStore((state) => state.locale)
   const { buildAll, buildSelected, isBuilding, selectedCount } = useBuildActions()
 
   return (
@@ -16,7 +18,7 @@ export function BuildButton() {
           disabled={isBuilding}
           className="vp-button-secondary rounded-full px-4 py-2 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50"
         >
-          构建选中 ({selectedCount})
+          {t('build_selected')} ({selectedCount})
         </button>
       ) : null}
       <button
@@ -25,7 +27,7 @@ export function BuildButton() {
         disabled={nodes.length === 0 || isBuilding}
         className="vp-button-primary rounded-full px-4 py-2 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50"
       >
-        全部构建
+        {t('build_all')}
       </button>
     </div>
   )

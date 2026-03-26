@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { BuildButton } from '@/components/BuildButton'
 import { Canvas } from '@/components/Canvas'
@@ -11,16 +11,22 @@ import { SettingsDialog } from '@/components/SettingsDialog'
 import { StatusBar } from '@/components/StatusBar'
 import { useAgentStatus } from '@/hooks/useAgentStatus'
 import { useAutoSave } from '@/hooks/useAutoSave'
+import { t } from '@/lib/i18n'
 import { useAppStore } from '@/lib/store'
 
 export default function Home() {
   const workDir = useAppStore((state) => state.config.workDir)
   const chatOpen = useAppStore((state) => state.chatOpen)
+  const locale = useAppStore((state) => state.locale)
   const [importOpen, setImportOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
 
   useAgentStatus()
   useAutoSave(workDir)
+
+  useEffect(() => {
+    document.documentElement.lang = locale === 'zh' ? 'zh-CN' : 'en'
+  }, [locale])
 
   return (
     <ReactFlowProvider>
@@ -28,7 +34,7 @@ export default function Home() {
         <header className="vp-panel flex flex-wrap items-center justify-between gap-3 border-b border-slate-200/80 px-5 py-3">
           <div>
             <h1 className="text-sm font-semibold uppercase tracking-[0.3em] text-slate-900">Vibe Pencil</h1>
-            <p className="text-xs text-slate-500">面向架构节点的拓扑感知构建工作台</p>
+            <p className="text-xs text-slate-500">{t('app_subtitle')}</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <button
@@ -36,7 +42,7 @@ export default function Home() {
               onClick={() => setImportOpen(true)}
               className="vp-button-secondary rounded-full px-4 py-2 text-sm font-medium"
             >
-              导入项目
+              {t('import_project')}
             </button>
             <BuildButton />
           </div>

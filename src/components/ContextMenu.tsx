@@ -1,5 +1,8 @@
 'use client'
 
+import { t } from '@/lib/i18n'
+import { useAppStore } from '@/lib/store'
+
 interface ContextMenuItem {
   label: string
   onSelect: () => void
@@ -15,11 +18,13 @@ interface ContextMenuProps {
 }
 
 export function ContextMenu({ x, y, items, onClose }: ContextMenuProps) {
+  useAppStore((state) => state.locale)
+
   return (
     <div className="fixed inset-0 z-40">
       <button
         type="button"
-        aria-label="关闭上下文菜单"
+        aria-label={t('close_context_menu')}
         className="absolute inset-0 cursor-default"
         onClick={onClose}
       />
