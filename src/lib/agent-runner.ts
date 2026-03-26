@@ -48,6 +48,13 @@ function getCommand(backend: AgentBackend, prompt: string, model?: string) {
     return { command: 'codex', args, pipeStdin: false }
   }
 
+  if (backend === 'gemini') {
+    const args = ['-p', prompt]
+    if (model) args.push('-m', model)
+    return { command: 'gemini', args, pipeStdin: false }
+  }
+
+  // claude-code
   const args = ['-p', '--output-format', 'stream-json', '--verbose']
   if (model) args.push('--model', model)
   return { command: 'claude', args, pipeStdin: true }

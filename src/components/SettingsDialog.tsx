@@ -1,26 +1,21 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { clampMaxParallel } from '@/lib/config'
 import { t, type Locale } from '@/lib/i18n'
 import { useAppStore } from '@/lib/store'
-import type { ProjectConfig } from '@/lib/types'
+import type { AgentBackendType } from '@/lib/types'
 
-const modelOptions: Record<ProjectConfig['agent'], { value: string; label: string }[]> = {
-  'claude-code': [
-    { value: 'claude-sonnet-4-6', label: 'Sonnet 4.6' },
-    { value: 'claude-opus-4-6', label: 'Opus 4.6' },
-    { value: 'claude-haiku-4-5-20251001', label: 'Haiku 4.5' },
-  ],
-  codex: [
-    { value: 'gpt-5.4', label: 'GPT-5.4' },
-    { value: 'gpt-5.4-mini', label: 'GPT-5.4 Mini' },
-    { value: 'gpt-5.3-codex', label: 'GPT-5.3 Codex' },
-    { value: 'gpt-5.2-codex', label: 'GPT-5.2 Codex' },
-    { value: 'gpt-5.2', label: 'GPT-5.2' },
-    { value: 'gpt-5.1-codex-max', label: 'GPT-5.1 Codex Max' },
-    { value: 'gpt-5.1-codex-mini', label: 'GPT-5.1 Codex Mini' },
-  ],
+const BACKEND_OPTIONS: { value: AgentBackendType; label: string }[] = [
+  { value: 'claude-code', label: 'Claude Code' },
+  { value: 'codex', label: 'Codex' },
+  { value: 'gemini', label: 'Gemini' },
+]
+
+const DEFAULT_MODELS: Record<AgentBackendType, string> = {
+  'claude-code': 'claude-sonnet-4-6',
+  codex: 'gpt-5.4',
+  gemini: 'gemini-2.5-pro',
 }
 
 interface SettingsDialogProps {
@@ -38,8 +33,23 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
   const [workDir, setWorkDir] = useState(config.workDir)
   const [maxParallel, setMaxParallel] = useState(String(config.maxParallel))
   const [draftLocale, setDraftLocale] = useState<Locale>(locale)
+  const [models, setModels] = useState<string[]>([])
+  const [loadingModels, setLoadingModels] = useState(false)
 
-  const availableModels = useMemo(() => modelOptions[agent], [agent])
+  const fetchModels = useCallback(async (backend: AgentBackendType) => {
+    setLoadingModels(true)
+    try {
+      const response = await fetch(`/api/models?backend=${backend}`)
+      if (response.ok) {
+        const data = (await response.json()) as { models: string[] }
+        setModels(data.models)
+      }
+    } catch {
+      setModels([])
+    } finally {
+      setLoadingModels(false)
+    }
+  }, [])
 
   useEffect(() => {
     if (!open) {
@@ -51,7 +61,14 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
     setWorkDir(config.workDir)
     setMaxParallel(String(config.maxParallel))
     setDraftLocale(locale)
-  }, [config.agent, config.model, config.maxParallel, config.workDir, locale, open])
+    void fetchModels(config.agent)
+  }, [config.agent, config.model, config.maxParallel, config.workDir, locale, open, fetchModels])
+
+  function handleBackendChange(backend: AgentBackendType) {
+    setAgent(backend)
+    setModel(DEFAULT_MODELS[backend])
+    void fetchModels(backend)
+  }
 
   function handleSave(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -98,44 +115,50 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
             <legend className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
               {t('agent_backend')}
             </legend>
-            <label className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
-              <input
-                type="radio"
-                name="agent-backend"
-                value="claude-code"
-                checked={agent === 'claude-code'}
-                onChange={() => { setAgent('claude-code'); setModel(modelOptions['claude-code'][0].value) }}
-                className="h-4 w-4 accent-orange-500"
-              />
-              <span>Claude Code</span>
-            </label>
-            <label className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
-              <input
-                type="radio"
-                name="agent-backend"
-                value="codex"
-                checked={agent === 'codex'}
-                onChange={() => { setAgent('codex'); setModel(modelOptions['codex'][0].value) }}
-                className="h-4 w-4 accent-orange-500"
-              />
-              <span>Codex</span>
-            </label>
+            {BACKEND_OPTIONS.map((opt) => (
+              <label
+                key={opt.value}
+                className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700"
+              >
+                <input
+                  type="radio"
+                  name="agent-backend"
+                  value={opt.value}
+                  checked={agent === opt.value}
+                  onChange={() => handleBackendChange(opt.value)}
+                  className="h-4 w-4 accent-orange-500"
+                />
+                <span>{opt.label}</span>
+              </label>
+            ))}
           </fieldset>
 
           <label className="block">
             <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
               {t('model')}
+              {loadingModels && (
+                <span className="ml-2 font-normal normal-case tracking-normal text-slate-400">
+                  {t('loading_models')}
+                </span>
+              )}
             </span>
             <select
               value={model}
               onChange={(event) => setModel(event.target.value)}
               className="vp-input rounded-2xl px-4 py-3 text-sm"
+              disabled={loadingModels}
             >
-              {availableModels.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
+              {models.map((m) => (
+                <option key={m} value={m}>
+                  {m}
                 </option>
               ))}
+              {models.length > 0 && !models.includes(model) && (
+                <option value={model}>{model}</option>
+              )}
+              {models.length === 0 && (
+                <option value={model}>{model}</option>
+              )}
             </select>
           </label>
 

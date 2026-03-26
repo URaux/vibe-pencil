@@ -18,8 +18,10 @@ export interface ArchitectEdge {
 export type ClaudeModel = 'claude-sonnet-4-6' | 'claude-opus-4-6' | 'claude-haiku-4-5-20251001'
 export type CodexModel = 'gpt-5.4' | 'gpt-5.4-mini' | 'gpt-5.3-codex' | 'gpt-5.2-codex' | 'gpt-5.2' | 'gpt-5.1-codex-max' | 'gpt-5.1-codex-mini'
 
+export type AgentBackendType = 'claude-code' | 'codex' | 'gemini'
+
 export interface ProjectConfig {
-  agent: 'claude-code' | 'codex'
+  agent: AgentBackendType
   model: string
   workDir: string
   maxParallel: number
