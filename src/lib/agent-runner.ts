@@ -33,20 +33,24 @@ interface AgentRecord {
   process: SpawnedProcess
 }
 
-function getCommand(backend: AgentBackend, prompt: string) {
+function shellQuote(s: string) {
+  if (process.platform === 'win32') {
+    return `"${s.replace(/"/g, '\\"')}"`
+  }
+  return `'${s.replace(/'/g, "'\\''")}'`
+}
+
+function getCommand(backend: AgentBackend, prompt: string, model?: string) {
   if (backend === 'codex') {
-    return {
-      command: 'codex',
-      args: ['exec', '--full-auto', prompt],
-      pipeStdin: false,
-    }
+    const args = ['exec', '--full-auto']
+    if (model) args.push('--model', model)
+    args.push(shellQuote(prompt))
+    return { command: 'codex', args, pipeStdin: false }
   }
 
-  return {
-    command: 'claude',
-    args: ['-p', '--output-format', 'stream-json', '--verbose'],
-    pipeStdin: true,
-  }
+  const args = ['-p', '--output-format', 'stream-json', '--verbose']
+  if (model) args.push('--model', model)
+  return { command: 'claude', args, pipeStdin: true }
 }
 
 export class AgentRunner extends EventEmitter {
@@ -59,15 +63,14 @@ export class AgentRunner extends EventEmitter {
     this.on('error', () => undefined)
   }
 
-  spawnAgent(nodeId: string, prompt: string, backend: AgentBackend, workDir: string) {
+  spawnAgent(nodeId: string, prompt: string, backend: AgentBackend, workDir: string, model?: string) {
     const agentId = `${nodeId}-${Date.now()}-${this.nextId++}`
-    const { command, args, pipeStdin } = getCommand(backend, prompt)
+    const { command, args, pipeStdin } = getCommand(backend, prompt, model)
     const env = { ...process.env }
     // Remove ANTHROPIC_API_KEY so claude CLI uses OAuth session instead of
     // potentially invalid/proxy API keys inherited from the parent process.
-    if (backend === 'claude-code') {
-      delete env.ANTHROPIC_API_KEY
-    }
+    // Safe to delete for all backends — codex doesn't use it either.
+    delete env.ANTHROPIC_API_KEY
     const child = spawn(command, args, {
       cwd: workDir,
       env,
@@ -168,7 +171,8 @@ export class AgentRunner extends EventEmitter {
     prompts: Map<string, string>,
     backend: AgentBackend,
     workDir: string,
-    maxParallel: number
+    maxParallel: number,
+    model?: string
   ) {
     const concurrency = clampMaxParallel(maxParallel)
 
@@ -179,7 +183,7 @@ export class AgentRunner extends EventEmitter {
       for (let index = 0; index < wave.length; index += concurrency) {
         const batch = wave.slice(index, index + concurrency)
         const agentIds = batch.map((nodeId) =>
-          this.spawnAgent(nodeId, prompts.get(nodeId) ?? '', backend, workDir)
+          this.spawnAgent(nodeId, prompts.get(nodeId) ?? '', backend, workDir, model)
         )
 
         await Promise.all(agentIds.map((agentId) => this.waitForAgent(agentId)))

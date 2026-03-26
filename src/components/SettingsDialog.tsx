@@ -1,9 +1,27 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { clampMaxParallel } from '@/lib/config'
 import { t, type Locale } from '@/lib/i18n'
 import { useAppStore } from '@/lib/store'
+import type { ProjectConfig } from '@/lib/types'
+
+const modelOptions: Record<ProjectConfig['agent'], { value: string; label: string }[]> = {
+  'claude-code': [
+    { value: 'claude-sonnet-4-6', label: 'Sonnet 4.6' },
+    { value: 'claude-opus-4-6', label: 'Opus 4.6' },
+    { value: 'claude-haiku-4-5-20251001', label: 'Haiku 4.5' },
+  ],
+  codex: [
+    { value: 'gpt-5.4', label: 'GPT-5.4' },
+    { value: 'gpt-5.4-mini', label: 'GPT-5.4 Mini' },
+    { value: 'gpt-5.3-codex', label: 'GPT-5.3 Codex' },
+    { value: 'gpt-5.2-codex', label: 'GPT-5.2 Codex' },
+    { value: 'gpt-5.2', label: 'GPT-5.2' },
+    { value: 'gpt-5.1-codex-max', label: 'GPT-5.1 Codex Max' },
+    { value: 'gpt-5.1-codex-mini', label: 'GPT-5.1 Codex Mini' },
+  ],
+}
 
 interface SettingsDialogProps {
   open: boolean
@@ -16,9 +34,12 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
   const setStoreLocale = useAppStore((state) => state.setLocale)
   const setConfig = useAppStore((state) => state.setConfig)
   const [agent, setAgent] = useState(config.agent)
+  const [model, setModel] = useState(config.model)
   const [workDir, setWorkDir] = useState(config.workDir)
   const [maxParallel, setMaxParallel] = useState(String(config.maxParallel))
   const [draftLocale, setDraftLocale] = useState<Locale>(locale)
+
+  const availableModels = useMemo(() => modelOptions[agent], [agent])
 
   useEffect(() => {
     if (!open) {
@@ -26,10 +47,11 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
     }
 
     setAgent(config.agent)
+    setModel(config.model)
     setWorkDir(config.workDir)
     setMaxParallel(String(config.maxParallel))
     setDraftLocale(locale)
-  }, [config.agent, config.maxParallel, config.workDir, locale, open])
+  }, [config.agent, config.model, config.maxParallel, config.workDir, locale, open])
 
   function handleSave(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -43,6 +65,7 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
     setStoreLocale(draftLocale)
     setConfig({
       agent,
+      model,
       workDir: trimmedWorkDir,
       maxParallel: clampMaxParallel(Number(maxParallel)),
     })
@@ -81,7 +104,7 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
                 name="agent-backend"
                 value="claude-code"
                 checked={agent === 'claude-code'}
-                onChange={() => setAgent('claude-code')}
+                onChange={() => { setAgent('claude-code'); setModel(modelOptions['claude-code'][0].value) }}
                 className="h-4 w-4 accent-orange-500"
               />
               <span>Claude Code</span>
@@ -92,12 +115,29 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
                 name="agent-backend"
                 value="codex"
                 checked={agent === 'codex'}
-                onChange={() => setAgent('codex')}
+                onChange={() => { setAgent('codex'); setModel(modelOptions['codex'][0].value) }}
                 className="h-4 w-4 accent-orange-500"
               />
               <span>Codex</span>
             </label>
           </fieldset>
+
+          <label className="block">
+            <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+              {t('model')}
+            </span>
+            <select
+              value={model}
+              onChange={(event) => setModel(event.target.value)}
+              className="vp-input rounded-2xl px-4 py-3 text-sm"
+            >
+              {availableModels.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </label>
 
           <label className="block">
             <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">

@@ -8,6 +8,7 @@ interface SpawnAgentRequest {
   prompt: string
   backend: AgentBackend
   workDir: string
+  model?: string
 }
 
 interface BuildAllRequest {
@@ -16,6 +17,7 @@ interface BuildAllRequest {
   backend: AgentBackend
   workDir: string
   maxParallel: number
+  model?: string
 }
 
 export async function POST(request: Request) {
@@ -29,7 +31,8 @@ export async function POST(request: Request) {
       new Map(Object.entries(payload.prompts)),
       payload.backend,
       payload.workDir,
-      payload.maxParallel
+      payload.maxParallel,
+      payload.model
     )
 
     return Response.json({ agentId })
@@ -39,7 +42,8 @@ export async function POST(request: Request) {
     payload.nodeId,
     payload.prompt,
     payload.backend,
-    payload.workDir
+    payload.workDir,
+    payload.model
   )
 
   return Response.json({ agentId })

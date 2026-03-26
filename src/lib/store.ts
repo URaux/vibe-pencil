@@ -83,7 +83,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     }),
   projectName: translate(initialLocale, 'untitled'),
   setProjectName: (name) => set({ projectName: name }),
-  config: { agent: 'claude-code', workDir: './output', maxParallel: 3 },
+  config: { agent: 'claude-code', model: 'claude-sonnet-4-6', workDir: './output', maxParallel: 3 },
   setConfig: (config) =>
     set({
       config: {

@@ -66,7 +66,7 @@ describe('AgentRunner', () => {
 
     expect(spawnMock).toHaveBeenCalledWith(
       'codex',
-      ['exec', '--full-auto', 'implement backend'],
+      ['exec', '--full-auto', expect.stringContaining('implement backend')],
       expect.objectContaining({
         cwd: '/tmp',
         shell: process.platform === 'win32',
