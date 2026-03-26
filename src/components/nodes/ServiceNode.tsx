@@ -6,7 +6,7 @@ export function ServiceNode({ data, selected }: NodeProps) {
   return (
     <BaseNode
       icon="S"
-      color="bg-blue-600"
+      color="bg-sky-100 text-sky-700"
       typeLabel="服务"
       data={data as ArchitectNodeData}
       selected={selected}

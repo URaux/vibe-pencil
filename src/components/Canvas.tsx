@@ -194,7 +194,7 @@ export function Canvas({ onOpenImportDialog }: CanvasProps) {
       : []
 
   return (
-    <div className="relative h-full w-full overflow-hidden bg-slate-950">
+    <div className="relative h-full w-full overflow-hidden bg-slate-50">
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -223,13 +223,13 @@ export function Canvas({ onOpenImportDialog }: CanvasProps) {
           setSelectedNodeId(selectedNodes[0]?.id ?? null)
         }}
         fitView
-        className="vp-flow bg-[#08111f]"
+        className="vp-flow bg-[#f8fafc]"
       >
         <Background
           variant={BackgroundVariant.Dots}
           gap={22}
-          size={1.2}
-          color="rgba(71, 85, 105, 0.45)"
+          size={1.1}
+          color="rgba(203, 213, 225, 0.9)"
         />
         <svg className="absolute h-0 w-0" aria-hidden="true">
           <defs>
@@ -260,11 +260,11 @@ export function Canvas({ onOpenImportDialog }: CanvasProps) {
         <MiniMap
           pannable
           zoomable
-          className="!bg-slate-950/95"
-          maskColor="rgba(8, 17, 31, 0.68)"
-          nodeColor="#475569"
+          className="!bg-white/95"
+          maskColor="rgba(248, 250, 252, 0.76)"
+          nodeColor="#cbd5e1"
         />
-        <Controls className="!bg-slate-950/95 !text-gray-200" />
+        <Controls className="!bg-white/95 !text-slate-600" />
       </ReactFlow>
       {contextMenu ? (
         <ContextMenu
@@ -276,26 +276,26 @@ export function Canvas({ onOpenImportDialog }: CanvasProps) {
       ) : null}
       {nodes.length === 0 ? (
         <div className="pointer-events-none absolute inset-x-6 top-6 z-10 flex justify-center">
-          <div className="max-w-md rounded-2xl border border-dashed border-white/15 bg-slate-950/85 px-4 py-3 text-center text-sm text-gray-400 shadow-lg shadow-black/20 backdrop-blur">
-            <p>将左侧节点拖到画布上开始设计</p>
-            <p className="mt-1 text-xs text-gray-500">也可以右键打开菜单，导入项目或发起构建</p>
+          <div className="max-w-md rounded-3xl border border-dashed border-slate-300 bg-white/92 px-4 py-3 text-center text-sm text-slate-500 shadow-lg shadow-slate-200/70 backdrop-blur">
+            <p className="text-slate-700">将左侧节点拖到画布上开始设计。</p>
+            <p className="mt-1 text-xs text-slate-500">也可以右键打开菜单，导入项目或发起构建。</p>
           </div>
         </div>
       ) : null}
       {editingNode ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-950/80 p-6 backdrop-blur-sm">
-          <div className="w-full max-w-lg rounded-3xl border border-gray-800 bg-gray-900 p-6 shadow-2xl shadow-black/50">
+        <div className="vp-dialog-backdrop fixed inset-0 z-50 flex items-center justify-center p-6">
+          <div className="vp-dialog-card w-full max-w-lg rounded-[2rem] p-6">
             <div className="mb-5 flex items-start justify-between gap-4">
               <div>
-                <h2 className="text-lg font-semibold text-white">编辑节点</h2>
-                <p className="mt-1 text-sm text-gray-400">
-                  更新{getNodeTypeLabel(editingNode.type)}的名称和描述。
+                <h2 className="text-lg font-semibold text-slate-900">编辑节点</h2>
+                <p className="mt-1 text-sm text-slate-500">
+                  更新 {getNodeTypeLabel(editingNode.type)} 的名称和描述。
                 </p>
               </div>
               <button
                 type="button"
                 onClick={closeNodeEditor}
-                className="rounded-full border border-gray-700 px-3 py-1 text-xs uppercase tracking-[0.2em] text-gray-300 transition hover:border-gray-500 hover:text-white"
+                className="vp-button-secondary rounded-full px-3 py-1 text-xs uppercase tracking-[0.2em]"
               >
                 关闭
               </button>
@@ -303,7 +303,7 @@ export function Canvas({ onOpenImportDialog }: CanvasProps) {
 
             <form onSubmit={saveNodeEdits} className="space-y-4">
               <label className="block">
-                <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-gray-400">
+                <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
                   名称
                 </span>
                 <input
@@ -311,12 +311,12 @@ export function Canvas({ onOpenImportDialog }: CanvasProps) {
                   value={draftName}
                   onChange={(event) => setDraftName(event.target.value)}
                   placeholder="用户服务"
-                  className="w-full rounded-2xl border border-gray-700 bg-gray-950 px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-500"
+                  className="vp-input rounded-2xl px-4 py-3 text-sm"
                 />
               </label>
 
               <label className="block">
-                <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-gray-400">
+                <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
                   描述
                 </span>
                 <textarea
@@ -324,7 +324,7 @@ export function Canvas({ onOpenImportDialog }: CanvasProps) {
                   onChange={(event) => setDraftDescription(event.target.value)}
                   rows={4}
                   placeholder="说明该节点负责的能力和职责"
-                  className="w-full rounded-2xl border border-gray-700 bg-gray-950 px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-500"
+                  className="vp-input rounded-2xl px-4 py-3 text-sm"
                 />
               </label>
 
@@ -332,14 +332,11 @@ export function Canvas({ onOpenImportDialog }: CanvasProps) {
                 <button
                   type="button"
                   onClick={closeNodeEditor}
-                  className="rounded-xl border border-gray-700 px-4 py-2 text-sm text-gray-300 transition hover:border-gray-500 hover:text-white"
+                  className="vp-button-secondary rounded-xl px-4 py-2 text-sm"
                 >
                   取消
                 </button>
-                <button
-                  type="submit"
-                  className="rounded-xl border border-cyan-500/60 bg-cyan-500/10 px-4 py-2 text-sm font-medium text-cyan-100 transition hover:border-cyan-400 hover:bg-cyan-500/20"
-                >
+                <button type="submit" className="vp-button-primary rounded-xl px-4 py-2 text-sm font-medium">
                   保存
                 </button>
               </div>

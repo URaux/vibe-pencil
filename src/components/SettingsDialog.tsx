@@ -48,17 +48,17 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
   }
 
   return (
-    <div className="absolute inset-0 z-50 flex items-center justify-center bg-gray-950/80 p-6 backdrop-blur-sm">
-      <div className="w-full max-w-lg rounded-3xl border border-gray-800 bg-gray-900 p-6 shadow-2xl shadow-black/50">
+    <div className="vp-dialog-backdrop fixed inset-0 z-50 flex items-center justify-center p-6">
+      <div className="vp-dialog-card w-full max-w-lg rounded-[2rem] p-6">
         <div className="mb-5 flex items-start justify-between gap-4">
           <div>
-            <h2 className="text-lg font-semibold text-white">设置</h2>
-            <p className="mt-1 text-sm text-gray-400">配置默认代理后端、工作目录和并行构建数量。</p>
+            <h2 className="text-lg font-semibold text-slate-900">设置</h2>
+            <p className="mt-1 text-sm text-slate-500">配置默认 Agent 后端、工作目录和并行构建数量。</p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-full border border-gray-700 px-3 py-1 text-xs uppercase tracking-[0.2em] text-gray-300 transition hover:border-gray-500 hover:text-white"
+            className="vp-button-secondary rounded-full px-3 py-1 text-xs uppercase tracking-[0.2em]"
           >
             关闭
           </button>
@@ -66,35 +66,35 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
 
         <form onSubmit={handleSave} className="space-y-5">
           <fieldset className="space-y-3">
-            <legend className="text-xs font-semibold uppercase tracking-[0.2em] text-gray-400">
+            <legend className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
               Agent后端
             </legend>
-            <label className="flex items-center gap-3 rounded-2xl border border-gray-800 bg-gray-950 px-4 py-3 text-sm text-white">
+            <label className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
               <input
                 type="radio"
                 name="agent-backend"
                 value="claude-code"
                 checked={agent === 'claude-code'}
                 onChange={() => setAgent('claude-code')}
-                className="h-4 w-4 accent-cyan-500"
+                className="h-4 w-4 accent-orange-500"
               />
               <span>Claude Code</span>
             </label>
-            <label className="flex items-center gap-3 rounded-2xl border border-gray-800 bg-gray-950 px-4 py-3 text-sm text-white">
+            <label className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
               <input
                 type="radio"
                 name="agent-backend"
                 value="codex"
                 checked={agent === 'codex'}
                 onChange={() => setAgent('codex')}
-                className="h-4 w-4 accent-cyan-500"
+                className="h-4 w-4 accent-orange-500"
               />
               <span>Codex</span>
             </label>
           </fieldset>
 
           <label className="block">
-            <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-gray-400">
+            <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
               工作目录
             </span>
             <input
@@ -102,12 +102,12 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
               value={workDir}
               onChange={(event) => setWorkDir(event.target.value)}
               placeholder="E:\\projects\\my-app"
-              className="w-full rounded-2xl border border-gray-700 bg-gray-950 px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-500"
+              className="vp-input rounded-2xl px-4 py-3 text-sm"
             />
           </label>
 
           <label className="block">
-            <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-gray-400">
+            <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
               最大并行数
             </span>
             <input
@@ -117,7 +117,7 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
               inputMode="numeric"
               value={maxParallel}
               onChange={(event) => setMaxParallel(event.target.value)}
-              className="w-full rounded-2xl border border-gray-700 bg-gray-950 px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-500"
+              className="vp-input rounded-2xl px-4 py-3 text-sm"
             />
           </label>
 
@@ -125,14 +125,14 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
             <button
               type="button"
               onClick={onClose}
-              className="rounded-xl border border-gray-700 px-4 py-2 text-sm text-gray-300 transition hover:border-gray-500 hover:text-white"
+              className="vp-button-secondary rounded-xl px-4 py-2 text-sm"
             >
               取消
             </button>
             <button
               type="submit"
               disabled={!workDir.trim()}
-              className="rounded-xl border border-cyan-500/60 bg-cyan-500/10 px-4 py-2 text-sm font-medium text-cyan-100 transition hover:border-cyan-400 hover:bg-cyan-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+              className="vp-button-primary rounded-xl px-4 py-2 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50"
             >
               保存
             </button>

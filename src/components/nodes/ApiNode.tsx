@@ -6,7 +6,7 @@ export function ApiNode({ data, selected }: NodeProps) {
   return (
     <BaseNode
       icon="API"
-      color="bg-orange-600"
+      color="bg-amber-100 text-amber-700"
       typeLabel="接口"
       data={data as ArchitectNodeData}
       selected={selected}

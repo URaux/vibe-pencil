@@ -344,29 +344,29 @@ export function ChatPanel() {
         type="button"
         aria-expanded={chatOpen}
         onClick={() => setChatOpen(!chatOpen)}
-        className={`flex items-center justify-between gap-3 rounded-2xl border border-white/10 px-4 py-3 text-left ${
-          chatOpen ? 'bg-white/5' : 'min-h-[4.5rem] xl:flex-1 xl:flex-col xl:justify-center'
+        className={`flex items-center justify-between gap-3 rounded-[1.5rem] border border-slate-200 bg-white px-4 py-3 text-left shadow-sm ${
+          chatOpen ? '' : 'min-h-[4.5rem] xl:flex-1 xl:flex-col xl:justify-center'
         }`}
       >
         <div className={`${chatOpen ? '' : 'xl:flex xl:flex-col xl:items-center xl:gap-2'}`}>
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-200">AI对话</h2>
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700">AI对话</h2>
           {chatOpen ? (
-            <p className="mt-1 text-xs text-gray-500">
+            <p className="mt-1 text-xs text-slate-500">
               {selectedNode
                 ? `节点模式：${selectedNode.data.name || selectedNode.id}`
                 : '全局模式：讨论整个画布'}
             </p>
           ) : (
-            <p className="mt-1 text-xs text-gray-500 xl:mt-0">点击展开</p>
+            <p className="mt-1 text-xs text-slate-500 xl:mt-0">点击展开</p>
           )}
         </div>
         <div className={`${chatOpen ? 'flex items-center gap-2' : 'xl:flex xl:flex-col xl:items-center'}`}>
           {chatOpen && selectedNode ? (
-            <span className="rounded-full border border-cyan-500/40 bg-cyan-500/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-cyan-200">
+            <span className="rounded-full border border-orange-200 bg-orange-50 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-orange-700">
               {getNodeTypeLabel(selectedNode.type)}
             </span>
           ) : null}
-          <span className="rounded-full border border-white/10 px-2 py-1 text-[10px] uppercase tracking-[0.2em] text-gray-400">
+          <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-1 text-[10px] uppercase tracking-[0.2em] text-slate-500">
             {chatOpen ? '收起' : '展开'}
           </span>
         </div>
@@ -376,7 +376,7 @@ export function ChatPanel() {
         <>
           <div className="min-h-0 flex-1 space-y-3 overflow-y-auto py-4">
             {activeMessages.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-gray-700 bg-gray-800/40 p-4 text-sm text-gray-500">
+              <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-500">
                 可以讨论架构取舍、实现顺序，或直接让 AI 调整画布。
               </div>
             ) : null}
@@ -387,13 +387,13 @@ export function ChatPanel() {
               return (
                 <div
                   key={`${activeChatKey}-${messageIndex}`}
-                  className={`rounded-2xl border px-4 py-3 text-sm shadow-lg shadow-black/10 ${
+                  className={`rounded-[1.5rem] border px-4 py-3 text-sm shadow-sm ${
                     entry.role === 'user'
-                      ? 'ml-6 border-cyan-500/30 bg-cyan-500/10 text-cyan-50'
-                      : 'mr-6 border-gray-700 bg-gray-800/60 text-gray-100'
+                      ? 'ml-6 border-orange-200 bg-orange-50 text-orange-900'
+                      : 'mr-6 border-slate-200 bg-white text-slate-700'
                   }`}
                 >
-                  <div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-gray-400">
+                  <div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-400">
                     {entry.role === 'user' ? '用户' : 'AI'}
                   </div>
                   <div className="whitespace-pre-wrap break-words">{entry.content || '...'}</div>
@@ -407,12 +407,12 @@ export function ChatPanel() {
                             <button
                               type="button"
                               onClick={() => applyCanvasAction(rawAction, actionKey)}
-                              className="rounded-full border border-emerald-500/50 bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-100 transition hover:border-emerald-400 hover:bg-emerald-500/20"
+                              className="vp-button-primary rounded-full px-3 py-1 text-xs font-medium"
                             >
                               应用到画布
                             </button>
                             {actionErrors[actionKey] ? (
-                              <div className="text-xs text-rose-300">{actionErrors[actionKey]}</div>
+                              <div className="text-xs text-rose-600">{actionErrors[actionKey]}</div>
                             ) : null}
                           </div>
                         )
@@ -424,21 +424,21 @@ export function ChatPanel() {
             })}
           </div>
 
-          <form onSubmit={handleSubmit} className="border-t border-white/10 pt-4">
-            {error ? <div className="mb-3 text-sm text-rose-300">{error}</div> : null}
+          <form onSubmit={handleSubmit} className="border-t border-slate-200 pt-4">
+            {error ? <div className="mb-3 text-sm text-rose-600">{error}</div> : null}
             <div className="flex gap-2">
               <input
                 type="text"
                 value={message}
                 onChange={(event) => setMessage(event.target.value)}
                 placeholder={selectedNode ? '输入你想讨论的节点问题...' : '输入你想讨论的架构问题...'}
-                className="flex-1 rounded-xl border border-gray-700 bg-gray-950 px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-500"
+                className="vp-input flex-1 rounded-xl px-4 py-3 text-sm"
                 disabled={isSending}
               />
               <button
                 type="submit"
                 disabled={isSending || !message.trim()}
-                className="rounded-xl border border-cyan-500/60 bg-cyan-500/10 px-4 py-3 text-sm font-medium text-cyan-100 transition hover:border-cyan-400 hover:bg-cyan-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+                className="vp-button-primary rounded-xl px-4 py-3 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {isSending ? '发送中...' : '发送'}
               </button>

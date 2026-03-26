@@ -14,7 +14,7 @@ export function BuildButton() {
           type="button"
           onClick={buildSelected}
           disabled={isBuilding}
-          className="rounded-full border border-cyan-500/60 bg-cyan-500/10 px-4 py-2 text-sm font-medium text-cyan-100 transition hover:border-cyan-400 hover:bg-cyan-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+          className="vp-button-secondary rounded-full px-4 py-2 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50"
         >
           构建选中 ({selectedCount})
         </button>
@@ -23,7 +23,7 @@ export function BuildButton() {
         type="button"
         onClick={buildAll}
         disabled={nodes.length === 0 || isBuilding}
-        className="rounded-full border border-emerald-500/60 bg-emerald-500/10 px-4 py-2 text-sm font-medium text-emerald-100 transition hover:border-emerald-400 hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+        className="vp-button-primary rounded-full px-4 py-2 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50"
       >
         全部构建
       </button>

@@ -24,17 +24,17 @@ export default function Home() {
 
   return (
     <ReactFlowProvider>
-      <main className="flex h-screen w-screen flex-col overflow-hidden bg-transparent text-white">
-        <header className="vp-panel flex flex-wrap items-center justify-between gap-3 border-b border-white/10 px-5 py-3">
+      <main className="flex h-screen w-screen flex-col overflow-hidden bg-transparent text-slate-800">
+        <header className="vp-panel flex flex-wrap items-center justify-between gap-3 border-b border-slate-200/80 px-5 py-3">
           <div>
-            <h1 className="text-sm font-semibold uppercase tracking-[0.3em] text-gray-100">Vibe Pencil</h1>
-            <p className="text-xs text-gray-500">面向架构节点的拓扑感知构建</p>
+            <h1 className="text-sm font-semibold uppercase tracking-[0.3em] text-slate-900">Vibe Pencil</h1>
+            <p className="text-xs text-slate-500">面向架构节点的拓扑感知构建工作台</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
               onClick={() => setImportOpen(true)}
-              className="rounded-full border border-gray-700 bg-gray-900 px-4 py-2 text-sm font-medium text-gray-100 transition hover:border-gray-500 hover:bg-gray-800"
+              className="vp-button-secondary rounded-full px-4 py-2 text-sm font-medium"
             >
               导入项目
             </button>
@@ -47,7 +47,7 @@ export default function Home() {
             <Canvas onOpenImportDialog={() => setImportOpen(true)} />
           </section>
           <aside
-            className={`vp-panel flex shrink-0 flex-col border-t border-white/10 p-4 transition-[width] duration-300 xl:h-full xl:border-t-0 xl:border-l ${
+            className={`vp-panel flex shrink-0 flex-col border-t border-slate-200/80 p-4 transition-[width] duration-300 xl:h-full xl:border-t-0 xl:border-l ${
               chatOpen ? 'w-full xl:w-[24rem] xl:min-w-[22rem]' : 'w-full xl:w-20 xl:min-w-20'
             }`}
           >

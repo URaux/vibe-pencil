@@ -24,7 +24,7 @@ export function ContextMenu({ x, y, items, onClose }: ContextMenuProps) {
         onClick={onClose}
       />
       <div
-        className="absolute min-w-52 overflow-hidden rounded-2xl border border-gray-700 bg-gray-900/95 p-1 shadow-2xl shadow-black/40 backdrop-blur"
+        className="absolute min-w-52 overflow-hidden rounded-2xl border border-slate-200 bg-white/95 p-1 shadow-2xl shadow-slate-300/30 backdrop-blur"
         style={{ left: x, top: y }}
       >
         {items.map((item) => (
@@ -38,8 +38,8 @@ export function ContextMenu({ x, y, items, onClose }: ContextMenuProps) {
             disabled={item.disabled}
             className={`flex w-full items-center rounded-xl px-3 py-2 text-left text-sm transition disabled:cursor-not-allowed disabled:opacity-50 ${
               item.tone === 'danger'
-                ? 'text-rose-200 hover:bg-rose-500/10'
-                : 'text-gray-100 hover:bg-gray-800'
+                ? 'text-rose-600 hover:bg-rose-50'
+                : 'text-slate-700 hover:bg-slate-100'
             }`}
           >
             {item.label}

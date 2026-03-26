@@ -6,7 +6,7 @@ export function QueueNode({ data, selected }: NodeProps) {
   return (
     <BaseNode
       icon="MQ"
-      color="bg-red-600"
+      color="bg-rose-100 text-rose-700"
       typeLabel="消息队列"
       data={data as ArchitectNodeData}
       selected={selected}

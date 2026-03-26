@@ -75,20 +75,18 @@ export function ImportDialog({ open, onClose }: ImportDialogProps) {
   }
 
   return (
-    <div className="absolute inset-0 z-50 flex items-center justify-center bg-gray-950/80 p-6 backdrop-blur-sm">
-      <div className="w-full max-w-lg rounded-3xl border border-gray-800 bg-gray-900 p-6 shadow-2xl shadow-black/50">
+    <div className="vp-dialog-backdrop fixed inset-0 z-50 flex items-center justify-center p-6">
+      <div className="vp-dialog-card w-full max-w-lg rounded-[2rem] p-6">
         <div className="mb-5 flex items-start justify-between gap-4">
           <div>
-            <h2 className="text-lg font-semibold text-white">导入项目</h2>
-            <p className="mt-1 text-sm text-gray-400">
-              分析现有代码库，并为画布生成节点与连线。
-            </p>
+            <h2 className="text-lg font-semibold text-slate-900">导入项目</h2>
+            <p className="mt-1 text-sm text-slate-500">分析现有代码库，并为画布生成节点与连线。</p>
           </div>
           <button
             type="button"
             onClick={onClose}
             disabled={isImporting}
-            className="rounded-full border border-gray-700 px-3 py-1 text-xs uppercase tracking-[0.2em] text-gray-300 transition hover:border-gray-500 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+            className="vp-button-secondary rounded-full px-3 py-1 text-xs uppercase tracking-[0.2em] disabled:cursor-not-allowed disabled:opacity-50"
           >
             关闭
           </button>
@@ -96,7 +94,7 @@ export function ImportDialog({ open, onClose }: ImportDialogProps) {
 
         <form onSubmit={handleImport} className="space-y-4">
           <label className="block">
-            <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-gray-400">
+            <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
               项目目录路径
             </span>
             <input
@@ -105,18 +103,18 @@ export function ImportDialog({ open, onClose }: ImportDialogProps) {
               onChange={(event) => setDir(event.target.value)}
               placeholder="E:\\projects\\my-app"
               disabled={isImporting}
-              className="w-full rounded-2xl border border-gray-700 bg-gray-950 px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-500 disabled:cursor-not-allowed disabled:opacity-60"
+              className="vp-input rounded-2xl px-4 py-3 text-sm disabled:cursor-not-allowed disabled:opacity-60"
             />
           </label>
 
           {progress ? (
-            <div className="rounded-2xl border border-cyan-500/30 bg-cyan-500/10 px-4 py-3 text-sm text-cyan-100">
+            <div className="rounded-2xl border border-orange-200 bg-orange-50 px-4 py-3 text-sm text-orange-700">
               {progress}
             </div>
           ) : null}
 
           {error ? (
-            <div className="rounded-2xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">
+            <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
               {error}
             </div>
           ) : null}
@@ -126,14 +124,14 @@ export function ImportDialog({ open, onClose }: ImportDialogProps) {
               type="button"
               onClick={onClose}
               disabled={isImporting}
-              className="rounded-xl border border-gray-700 px-4 py-2 text-sm text-gray-300 transition hover:border-gray-500 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+              className="vp-button-secondary rounded-xl px-4 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-50"
             >
               取消
             </button>
             <button
               type="submit"
               disabled={isImporting || !dir.trim()}
-              className="rounded-xl border border-emerald-500/60 bg-emerald-500/10 px-4 py-2 text-sm font-medium text-emerald-100 transition hover:border-emerald-400 hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+              className="vp-button-primary rounded-xl px-4 py-2 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50"
             >
               {isImporting ? '导入中...' : '导入'}
             </button>
