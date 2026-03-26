@@ -2,7 +2,7 @@ export type NodeType = 'service' | 'frontend' | 'api' | 'database' | 'queue' | '
 export type EdgeType = 'sync' | 'async' | 'bidirectional'
 export type BuildStatus = 'idle' | 'building' | 'done' | 'error'
 
-export interface ArchitectNodeData {
+export interface ArchitectNodeData extends Record<string, unknown> {
   name: string
   description: string
   status: BuildStatus
