@@ -1,18 +1,20 @@
 import { describe, it, expect } from 'vitest'
 import { canvasToYaml, yamlToCanvas } from '@/lib/schema-engine'
+import type { BuildStatus } from '@/lib/types'
 
 describe('schema-engine', () => {
+  const idleStatus: BuildStatus = 'idle'
   const nodes = [
     {
       id: 'svc-1',
       type: 'service',
-      data: { name: 'UserService', description: 'User management', status: 'idle' },
+      data: { name: 'UserService', description: 'User management', status: idleStatus },
       position: { x: 0, y: 0 },
     },
     {
       id: 'db-1',
       type: 'database',
-      data: { name: 'UserDB', description: 'User data store', status: 'idle' },
+      data: { name: 'UserDB', description: 'User data store', status: idleStatus },
       position: { x: 200, y: 0 },
     },
   ]
