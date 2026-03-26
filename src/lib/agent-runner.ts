@@ -1,5 +1,6 @@
 import { spawn } from 'child_process'
 import { EventEmitter } from 'events'
+import type { Writable } from 'stream'
 import { clampMaxParallel } from '@/lib/config'
 import type { ProjectConfig } from '@/lib/types'
 
@@ -19,6 +20,7 @@ export interface AgentProcessInfo {
 }
 
 interface SpawnedProcess {
+  stdin?: Writable | null
   stdout?: EventEmitter | null
   stderr?: EventEmitter | null
   kill: () => void
@@ -34,13 +36,13 @@ function getCommand(backend: AgentBackend) {
   if (backend === 'codex') {
     return {
       command: 'codex',
-      args: ['-q', '%PROMPT%', '--full-auto'],
+      args: ['--full-auto'],
     }
   }
 
   return {
     command: 'claude',
-    args: ['-p', '%PROMPT%', '--output-format', 'stream-json'],
+    args: ['--output-format', 'stream-json'],
   }
 }
 
@@ -57,11 +59,14 @@ export class AgentRunner extends EventEmitter {
   spawnAgent(nodeId: string, prompt: string, backend: AgentBackend, workDir: string) {
     const agentId = `${nodeId}-${Date.now()}-${this.nextId++}`
     const { command, args } = getCommand(backend)
-    const resolvedArgs = args.map((arg) => (arg === '%PROMPT%' ? prompt : arg))
-    const child = spawn(command, resolvedArgs, {
+    const child = spawn(command, args, {
       cwd: workDir,
       shell: process.platform === 'win32',
+      stdio: ['pipe', 'pipe', 'pipe'],
     }) as SpawnedProcess
+
+    child.stdin?.write(prompt)
+    child.stdin?.end()
 
     const info: AgentProcessInfo = {
       agentId,
