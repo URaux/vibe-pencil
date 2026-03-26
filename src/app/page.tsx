@@ -41,7 +41,7 @@ export default function Home() {
         <div className="flex min-h-0 flex-1 overflow-hidden">
           <NodePalette />
           <section className="min-w-0 flex-1">
-            <Canvas />
+            <Canvas onOpenImportDialog={() => setImportOpen(true)} />
           </section>
           <aside className="flex h-full w-80 flex-col border-l border-gray-800 bg-gray-900 p-4">
             <ChatPanel />
