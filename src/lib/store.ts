@@ -11,6 +11,15 @@ import {
 } from '@xyflow/react'
 import type { ArchitectNodeData, ProjectConfig, HistoryEntry, BuildStatus } from './types'
 
+type SaveState = 'saved' | 'saving'
+
+interface BuildState {
+  active: boolean
+  currentWave: number
+  totalWaves: number
+  targetNodeIds: string[]
+}
+
 interface AppState {
   nodes: Node<ArchitectNodeData>[]
   edges: Edge[]
@@ -26,6 +35,10 @@ interface AppState {
   setConfig: (config: Partial<ProjectConfig>) => void
   history: HistoryEntry[]
   addHistory: (entry: HistoryEntry) => void
+  saveState: SaveState
+  setSaveState: (saveState: SaveState) => void
+  buildState: BuildState
+  setBuildState: (buildState: Partial<BuildState>) => void
   selectedNodeId: string | null
   setSelectedNodeId: (id: string | null) => void
   chatOpen: boolean
@@ -57,6 +70,16 @@ export const useAppStore = create<AppState>((set, get) => ({
   setConfig: (config) => set({ config: { ...get().config, ...config } }),
   history: [],
   addHistory: (entry) => set({ history: [...get().history, entry] }),
+  saveState: 'saved',
+  setSaveState: (saveState) => set({ saveState }),
+  buildState: { active: false, currentWave: 0, totalWaves: 0, targetNodeIds: [] },
+  setBuildState: (buildState) =>
+    set({
+      buildState: {
+        ...get().buildState,
+        ...buildState,
+      },
+    }),
   selectedNodeId: null,
   setSelectedNodeId: (id) => set({ selectedNodeId: id }),
   chatOpen: false,

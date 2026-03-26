@@ -10,9 +10,35 @@ interface SpawnAgentRequest {
   workDir: string
 }
 
+interface BuildAllRequest {
+  waves: string[][]
+  prompts: Record<string, string>
+  backend: AgentBackend
+  workDir: string
+}
+
 export async function POST(request: Request) {
-  const { nodeId, prompt, backend, workDir } = (await request.json()) as SpawnAgentRequest
-  const agentId = agentRunner.spawnAgent(nodeId, prompt, backend, workDir)
+  const payload = (await request.json()) as SpawnAgentRequest | BuildAllRequest
+
+  if ('waves' in payload) {
+    const agentId = `build-${Date.now()}`
+
+    void agentRunner.buildAll(
+      payload.waves,
+      new Map(Object.entries(payload.prompts)),
+      payload.backend,
+      payload.workDir
+    )
+
+    return Response.json({ agentId })
+  }
+
+  const agentId = agentRunner.spawnAgent(
+    payload.nodeId,
+    payload.prompt,
+    payload.backend,
+    payload.workDir
+  )
 
   return Response.json({ agentId })
 }

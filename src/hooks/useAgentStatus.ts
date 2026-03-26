@@ -41,6 +41,24 @@ export function useAgentStatus() {
 
       if (payload.type === 'status') {
         store.updateNodeStatus(payload.nodeId, payload.status)
+
+        const nextState = useAppStore.getState()
+        const allFinished =
+          nextState.buildState.active &&
+          nextState.buildState.targetNodeIds.length > 0 &&
+          nextState.buildState.targetNodeIds.every((nodeId) => {
+            const node = nextState.nodes.find((entry) => entry.id === nodeId)
+            return node ? node.data.status === 'done' || node.data.status === 'error' : true
+          })
+
+        if (allFinished) {
+          nextState.setBuildState({
+            active: false,
+            currentWave: nextState.buildState.totalWaves,
+            targetNodeIds: [],
+          })
+        }
+
         return
       }
 
@@ -50,6 +68,12 @@ export function useAgentStatus() {
         if (summary) {
           store.updateNodeData(payload.nodeId, { summary })
         }
+
+        return
+      }
+
+      if (payload.type === 'wave') {
+        store.setBuildState({ active: true, currentWave: payload.wave + 1 })
       }
     }
 

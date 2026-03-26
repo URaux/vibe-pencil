@@ -10,6 +10,7 @@ export function useAutoSave(dir: string | null) {
   const projectName = useAppStore((state) => state.projectName)
   const config = useAppStore((state) => state.config)
   const history = useAppStore((state) => state.history)
+  const setSaveState = useAppStore((state) => state.setSaveState)
   const isFirstRender = useRef(true)
 
   useEffect(() => {
@@ -22,6 +23,8 @@ export function useAutoSave(dir: string | null) {
       return
     }
 
+    setSaveState('saving')
+
     const project: ArchitectProject = {
       name: projectName,
       version: '1.0',
@@ -30,6 +33,7 @@ export function useAutoSave(dir: string | null) {
       history,
     }
 
+    let active = true
     const timeoutId = window.setTimeout(() => {
       void fetch('/api/project/save', {
         method: 'POST',
@@ -37,11 +41,16 @@ export function useAutoSave(dir: string | null) {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ dir, project }),
+      }).finally(() => {
+        if (active) {
+          setSaveState('saved')
+        }
       })
     }, 1000)
 
     return () => {
+      active = false
       window.clearTimeout(timeoutId)
     }
-  }, [config, dir, edges, history, nodes, projectName])
+  }, [config, dir, edges, history, nodes, projectName, setSaveState])
 }
