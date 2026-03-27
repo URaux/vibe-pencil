@@ -4,14 +4,11 @@ import { useMemo, useState } from 'react'
 import type { Edge, Node } from '@xyflow/react'
 import { t } from '@/lib/i18n'
 import { canvasToYaml } from '@/lib/schema-engine'
-import { useAppStore } from '@/lib/store'
+import { useAppStore, type ChatMessage } from '@/lib/store'
 import { getNodeTypeLabel } from '@/lib/ui-text'
 import type { ArchitectNodeData, BuildStatus, EdgeType, NodeType } from '@/lib/types'
 
-interface Message {
-  role: 'user' | 'assistant'
-  content: string
-}
+type Message = ChatMessage
 
 interface StreamEvent {
   type: 'chunk' | 'done' | 'error'
@@ -43,7 +40,7 @@ type CanvasAction =
     }
 
 const GLOBAL_CHAT_KEY = '__global__'
-const CANVAS_ACTION_BLOCK = /```json:canvas-action\s*([\s\S]*?)```/gi
+const CANVAS_ACTION_BLOCK = /```(?:json)?(?::canvas-action)?\s*([\s\S]*?)```/gi
 const VALID_NODE_TYPES = new Set<NodeType>(['service', 'frontend', 'api', 'database', 'queue', 'external'])
 const VALID_EDGE_TYPES = new Set<EdgeType>(['sync', 'async', 'bidirectional'])
 const VALID_BUILD_STATUSES = new Set<BuildStatus>(['idle', 'building', 'done', 'error'])
@@ -52,8 +49,84 @@ function getChatKey(nodeId: string | null) {
   return nodeId ?? GLOBAL_CHAT_KEY
 }
 
+function tryRepairJson(text: string) {
+  let cleaned = text.trim()
+  if (!cleaned) return null
+
+  // If it doesn't start with { or [, it's definitely not what we want
+  if (!cleaned.startsWith('{') && !cleaned.startsWith('[')) {
+    const startIdx = Math.max(cleaned.indexOf('{'), cleaned.indexOf('['))
+    if (startIdx === -1) return null
+    cleaned = cleaned.slice(startIdx)
+  }
+
+  // Self-healing: count braces and brackets
+  let openBraces = 0
+  let openBrackets = 0
+  let inString = false
+  let escaped = false
+  let lastValidIdx = 0
+
+  for (let i = 0; i < cleaned.length; i++) {
+    const char = cleaned[i]
+    if (char === '"' && !escaped) inString = !inString
+    if (inString) {
+      escaped = char === '\\' && !escaped
+      continue
+    }
+
+    if (char === '{') openBraces++
+    else if (char === '}') openBraces--
+    else if (char === '[') openBrackets++
+    else if (char === ']') openBrackets--
+
+    // If we've balanced the root object/array, mark this as a potential valid end
+    if (openBraces === 0 && openBrackets === 0) {
+      lastValidIdx = i + 1
+    }
+  }
+
+  // If cut off, try to force close it
+  let candidate = cleaned
+  if (openBraces > 0 || openBrackets > 0 || inString) {
+    if (inString) candidate += '"'
+    candidate += '}'.repeat(Math.max(0, openBraces))
+    candidate += ']'.repeat(Math.max(0, openBrackets))
+  }
+
+  try {
+    return JSON.parse(candidate)
+  } catch {
+    // If repair failed, try the last known balanced point
+    if (lastValidIdx > 0) {
+      try {
+        return JSON.parse(cleaned.slice(0, lastValidIdx))
+      } catch {
+        return null
+      }
+    }
+    return null
+  }
+}
+
 function extractActionBlocks(content: string) {
-  return Array.from(content.matchAll(CANVAS_ACTION_BLOCK), (match) => match[1].trim())
+  // 1. Try traditional markdown blocks
+  const blocks = Array.from(content.matchAll(CANVAS_ACTION_BLOCK), (match) => match[1].trim())
+  
+  // 2. If no valid blocks or they look truncated, look for raw JSON patterns
+  // This helps when the AI forgets the closing ```
+  if (blocks.length === 0 || content.trim().endsWith(blocks[blocks.length - 1])) {
+    const rawJsonMatches = content.match(/\{(?:[^{}]|(\{[^{}]*\}))*"action"\s*:\s*"[^"]+"[\s\S]*?(?=\s*```|$)/g)
+    if (rawJsonMatches) {
+      for (const match of rawJsonMatches) {
+        if (!blocks.includes(match.trim())) {
+          blocks.push(match.trim())
+        }
+      }
+    }
+  }
+
+  return blocks.filter(block => block.includes('"action"') || block.includes("'action'"))
 }
 
 function buildNodeContext(
@@ -144,31 +217,24 @@ export function ChatPanel() {
   const addCanvasEdge = useAppStore((state) => state.addCanvasEdge)
   const removeNode = useAppStore((state) => state.removeNode)
   const updateNodeData = useAppStore((state) => state.updateNodeData)
+  const chatHistories = useAppStore((state) => state.chatHistories)
+  const updateChatHistory = useAppStore((state) => state.updateChatHistory)
   useAppStore((state) => state.locale)
   const [message, setMessage] = useState('')
-  const [histories, setHistories] = useState<Map<string, Message[]>>(() => new Map())
   const [isSending, setIsSending] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [actionErrors, setActionErrors] = useState<Record<string, string>>({})
 
   const activeChatKey = getChatKey(selectedNodeId)
-  const activeMessages = histories.get(activeChatKey) ?? []
+  const activeMessages = chatHistories.get(activeChatKey) ?? []
   const selectedNode = nodes.find((node) => node.id === selectedNodeId) ?? null
   const nodeContext = useMemo(
     () => buildNodeContext(selectedNodeId, nodes, edges),
     [edges, nodes, selectedNodeId]
   )
 
-  function updateHistory(chatKey: string, updater: (messages: Message[]) => Message[]) {
-    setHistories((current) => {
-      const next = new Map(current)
-      next.set(chatKey, updater(next.get(chatKey) ?? []))
-      return next
-    })
-  }
-
   function appendAssistantText(chatKey: string, text: string) {
-    updateHistory(chatKey, (current) => {
+    updateChatHistory(chatKey, (current) => {
       if (current.length === 0) {
         return [{ role: 'assistant', content: text }]
       }
@@ -185,66 +251,73 @@ export function ChatPanel() {
 
   function applyCanvasAction(rawAction: string, actionKey: string) {
     try {
-      const action = JSON.parse(rawAction) as CanvasAction
+      const parsed = tryRepairJson(rawAction)
+      if (!parsed) {
+        throw new Error(t('invalid_json_format') || 'Invalid JSON format')
+      }
 
-      if (action.action === 'add-node') {
-        const node = action.node ?? {}
-        const index = nodes.length
-        const type = VALID_NODE_TYPES.has(node.type ?? 'service') ? (node.type ?? 'service') : 'service'
-        const data: Partial<ArchitectNodeData> = node.data ?? {}
-        const statusCandidate = typeof data.status === 'string' ? data.status : node.status
-        const id =
-          typeof node.id === 'string' && node.id
-            ? node.id
-            : `${type}-${typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : Date.now()}`
+      const actions = Array.isArray(parsed) ? parsed : [parsed]
 
-        addNode({
-          id,
-          type,
-          position: {
-            x: typeof node.position?.x === 'number' ? node.position.x : 80 + (index % 3) * 240,
-            y: typeof node.position?.y === 'number' ? node.position.y : 80 + Math.floor(index / 3) * 180,
-          },
-          data: {
-            name:
-              typeof data.name === 'string'
-                ? data.name
-                : typeof node.name === 'string'
-                  ? node.name
-                  : id,
-            description:
-              typeof data.description === 'string'
-                ? data.description
-                : typeof node.description === 'string'
-                  ? node.description
-                  : '',
-            status: VALID_BUILD_STATUSES.has(statusCandidate as BuildStatus)
-              ? (statusCandidate as BuildStatus)
-              : 'idle',
-            ...(typeof data.summary === 'string' ? { summary: data.summary } : {}),
-            ...(typeof data.errorMessage === 'string'
-              ? { errorMessage: data.errorMessage }
-              : {}),
-          },
-        })
-      } else if (action.action === 'update-node') {
-        updateNodeData(action.target_id, action.data)
-      } else if (action.action === 'remove-node') {
-        removeNode(action.target_id)
-      } else if (action.action === 'add-edge') {
-        const edge = action.edge
-        const type = VALID_EDGE_TYPES.has(edge.type ?? 'sync') ? (edge.type ?? 'sync') : 'sync'
+      for (const action of actions) {
+        if (action.action === 'add-node') {
+          const node = action.node ?? {}
+          const index = nodes.length
+          const type = VALID_NODE_TYPES.has(node.type ?? 'service') ? (node.type ?? 'service') : 'service'
+          const data: Partial<ArchitectNodeData> = node.data ?? {}
+          const statusCandidate = typeof data.status === 'string' ? data.status : node.status
+          const id =
+            typeof node.id === 'string' && node.id
+              ? node.id
+              : `${type}-${typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : Date.now()}`
 
-        addCanvasEdge({
-          id:
-            typeof edge.id === 'string' && edge.id
-              ? edge.id
-              : `edge-${typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : Date.now()}`,
-          source: edge.source,
-          target: edge.target,
-          type,
-          ...(edge.label ? { label: edge.label } : {}),
-        })
+          addNode({
+            id,
+            type,
+            position: {
+              x: typeof node.position?.x === 'number' ? node.position.x : 80 + (index % 3) * 240,
+              y: typeof node.position?.y === 'number' ? node.position.y : 80 + Math.floor(index / 3) * 180,
+            },
+            data: {
+              name:
+                typeof data.name === 'string'
+                  ? data.name
+                  : typeof node.name === 'string'
+                    ? node.name
+                    : id,
+              description:
+                typeof data.description === 'string'
+                  ? data.description
+                  : typeof node.description === 'string'
+                    ? node.description
+                    : '',
+              status: VALID_BUILD_STATUSES.has(statusCandidate as BuildStatus)
+                ? (statusCandidate as BuildStatus)
+                : 'idle',
+              ...(typeof data.summary === 'string' ? { summary: data.summary } : {}),
+              ...(typeof data.errorMessage === 'string'
+                ? { errorMessage: data.errorMessage }
+                : {}),
+            },
+          })
+        } else if (action.action === 'update-node') {
+          updateNodeData(action.target_id, action.data)
+        } else if (action.action === 'remove-node') {
+          removeNode(action.target_id)
+        } else if (action.action === 'add-edge') {
+          const edge = action.edge
+          const type = VALID_EDGE_TYPES.has(edge.type ?? 'sync') ? (edge.type ?? 'sync') : 'sync'
+
+          addCanvasEdge({
+            id:
+              typeof edge.id === 'string' && edge.id
+                ? edge.id
+                : `edge-${typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : Date.now()}`,
+            source: edge.source,
+            target: edge.target,
+            type,
+            ...(edge.label ? { label: edge.label } : {}),
+          })
+        }
       }
 
       setActionErrors((current) => {
@@ -275,7 +348,7 @@ export function ChatPanel() {
     setMessage('')
     setError(null)
     setIsSending(true)
-    updateHistory(chatKey, () => [...nextHistory, { role: 'assistant', content: '' }])
+    updateChatHistory(chatKey, () => [...nextHistory, { role: 'assistant', content: '' }])
 
     try {
       const response = await fetch('/api/chat', {
@@ -300,6 +373,7 @@ export function ChatPanel() {
       const reader = response.body.getReader()
       const decoder = new TextDecoder()
       let buffer = ''
+      let fullAssistantText = ''
 
       while (true) {
         const { value, done } = await reader.read()
@@ -308,12 +382,14 @@ export function ChatPanel() {
           break
         }
 
-        buffer += decoder.decode(value, { stream: true })
+        const chunk = decoder.decode(value, { stream: true })
+        buffer += chunk
         const { events, rest } = parseStreamEvents(buffer)
         buffer = rest
 
         for (const streamEvent of events) {
           if (streamEvent.type === 'chunk' && streamEvent.text) {
+            fullAssistantText += streamEvent.text
             appendAssistantText(chatKey, streamEvent.text)
             continue
           }
@@ -323,9 +399,15 @@ export function ChatPanel() {
           }
         }
       }
+
+      // Automatically apply canvas actions after stream completes
+      const actionBlocks = extractActionBlocks(fullAssistantText)
+      for (let i = 0; i < actionBlocks.length; i++) {
+        applyCanvasAction(actionBlocks[i], `auto-${chatKey}-${Date.now()}-${i}`)
+      }
     } catch (sendError) {
       setError(sendError instanceof Error ? sendError.message : t('send_failed'))
-      updateHistory(chatKey, (current) => {
+      updateChatHistory(chatKey, (current) => {
         const lastMessage = current.at(-1)
 
         if (!lastMessage || lastMessage.role !== 'assistant' || lastMessage.content.trim()) {

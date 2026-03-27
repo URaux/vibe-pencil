@@ -22,6 +22,11 @@ interface BuildState {
   targetNodeIds: string[]
 }
 
+export interface ChatMessage {
+  role: 'user' | 'assistant'
+  content: string
+}
+
 interface AppState {
   nodes: Node<ArchitectNodeData>[]
   edges: Edge[]
@@ -50,6 +55,9 @@ interface AppState {
   setSelectedNodeId: (id: string | null) => void
   chatOpen: boolean
   setChatOpen: (open: boolean) => void
+  chatHistories: Map<string, ChatMessage[]>
+  updateChatHistory: (key: string, updater: (messages: ChatMessage[]) => ChatMessage[]) => void
+  clearChatHistories: () => void
 }
 
 const initialLocale = getLocale()
@@ -120,4 +128,12 @@ export const useAppStore = create<AppState>((set, get) => ({
   setSelectedNodeId: (id) => set({ selectedNodeId: id }),
   chatOpen: true,
   setChatOpen: (open) => set({ chatOpen: open }),
+  chatHistories: new Map(),
+  updateChatHistory: (key, updater) => {
+    const current = get().chatHistories
+    const next = new Map(current)
+    next.set(key, updater(next.get(key) ?? []))
+    set({ chatHistories: next })
+  },
+  clearChatHistories: () => set({ chatHistories: new Map() }),
 }))
