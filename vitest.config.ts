@@ -6,6 +6,7 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: [],
+    exclude: ['output/**', 'workspace/**', 'node_modules/**'],
   },
   resolve: {
     alias: {

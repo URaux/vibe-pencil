@@ -2,21 +2,17 @@
 
 import { t } from '@/lib/i18n'
 import { useAppStore } from '@/lib/store'
-import type { NodeType } from '@/lib/types'
+import type { VPNodeType } from '@/lib/types'
 
-const paletteItems: Array<{ type: NodeType; labelKey: string; icon: string }> = [
-  { type: 'service', labelKey: 'service', icon: 'S' },
-  { type: 'frontend', labelKey: 'frontend', icon: 'FE' },
-  { type: 'api', labelKey: 'api', icon: 'API' },
-  { type: 'database', labelKey: 'database', icon: 'DB' },
-  { type: 'queue', labelKey: 'queue', icon: 'Q' },
-  { type: 'external', labelKey: 'external', icon: 'EXT' },
+const paletteItems: Array<{ type: VPNodeType; labelKey: 'container' | 'block'; icon: string }> = [
+  { type: 'container', labelKey: 'container', icon: '[ ]' },
+  { type: 'block', labelKey: 'block', icon: '▓' },
 ]
 
 export function NodePalette() {
   useAppStore((state) => state.locale)
 
-  const onDragStart = (event: React.DragEvent<HTMLButtonElement>, nodeType: NodeType) => {
+  const onDragStart = (event: React.DragEvent<HTMLButtonElement>, nodeType: VPNodeType) => {
     event.dataTransfer.setData('application/reactflow', nodeType)
     event.dataTransfer.effectAllowed = 'move'
   }
@@ -27,7 +23,7 @@ export function NodePalette() {
         <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700">{t('nodes')}</h2>
         <p className="mt-1 text-xs text-slate-500">{t('palette_hint')}</p>
       </div>
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-1">
+      <div className="grid grid-cols-2 gap-2 xl:grid-cols-1">
         {paletteItems.map((item) => (
           <button
             key={item.type}

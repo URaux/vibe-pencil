@@ -1,6 +1,7 @@
 'use client'
 
 import { useTransition } from 'react'
+import type { Node } from '@xyflow/react'
 import {
   buildAll as buildAllPrompt,
   buildNode as buildNodePrompt,
@@ -9,6 +10,7 @@ import {
 import { canvasToYaml, yamlToCanvas } from '@/lib/schema-engine'
 import { useAppStore } from '@/lib/store'
 import { topoSort } from '@/lib/topo-sort'
+import type { BlockNodeData } from '@/lib/types'
 
 type BatchBuildMode = 'all' | 'selected'
 
@@ -16,7 +18,7 @@ function buildWaveSummary(waves: string[][], nodeNames: Map<string, string>) {
   return waves
     .map(
       (wave, index) =>
-        `波次 ${index + 1}: ${wave.map((nodeId) => nodeNames.get(nodeId) ?? nodeId).join(', ')}`
+        `Wave ${index + 1}: ${wave.map((nodeId) => nodeNames.get(nodeId) ?? nodeId).join(', ')}`
     )
     .join('\n')
 }
@@ -31,7 +33,8 @@ export function useBuildActions() {
   const setBuildState = useAppStore((state) => state.setBuildState)
   const [isPending, startTransition] = useTransition()
 
-  const selectedNodeIds = nodes.filter((node) => node.selected).map((node) => node.id)
+  const buildableNodes = nodes.filter((node): node is Node<BlockNodeData> => node.type === 'block')
+  const selectedNodeIds = buildableNodes.filter((node) => node.selected).map((node) => node.id)
   const selectedCount = selectedNodeIds.length
   const isBuilding = buildState.active || isPending
 
@@ -43,20 +46,23 @@ export function useBuildActions() {
         mode === 'selected'
           ? canvasToYaml(nodes, edges, projectName, selectedNodeIds)
           : canvasToYaml(nodes, edges, projectName)
-      const scopedCanvas = yamlToCanvas(scopedYaml)
-      targetNodeIds = scopedCanvas.nodes.map((node) => node.id)
+      const scopedCanvas = await yamlToCanvas(scopedYaml)
+      const scopedBlocks = scopedCanvas.nodes.filter(
+        (node): node is Node<BlockNodeData> => node.type === 'block'
+      )
 
+      targetNodeIds = scopedBlocks.map((node) => node.id)
       if (targetNodeIds.length === 0) {
         return
       }
 
-      const waves = topoSort(scopedCanvas.nodes, scopedCanvas.edges)
-      const nodeNames = new Map(scopedCanvas.nodes.map((node) => [node.id, node.data.name || node.id]))
+      const waves = topoSort(scopedBlocks, scopedCanvas.edges)
+      const nodeNames = new Map(scopedBlocks.map((node) => [node.id, node.data.name || node.id]))
       const waveSummary = buildWaveSummary(waves, nodeNames)
       const scopeLabel = mode === 'selected' ? 'selected subgraph' : 'full project'
       const promptTemplate = mode === 'selected' ? buildSubgraph : buildAllPrompt
       const prompts = Object.fromEntries(
-        scopedCanvas.nodes.map((node) => {
+        scopedBlocks.map((node) => {
           const targetName = node.data.name || node.id
           const prompt = [
             promptTemplate({
@@ -66,6 +72,7 @@ export function useBuildActions() {
                 `Project: ${projectName}`,
                 `Scope: ${scopeLabel}`,
                 `Target node: ${targetName}`,
+                ...(node.data.techStack ? [`Tech stack: ${node.data.techStack}`] : []),
                 waveSummary,
               ].join('\n'),
               user_feedback: `Implement the target node directly in ${config.workDir}. Keep changes focused on ${targetName}.`,
@@ -73,6 +80,7 @@ export function useBuildActions() {
             '',
             'Execution instructions:',
             `Implement the code for ${targetName} in the current workspace.`,
+            ...(node.data.techStack ? [`Tech stack: ${node.data.techStack}`] : []),
             'Respect the wave plan and avoid editing unrelated parts of the graph.',
           ].join('\n')
 
@@ -107,7 +115,7 @@ export function useBuildActions() {
       })
 
       if (!response.ok) {
-        throw new Error('启动构建失败。')
+        throw new Error('Failed to start build.')
       }
     } catch (error) {
       setBuildState({ active: false, currentWave: 0, totalWaves: 0, targetNodeIds: [] })
@@ -117,14 +125,14 @@ export function useBuildActions() {
           nodeId,
           'error',
           undefined,
-          error instanceof Error ? error.message : '启动构建失败。'
+          error instanceof Error ? error.message : 'Failed to start build.'
         )
       }
     }
   }
 
   async function runNodeBuild(nodeId: string) {
-    const targetNode = nodes.find((node) => node.id === nodeId)
+    const targetNode = buildableNodes.find((node) => node.id === nodeId)
 
     if (!targetNode) {
       return
@@ -132,6 +140,7 @@ export function useBuildActions() {
 
     try {
       const targetName = targetNode.data.name || targetNode.id
+      const techInfo = targetNode.data.techStack ? [`Tech stack: ${targetNode.data.techStack}`] : []
       const prompt = [
         buildNodePrompt({
           architecture_yaml: canvasToYaml(nodes, edges, projectName),
@@ -140,12 +149,14 @@ export function useBuildActions() {
             `Project: ${projectName}`,
             'Scope: single node',
             `Target node: ${targetName}`,
+            ...techInfo,
           ].join('\n'),
           user_feedback: `Implement ${targetName} directly in ${config.workDir}. Keep changes focused on this node.`,
         }),
         '',
         'Execution instructions:',
         `Implement the code for ${targetName} in the current workspace.`,
+        ...techInfo,
         'Keep changes focused on this node and note any required dependencies.',
       ].join('\n')
 
@@ -172,7 +183,7 @@ export function useBuildActions() {
       })
 
       if (!response.ok) {
-        throw new Error('启动构建失败。')
+        throw new Error('Failed to start build.')
       }
     } catch (error) {
       setBuildState({ active: false, currentWave: 0, totalWaves: 0, targetNodeIds: [] })
@@ -180,13 +191,13 @@ export function useBuildActions() {
         nodeId,
         'error',
         undefined,
-        error instanceof Error ? error.message : '启动构建失败。'
+        error instanceof Error ? error.message : 'Failed to start build.'
       )
     }
   }
 
   function buildAll() {
-    if (isBuilding || nodes.length === 0) {
+    if (isBuilding || buildableNodes.length === 0) {
       return
     }
 

@@ -1,3 +1,5 @@
+import fs from 'fs'
+import path from 'path'
 import { spawn } from 'child_process'
 import { EventEmitter } from 'events'
 import type { Writable } from 'stream'
@@ -33,43 +35,55 @@ interface AgentRecord {
   process: SpawnedProcess
 }
 
-function shellQuote(s: string) {
-  if (process.platform === 'win32') {
-    return `"${s.replace(/"/g, '\\"')}"`
+function getGeminiWindowsScriptPath() {
+  const localGeminiScript = path.join(
+    /* turbopackIgnore: true */ process.cwd(),
+    'node_modules',
+    '@google',
+    'gemini-cli',
+    'dist',
+    'index.js'
+  )
+
+  if (fs.existsSync(localGeminiScript)) {
+    return localGeminiScript
   }
-  return `'${s.replace(/'/g, "'\\''")}'`
+
+  const npmGlobal = process.env.NPM_GLOBAL_PATH ?? 'E:/tools/npm-global'
+  return path.join(
+    /* turbopackIgnore: true */ npmGlobal,
+    'node_modules',
+    '@google',
+    'gemini-cli',
+    'dist',
+    'index.js'
+  )
 }
 
 function getCommand(backend: AgentBackend, prompt: string, model?: string) {
   if (backend === 'codex') {
-    const args = ['exec', '--full-auto']
+    const args = ['exec', '--full-auto', '--json', '-']
     if (model) args.push('--model', model)
-    args.push(shellQuote(prompt))
-    return { command: 'codex', args, pipeStdin: false, useShell: undefined }
+    return { command: 'codex', args, pipeStdin: true, useShell: undefined }
   }
 
   if (backend === 'gemini') {
-    // On Windows, gemini is a .ps1 script that cmd.exe can't run.
-    // Spawn node directly with the CLI entry point.
+    const targetModel = model || 'gemini-3-flash-preview'
+
     if (process.platform === 'win32') {
-      let geminiScript: string | undefined
-      try {
-        geminiScript = require.resolve('@google/gemini-cli/dist/index.js')
-      } catch {
-        // Global install — use npm-global path
-        const npmGlobal = process.env.NPM_GLOBAL_PATH ?? 'E:/tools/npm-global'
-        geminiScript = `${npmGlobal}/node_modules/@google/gemini-cli/dist/index.js`
-      }
-      const args = ['--no-warnings=DEP0040', geminiScript, '-p', prompt]
-      if (model) args.push('-m', model)
+      const geminiScript = getGeminiWindowsScriptPath()
+      const args = ['--no-warnings=DEP0040', geminiScript, '-p', prompt, '-m', targetModel]
       return { command: process.execPath, args, pipeStdin: false, useShell: false }
     }
-    const args = ['-p', prompt]
-    if (model) args.push('-m', model)
-    return { command: 'gemini', args, pipeStdin: false, useShell: undefined }
+
+    return {
+      command: 'gemini',
+      args: ['-p', prompt, '-m', targetModel],
+      pipeStdin: false,
+      useShell: undefined,
+    }
   }
 
-  // claude-code
   const args = ['-p', '--output-format', 'stream-json', '--verbose']
   if (model) args.push('--model', model)
   return { command: 'claude', args, pipeStdin: true, useShell: undefined }
@@ -89,10 +103,19 @@ export class AgentRunner extends EventEmitter {
     const agentId = `${nodeId}-${Date.now()}-${this.nextId++}`
     const { command, args, pipeStdin, useShell } = getCommand(backend, prompt, model)
     const env = { ...process.env }
-    // Remove ANTHROPIC_API_KEY so claude CLI uses OAuth session instead of
-    // potentially invalid/proxy API keys inherited from the parent process.
-    // Safe to delete for all backends — codex doesn't use it either.
+
     delete env.ANTHROPIC_API_KEY
+    delete env.GEMINI_API_KEY
+
+    // Relay fallback: if USE_RELAY is set, pass relay credentials to spawned agents
+    if (process.env.USE_RELAY === 'true' && process.env.RELAY_API_BASE_URL) {
+      if (backend === 'claude-code') {
+        env.ANTHROPIC_BASE_URL = process.env.RELAY_API_BASE_URL
+        env.ANTHROPIC_API_KEY = process.env.RELAY_API_KEY ?? ''
+      }
+      // Note: codex and gemini backends don't support Anthropic relay
+    }
+
     const child = spawn(command, args, {
       cwd: workDir,
       env,
@@ -129,9 +152,7 @@ export class AgentRunner extends EventEmitter {
 
     child.stderr?.on('data', (chunk: Buffer | string) => {
       const text = typeof chunk === 'string' ? chunk : stderrDecoder.write(chunk)
-      info.output += text
-      info.errorMessage = text
-      this.emit('output', { agentId, nodeId, text })
+      info.errorMessage = (info.errorMessage ?? '') + text
     })
 
     child.once('error', (error) => {
@@ -148,8 +169,7 @@ export class AgentRunner extends EventEmitter {
       }
 
       if (stderrRemainder) {
-        info.output += stderrRemainder
-        info.errorMessage = stderrRemainder
+        info.errorMessage = (info.errorMessage ?? '') + stderrRemainder
       }
 
       if (info.status === 'error' && info.exitCode === null) {

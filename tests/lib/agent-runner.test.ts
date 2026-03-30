@@ -60,20 +60,20 @@ describe('AgentRunner', () => {
     expect(runner.getStatus(id)?.output).toContain('Generated UserService')
   })
 
-  it('spawns a codex agent with prompt as CLI argument', () => {
+  it('spawns a codex agent with JSON output and prompt on stdin', () => {
     runner.spawnAgent('svc-2', 'implement backend', 'codex', '/tmp')
     const child = spawnMock.mock.results[0]?.value
 
     expect(spawnMock).toHaveBeenCalledWith(
       'codex',
-      ['exec', '--full-auto', expect.stringContaining('implement backend')],
+      ['exec', '--full-auto', '--json', '-'],
       expect.objectContaining({
         cwd: '/tmp',
         shell: process.platform === 'win32',
         stdio: ['pipe', 'pipe', 'pipe'],
       })
     )
-    expect(child.stdin.write).not.toHaveBeenCalled()
+    expect(child.stdin.write).toHaveBeenCalledWith('implement backend')
     expect(child.stdin.end).toHaveBeenCalled()
   })
 

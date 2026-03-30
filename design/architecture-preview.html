@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>Vibe Pencil — 架构预览 v2</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif; background: #f8fafc; padding: 40px; }
+  h1 { text-align: center; color: #334155; margin-bottom: 8px; font-size: 22px; }
+  .subtitle { text-align: center; color: #94a3b8; margin-bottom: 32px; font-size: 13px; }
+
+  .canvas {
+    position: relative;
+    width: 1000px;
+    margin: 0 auto;
+  }
+
+  /* ── Container ── */
+  .container {
+    border: 1.5px solid;
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 24px;
+    position: relative;
+  }
+  .container-title {
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    padding: 2px 10px;
+    border-radius: 4px;
+    display: inline-block;
+    margin-bottom: 12px;
+  }
+
+  /* ── Blocks ── */
+  .blocks {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .block {
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 14px 20px;
+    min-width: 150px;
+    max-width: 200px;
+    text-align: center;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    transition: all 0.2s;
+    cursor: pointer;
+    position: relative;
+  }
+  .block:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.12); transform: translateY(-1px); }
+  .block-name { font-size: 14px; font-weight: 600; color: #1e293b; }
+  .block-desc { font-size: 11px; color: #94a3b8; margin-top: 4px; line-height: 1.4; }
+
+  /* Expandable indicator */
+  .block.expandable::after {
+    content: '▸';
+    position: absolute;
+    top: 8px;
+    right: 10px;
+    font-size: 11px;
+    color: #cbd5e1;
+    transition: transform 0.2s;
+  }
+  .block.expandable.open::after { transform: rotate(90deg); }
+
+  /* ── Sub-architecture (drill-down) ── */
+  .sub-arch {
+    display: none;
+    margin-top: 12px;
+    padding: 12px;
+    background: #f1f5f9;
+    border-radius: 8px;
+    border: 1px dashed #cbd5e1;
+  }
+  .sub-arch.visible { display: block; }
+  .sub-arch .sub-title {
+    font-size: 11px;
+    font-weight: 600;
+    color: #64748b;
+    margin-bottom: 8px;
+    letter-spacing: 0.3px;
+  }
+  .sub-arch .sub-flow {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .sub-arch .sub-node {
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    padding: 6px 12px;
+    font-size: 12px;
+    color: #334155;
+    font-weight: 500;
+  }
+  .sub-arch .sub-arrow {
+    color: #94a3b8;
+    font-size: 14px;
+  }
+  .sub-arch .sub-note {
+    font-size: 10px;
+    color: #94a3b8;
+    text-align: center;
+    margin-top: 6px;
+    font-style: italic;
+  }
+
+  /* ── Annotation tooltip on blocks ── */
+  .block .annotation {
+    display: none;
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: #1e293b;
+    color: white;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 11px;
+    white-space: nowrap;
+    z-index: 10;
+    pointer-events: none;
+  }
+  .block .annotation::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 5px solid transparent;
+    border-top-color: #1e293b;
+  }
+  .block:hover .annotation { display: block; }
+
+  /* ── Container colors ── */
+  .c-blue    { background: #eff6ff; border-color: #93c5fd; }
+  .c-blue .container-title { background: #3b82f6; color: white; }
+
+  .c-green   { background: #f0fdf4; border-color: #86efac; }
+  .c-green .container-title { background: #22c55e; color: white; }
+
+  .c-purple  { background: #faf5ff; border-color: #c4b5fd; }
+  .c-purple .container-title { background: #8b5cf6; color: white; }
+
+  .c-amber   { background: #fffbeb; border-color: #fcd34d; }
+  .c-amber .container-title { background: #f59e0b; color: white; }
+
+  .c-rose    { background: #fff1f2; border-color: #fda4af; }
+  .c-rose .container-title { background: #f43f5e; color: white; }
+
+  .c-slate   { background: #f8fafc; border-color: #cbd5e1; }
+  .c-slate .container-title { background: #64748b; color: white; }
+
+  /* ── Connection labels ── */
+  .conn-label {
+    text-align: center;
+    padding: 6px 0;
+    position: relative;
+  }
+  .conn-label::before {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 0;
+    bottom: 0;
+    width: 1.5px;
+    background: #cbd5e1;
+    transform: translateX(-50%);
+  }
+  .conn-label span {
+    position: relative;
+    background: #f8fafc;
+    padding: 2px 12px;
+    font-size: 11px;
+    color: #64748b;
+    font-weight: 500;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+  }
+  .arrow-down {
+    text-align: center;
+    padding: 2px 0;
+    color: #cbd5e1;
+    font-size: 18px;
+    line-height: 1;
+  }
+
+  /* ── Side layout ── */
+  .row {
+    display: flex;
+    gap: 24px;
+    margin-bottom: 24px;
+    align-items: stretch;
+  }
+  .row > .container { flex: 1; margin-bottom: 0; }
+  .row > .container.side { flex: 0 0 210px; }
+  .row > .container.side .blocks { flex-direction: column; }
+
+  /* ── Legend ── */
+  .legend {
+    margin-top: 32px;
+    padding: 16px;
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    display: flex;
+    gap: 24px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: #64748b;
+  }
+  .legend-swatch {
+    width: 14px;
+    height: 14px;
+    border-radius: 3px;
+    border: 1px solid rgba(0,0,0,0.1);
+  }
+  .legend-icon {
+    font-size: 14px;
+  }
+</style>
+</head>
+<body>
+
+<h1>电商平台系统架构</h1>
+<p class="subtitle">容器 + 模块模型 — 点击可展开的模块查看内部架构</p>
+
+<div class="canvas">
+
+  <!-- 第一层：客户端 -->
+  <div class="container c-blue">
+    <div class="container-title">客户端层</div>
+    <div class="blocks">
+      <div class="block expandable" onclick="toggleSub(this)">
+        <div class="annotation">React 18 + Vite + TailwindCSS</div>
+        <div class="block-name">Web 应用</div>
+        <div class="block-desc">面向终端用户的单页应用</div>
+        <div class="sub-arch">
+          <div class="sub-title">内部架构</div>
+          <div class="sub-flow">
+            <div class="sub-node">路由</div>
+            <div class="sub-arrow">→</div>
+            <div class="sub-node">页面</div>
+            <div class="sub-arrow">→</div>
+            <div class="sub-node">组件</div>
+            <div class="sub-arrow">→</div>
+            <div class="sub-node">API 客户端</div>
+          </div>
+          <div class="sub-note">状态管理: Zustand · 样式: Tailwind · 构建: Vite</div>
+        </div>
+      </div>
+      <div class="block">
+        <div class="annotation">React Native + Expo 跨平台</div>
+        <div class="block-name">移动端 App</div>
+        <div class="block-desc">iOS 与 Android 客户端</div>
+      </div>
+      <div class="block expandable" onclick="toggleSub(this)">
+        <div class="annotation">仅限内部使用，需 VPN 接入</div>
+        <div class="block-name">管理后台</div>
+        <div class="block-desc">运营团队的后台管理工具</div>
+        <div class="sub-arch">
+          <div class="sub-title">内部架构</div>
+          <div class="sub-flow">
+            <div class="sub-node">仪表盘</div>
+            <div class="sub-arrow">→</div>
+            <div class="sub-node">CRUD 视图</div>
+            <div class="sub-arrow">→</div>
+            <div class="sub-node">管理 API</div>
+          </div>
+          <div class="sub-note">框架: Next.js · 权限: RBAC 角色控制</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="conn-label"><span>HTTPS / REST</span></div>
+  <div class="arrow-down">▼</div>
+
+  <!-- 第二层：API 网关 -->
+  <div class="container c-green">
+    <div class="container-title">API 网关层</div>
+    <div class="blocks">
+      <div class="block">
+        <div class="annotation">验证 JWT 令牌，管理会话</div>
+        <div class="block-name">认证网关</div>
+        <div class="block-desc">身份认证与令牌校验</div>
+      </div>
+      <div class="block">
+        <div class="annotation">每用户 100 req/s，滑动窗口</div>
+        <div class="block-name">限流器</div>
+        <div class="block-desc">请求节流与滥用防护</div>
+      </div>
+      <div class="block">
+        <div class="annotation">Nginx + 上游健康检查</div>
+        <div class="block-name">负载均衡</div>
+        <div class="block-desc">流量分发至各实例</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="conn-label"><span>gRPC / 内部 RPC</span></div>
+  <div class="arrow-down">▼</div>
+
+  <!-- 第三层：业务服务 + 外部服务 -->
+  <div class="row">
+    <div class="container c-purple">
+      <div class="container-title">业务服务层</div>
+      <div class="blocks">
+        <div class="block expandable" onclick="toggleSub(this)">
+          <div class="annotation">处理注册、登录、用户资料</div>
+          <div class="block-name">用户服务</div>
+          <div class="block-desc">身份与访问管理</div>
+          <div class="sub-arch">
+            <div class="sub-title">服务内部结构</div>
+            <div class="sub-flow">
+              <div class="sub-node">Controller</div>
+              <div class="sub-arrow">→</div>
+              <div class="sub-node">Service</div>
+              <div class="sub-arrow">→</div>
+              <div class="sub-node">Repository</div>
+              <div class="sub-arrow">→</div>
+              <div class="sub-node">PostgreSQL</div>
+            </div>
+            <div class="sub-note">认证: OAuth2 + JWT · 缓存: Redis 会话</div>
+          </div>
+        </div>
+        <div class="block expandable" onclick="toggleSub(this)">
+          <div class="annotation">订单创建、支付、履约全流程</div>
+          <div class="block-name">订单服务</div>
+          <div class="block-desc">订单全生命周期管理</div>
+          <div class="sub-arch">
+            <div class="sub-title">服务内部结构</div>
+            <div class="sub-flow">
+              <div class="sub-node">API</div>
+              <div class="sub-arrow">→</div>
+              <div class="sub-node">状态机</div>
+              <div class="sub-arrow">→</div>
+              <div class="sub-node">事件发布</div>
+            </div>
+            <div class="sub-note">状态流转: 待支付 → 已支付 → 已发货 → 已签收</div>
+          </div>
+        </div>
+        <div class="block">
+          <div class="annotation">商品增删改查、搜索、分类</div>
+          <div class="block-name">商品服务</div>
+          <div class="block-desc">商品目录与库存管理</div>
+        </div>
+        <div class="block">
+          <div class="annotation">对接 Stripe 与支付宝</div>
+          <div class="block-name">支付服务</div>
+          <div class="block-desc">支付处理与退款</div>
+        </div>
+      </div>
+    </div>
+    <div class="container c-rose side">
+      <div class="container-title">外部服务</div>
+      <div class="blocks">
+        <div class="block">
+          <div class="annotation">信用卡支付与订阅</div>
+          <div class="block-name">Stripe API</div>
+          <div class="block-desc">支付供应商</div>
+        </div>
+        <div class="block">
+          <div class="annotation">Twilio — 验证码发送</div>
+          <div class="block-name">短信网关</div>
+          <div class="block-desc">通知推送</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="conn-label"><span>消息总线 / Kafka</span></div>
+  <div class="arrow-down">▼</div>
+
+  <!-- 第四层：数据层 + 可观测 -->
+  <div class="row">
+    <div class="container c-amber">
+      <div class="container-title">数据层</div>
+      <div class="blocks">
+        <div class="block">
+          <div class="annotation">主 OLTP 数据库，3 副本</div>
+          <div class="block-name">PostgreSQL</div>
+          <div class="block-desc">主关系型数据库</div>
+        </div>
+        <div class="block">
+          <div class="annotation">会话存储 + 查询缓存，64GB</div>
+          <div class="block-name">Redis</div>
+          <div class="block-desc">缓存、会话与发布订阅</div>
+        </div>
+        <div class="block">
+          <div class="annotation">全文检索，商品索引</div>
+          <div class="block-name">Elasticsearch</div>
+          <div class="block-desc">搜索引擎与分析</div>
+        </div>
+      </div>
+    </div>
+    <div class="container c-slate side">
+      <div class="container-title">可观测性</div>
+      <div class="blocks">
+        <div class="block">
+          <div class="annotation">指标采集，告警规则</div>
+          <div class="block-name">Prometheus</div>
+          <div class="block-desc">监控与告警</div>
+        </div>
+        <div class="block">
+          <div class="annotation">全服务仪表盘</div>
+          <div class="block-name">Grafana</div>
+          <div class="block-desc">可视化面板</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- 图例 -->
+<div class="legend">
+  <div class="legend-item">
+    <span class="legend-icon">🖱</span> 悬停模块查看注释
+  </div>
+  <div class="legend-item">
+    <span class="legend-icon">▸</span> 点击可展开模块查看子架构
+  </div>
+  <div class="legend-item">
+    <span class="legend-swatch" style="background:#eff6ff;border-color:#93c5fd"></span> 客户端
+  </div>
+  <div class="legend-item">
+    <span class="legend-swatch" style="background:#f0fdf4;border-color:#86efac"></span> 网关
+  </div>
+  <div class="legend-item">
+    <span class="legend-swatch" style="background:#faf5ff;border-color:#c4b5fd"></span> 服务
+  </div>
+  <div class="legend-item">
+    <span class="legend-swatch" style="background:#fffbeb;border-color:#fcd34d"></span> 数据
+  </div>
+</div>
+
+<script>
+function toggleSub(block) {
+  const sub = block.querySelector('.sub-arch');
+  if (!sub) return;
+  sub.classList.toggle('visible');
+  block.classList.toggle('open');
+}
+</script>
+
+</body>
+</html>

@@ -1,15 +1,8 @@
-import { ServiceNode } from './ServiceNode'
-import { FrontendNode } from './FrontendNode'
-import { ApiNode } from './ApiNode'
-import { DatabaseNode } from './DatabaseNode'
-import { QueueNode } from './QueueNode'
-import { ExternalNode } from './ExternalNode'
+import type { NodeTypes } from '@xyflow/react'
+import { BlockNode } from './BlockNode'
+import { ContainerNode } from './ContainerNode'
 
-export const nodeTypes = {
-  service: ServiceNode,
-  frontend: FrontendNode,
-  api: ApiNode,
-  database: DatabaseNode,
-  queue: QueueNode,
-  external: ExternalNode,
+export const nodeTypes: NodeTypes = {
+  container: ContainerNode,
+  block: BlockNode,
 }

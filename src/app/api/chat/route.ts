@@ -20,13 +20,17 @@ interface ChatRequest {
 }
 
 const CANVAS_ACTION_INSTRUCTIONS = [
+  'CRITICAL: If you need to modify the canvas, place ALL ```json:canvas-action blocks at the very START of your response.',
+  'Do not provide a preamble. Output JSON first, then explain your reasoning.',
   'When you recommend canvas modifications, include a ```json:canvas-action block.',
   'Use one of these actions:',
-  '- add-node: {"action":"add-node","node":{"id?":"...","type":"service","position?":{"x":0,"y":0},"data":{"name":"...","description":"...","status":"idle"}}}',
-  '- update-node: {"action":"update-node","target_id":"node-id","data":{"description":"..."}}',
+  '- add-node container: {"action":"add-node","node":{"id?":"container-app","type":"container","position?":{"x":0,"y":0},"data":{"name":"Application Layer","color":"blue","collapsed":false},"style":{"width":400,"height":300}}}',
+  '- add-node block: {"action":"add-node","node":{"id?":"block-web","type":"block","parentId?":"container-app","position?":{"x":24,"y":72},"data":{"name":"Web App","description":"User-facing app","status":"idle","techStack":"Next.js 16"}}}',
+  '- update-node: {"action":"update-node","target_id":"node-id","data":{"name":"...","description":"...","techStack":"...","color":"green","collapsed":true}}',
   '- remove-node: {"action":"remove-node","target_id":"node-id"}',
-  '- add-edge: {"action":"add-edge","edge":{"id?":"...","source":"node-a","target":"node-b","type":"sync","label?":"..."}}',
-  'Keep normal prose outside the code block, and keep code blocks valid JSON.',
+  '- add-edge: {"action":"add-edge","edge":{"id?":"edge-1","source":"block-web","target":"block-api","type":"sync","label?":"HTTPS"}}',
+  'Only create edges between block nodes.',
+  'Keep normal prose AFTER the code block, and keep code blocks valid JSON.',
 ].join('\n')
 
 function formatHistory(history: ChatMessage[] | undefined) {
@@ -66,6 +70,11 @@ function buildPrompt({ message, history, nodeContext, architecture_yaml }: ChatR
   ].join('\n')
 }
 
+function stripAnsi(text: string): string {
+  // eslint-disable-next-line no-control-regex
+  return text.replace(/\x1b\[[0-9;]*m/g, '')
+}
+
 function encodeEvent(payload: unknown) {
   return new TextEncoder().encode(`data: ${JSON.stringify(payload)}\n\n`)
 }
@@ -74,7 +83,7 @@ export async function POST(request: Request) {
   const payload = (await request.json()) as ChatRequest
 
   if (!payload.message?.trim()) {
-    return Response.json({ error: '消息内容不能为空。' }, { status: 400 })
+    return Response.json({ error: 'Message cannot be empty.' }, { status: 400 })
   }
 
   const agentId = agentRunner.spawnAgent(
@@ -114,7 +123,7 @@ export async function POST(request: Request) {
         const status = agentRunner.getStatus(agentId)
 
         if (!status) {
-          push({ type: 'error', error: '未找到对话代理。' })
+          push({ type: 'error', error: 'Chat agent not found.' })
           close()
           return
         }
@@ -133,7 +142,10 @@ export async function POST(request: Request) {
         }
 
         if (status.status === 'error') {
-          push({ type: 'error', error: status.errorMessage ?? 'AI 对话失败。' })
+          const errorMsg = status.errorMessage
+            ? `Backend error: ${stripAnsi(status.errorMessage).slice(0, 200)}`
+            : 'The AI backend encountered an error.'
+          push({ type: 'error', error: errorMsg })
           close()
         }
       }, 125)

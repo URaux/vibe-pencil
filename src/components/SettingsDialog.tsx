@@ -15,7 +15,7 @@ const BACKEND_OPTIONS: { value: AgentBackendType; label: string }[] = [
 const DEFAULT_MODELS: Record<AgentBackendType, string> = {
   'claude-code': 'claude-sonnet-4-6',
   codex: 'gpt-5.4',
-  gemini: 'gemini-2.5-pro',
+  gemini: 'gemini-3-flash-preview',
 }
 
 interface SettingsDialogProps {

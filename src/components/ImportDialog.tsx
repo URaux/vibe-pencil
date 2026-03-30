@@ -2,9 +2,10 @@
 
 import { useState } from 'react'
 import type { Edge, Node } from '@xyflow/react'
+import { layoutArchitectureCanvas } from '@/lib/graph-layout'
 import { t } from '@/lib/i18n'
 import { useAppStore } from '@/lib/store'
-import type { ArchitectNodeData } from '@/lib/types'
+import type { CanvasNodeData } from '@/lib/types'
 
 interface ImportDialogProps {
   open: boolean
@@ -12,7 +13,7 @@ interface ImportDialogProps {
 }
 
 interface ImportResponse {
-  nodes: Node<ArchitectNodeData>[]
+  nodes: Node<CanvasNodeData>[]
   edges: Edge[]
 }
 
@@ -59,16 +60,19 @@ export function ImportDialog({ open, onClose }: ImportDialogProps) {
       }
 
       setProgress(t('applying_import'))
-      setCanvas(payload.nodes ?? [], payload.edges ?? [])
+      const arranged = await layoutArchitectureCanvas(payload.nodes ?? [], payload.edges ?? [])
+      setCanvas(arranged.nodes, arranged.edges)
       setProjectName(getProjectNameFromPath(trimmedDir))
       setProgress(null)
       setDir('')
       onClose()
     } catch (importError) {
-      setError(importError instanceof Error ? importError.message : t('import_failed'))
+      const msg = importError instanceof Error ? importError.message : t('import_failed')
+      // Surface exit code info if present, otherwise use generic message
+      setError(msg.includes('exit code') || msg.includes('timed out') ? msg : t('import_failed'))
+      setProgress(null)
     } finally {
       setIsImporting(false)
-      setProgress((current) => (current === t('applying_import') ? null : current))
     }
   }
 
@@ -117,7 +121,14 @@ export function ImportDialog({ open, onClose }: ImportDialogProps) {
 
           {error ? (
             <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-              {error}
+              <p>{error}</p>
+              <button
+                type="button"
+                onClick={() => setError(null)}
+                className="mt-2 text-xs font-medium text-rose-600 underline hover:text-rose-800"
+              >
+                {t('dismiss')}
+              </button>
             </div>
           ) : null}
 

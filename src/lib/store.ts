@@ -10,8 +10,9 @@ import {
   applyNodeChanges,
 } from '@xyflow/react'
 import { clampMaxParallel } from './config'
+import { assignHandles } from './edge-utils'
 import { getLocale, setLocale as setI18nLocale, translate, type Locale } from './i18n'
-import type { ArchitectNodeData, BuildStatus, HistoryEntry, ProjectConfig } from './types'
+import type { BuildStatus, CanvasNodeData, HistoryEntry, ProjectConfig } from './types'
 
 type SaveState = 'saved' | 'saving'
 
@@ -25,20 +26,36 @@ interface BuildState {
 export interface ChatMessage {
   role: 'user' | 'assistant'
   content: string
+  actions?: string[]
+}
+
+export interface ChatSession {
+  id: string
+  title: string
+  messages: ChatMessage[]
+  createdAt: number
+  updatedAt: number
 }
 
 interface AppState {
-  nodes: Node<ArchitectNodeData>[]
+  nodes: Node<CanvasNodeData>[]
   edges: Edge[]
-  onNodesChange: OnNodesChange<Node<ArchitectNodeData>>
+  canvasVersion: number
+  canvasUndoStack: Array<{ nodes: Node<CanvasNodeData>[]; edges: Edge[] }>
+  canvasRedoStack: Array<{ nodes: Node<CanvasNodeData>[]; edges: Edge[] }>
+  pushCanvasSnapshot: () => void
+  undo: () => void
+  redo: () => void
+  onNodesChange: OnNodesChange<Node<CanvasNodeData>>
   onEdgesChange: OnEdgesChange
   onConnect: OnConnect
-  setCanvas: (nodes: Node<ArchitectNodeData>[], edges: Edge[]) => void
-  addNode: (node: Node<ArchitectNodeData>) => void
+  setCanvas: (nodes: Node<CanvasNodeData>[], edges: Edge[]) => void
+  addNode: (node: Node<CanvasNodeData>) => void
   addCanvasEdge: (edge: Edge) => void
   removeNode: (id: string) => void
-  updateNodeData: (id: string, data: Partial<ArchitectNodeData>) => void
+  updateNodeData: (id: string, data: Partial<CanvasNodeData>) => void
   updateNodeStatus: (id: string, status: BuildStatus, summary?: string, errorMessage?: string) => void
+  updateNodeParent: (nodeId: string, newParentId: string | null) => void
   projectName: string
   setProjectName: (name: string) => void
   config: ProjectConfig
@@ -55,28 +72,208 @@ interface AppState {
   setSelectedNodeId: (id: string | null) => void
   chatOpen: boolean
   setChatOpen: (open: boolean) => void
-  chatHistories: Map<string, ChatMessage[]>
-  updateChatHistory: (key: string, updater: (messages: ChatMessage[]) => ChatMessage[]) => void
-  clearChatHistories: () => void
+  chatSidebarOpen: boolean
+  setChatSidebarOpen: (open: boolean) => void
+  chatSessions: ChatSession[]
+  activeChatSessionId: string | null
+  createChatSession: () => string
+  switchChatSession: (id: string) => void
+  deleteChatSession: (id: string) => void
+  updateActiveChatMessages: (updater: (msgs: ChatMessage[]) => ChatMessage[]) => void
 }
 
 const initialLocale = getLocale()
+const CHAT_SESSIONS_STORAGE_KEY = 'vp-chat-sessions'
+const CHAT_HISTORIES_LEGACY_KEY = 'vp-chat-histories'
+
+function loadChatSessions(): ChatSession[] {
+  if (typeof window === 'undefined') {
+    return []
+  }
+
+  try {
+    const stored = window.localStorage.getItem(CHAT_SESSIONS_STORAGE_KEY)
+
+    if (stored) {
+      return JSON.parse(stored) as ChatSession[]
+    }
+
+    // Migrate from legacy Map-based storage
+    const legacy = window.localStorage.getItem(CHAT_HISTORIES_LEGACY_KEY)
+
+    if (legacy) {
+      const entries = JSON.parse(legacy) as Array<[string, ChatMessage[]]>
+      const now = Date.now()
+      const migrated: ChatSession[] = entries
+        .filter(([, messages]) => messages.length > 0)
+        .map(([key, messages], index) => {
+          const firstUser = messages.find((m) => m.role === 'user')
+          const title = firstUser ? firstUser.content.slice(0, 30) : key
+          return {
+            id: `migrated-${index}-${now}`,
+            title,
+            messages,
+            createdAt: now - (entries.length - index) * 1000,
+            updatedAt: now - (entries.length - index) * 1000,
+          }
+        })
+
+      window.localStorage.removeItem(CHAT_HISTORIES_LEGACY_KEY)
+      return migrated
+    }
+
+    return []
+  } catch {
+    return []
+  }
+}
+
+function saveChatSessions(sessions: ChatSession[]) {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  try {
+    window.localStorage.setItem(CHAT_SESSIONS_STORAGE_KEY, JSON.stringify(sessions))
+  } catch {
+    // Ignore storage failures like quota errors.
+  }
+}
+
+// Track whether a node drag is in progress so we snapshot once on drag start
+let _isDragging = false
+
+function cloneSnapshot(nodes: Node<CanvasNodeData>[], edges: Edge[]) {
+  return {
+    nodes: nodes.map((n) => ({ ...n, position: { ...n.position }, data: { ...n.data }, ...(n.style ? { style: { ...n.style } } : {}) })),
+    edges: edges.map((e) => ({ ...e })),
+  }
+}
 
 export const useAppStore = create<AppState>((set, get) => ({
   nodes: [],
   edges: [],
-  onNodesChange: (changes) => set({ nodes: applyNodeChanges(changes, get().nodes) }),
-  onEdgesChange: (changes) => set({ edges: applyEdgeChanges(changes, get().edges) }),
-  onConnect: (connection) => set({ edges: addEdge({ ...connection, type: 'sync' }, get().edges) }),
-  setCanvas: (nodes, edges) => set({ nodes, edges, selectedNodeId: null }),
+  canvasVersion: 0,
+  canvasUndoStack: [],
+  canvasRedoStack: [],
+  pushCanvasSnapshot: () => {
+    const { nodes, edges, canvasUndoStack } = get()
+    const stack = [...canvasUndoStack, cloneSnapshot(nodes, edges)].slice(-50)
+    set({ canvasUndoStack: stack, canvasRedoStack: [] })
+  },
+  undo: () => {
+    const { canvasUndoStack, canvasRedoStack, nodes, edges } = get()
+    if (canvasUndoStack.length === 0) return
+    const previous = canvasUndoStack[canvasUndoStack.length - 1]
+    set({
+      nodes: previous.nodes,
+      edges: previous.edges,
+      canvasUndoStack: canvasUndoStack.slice(0, -1),
+      canvasRedoStack: [...canvasRedoStack, cloneSnapshot(nodes, edges)],
+    })
+  },
+  redo: () => {
+    const { canvasRedoStack, canvasUndoStack, nodes, edges } = get()
+    if (canvasRedoStack.length === 0) return
+    const next = canvasRedoStack[canvasRedoStack.length - 1]
+    set({
+      nodes: next.nodes,
+      edges: next.edges,
+      canvasRedoStack: canvasRedoStack.slice(0, -1),
+      canvasUndoStack: [...canvasUndoStack, cloneSnapshot(nodes, edges)],
+    })
+  },
+  onNodesChange: (changes) => {
+    const hasRemove = changes.some((c) => c.type === 'remove')
+    const hasDragStart = changes.some(
+      (c) => c.type === 'position' && c.dragging === true
+    )
+    const hasDragEnd = changes.some(
+      (c) => c.type === 'position' && c.dragging === false
+    )
+
+    // Snapshot before removals (unless removeNode already handles it)
+    if (hasRemove) {
+      get().pushCanvasSnapshot()
+    }
+
+    // Snapshot once at the start of a drag gesture
+    if (hasDragStart && !_isDragging) {
+      _isDragging = true
+      get().pushCanvasSnapshot()
+    }
+    if (hasDragEnd) {
+      _isDragging = false
+    }
+
+    set({ nodes: applyNodeChanges(changes, get().nodes) })
+  },
+  onEdgesChange: (changes) => {
+    const hasRemove = changes.some((c) => c.type === 'remove')
+    if (hasRemove) {
+      get().pushCanvasSnapshot()
+    }
+    set({ edges: applyEdgeChanges(changes, get().edges) })
+  },
+  onConnect: (connection) => {
+    get().pushCanvasSnapshot()
+    const nodes = get().nodes
+    const sourceNode = nodes.find((node) => node.id === connection.source)
+    const targetNode = nodes.find((node) => node.id === connection.target)
+    let sourceHandle = connection.sourceHandle
+    let targetHandle = connection.targetHandle
+
+    if (sourceNode && targetNode && (!sourceHandle || !targetHandle)) {
+      const assignedHandles = assignHandles(sourceNode, targetNode, nodes)
+      sourceHandle = sourceHandle || assignedHandles.sourceHandle
+      targetHandle = targetHandle || assignedHandles.targetHandle
+    }
+
+    set({
+      edges: addEdge(
+        {
+          ...connection,
+          sourceHandle,
+          targetHandle,
+          type: 'sync',
+          data: {
+            isIntraContainer:
+              Boolean(sourceNode?.parentId) && sourceNode?.parentId === targetNode?.parentId,
+          },
+        },
+        get().edges
+      ),
+    })
+  },
+  setCanvas: (nodes, edges) =>
+    set({
+      nodes,
+      edges,
+      canvasVersion: get().canvasVersion + 1,
+      selectedNodeId: nodes.some((node) => node.id === get().selectedNodeId)
+        ? get().selectedNodeId
+        : null,
+    }),
   addNode: (node) => set({ nodes: [...get().nodes, node] }),
   addCanvasEdge: (edge) => set({ edges: addEdge(edge, get().edges) }),
-  removeNode: (id) =>
-    set({
-      nodes: get().nodes.filter((node) => node.id !== id),
-      edges: get().edges.filter((edge) => edge.source !== id && edge.target !== id),
-      selectedNodeId: get().selectedNodeId === id ? null : get().selectedNodeId,
-    }),
+  removeNode: (id) => {
+    get().pushCanvasSnapshot()
+    set(() => {
+      const removedIds = new Set(
+        get()
+          .nodes.filter((node) => node.id === id || node.parentId === id)
+          .map((node) => node.id)
+      )
+
+      return {
+        nodes: get().nodes.filter((node) => !removedIds.has(node.id)),
+        edges: get().edges.filter(
+          (edge) => !removedIds.has(edge.source) && !removedIds.has(edge.target)
+        ),
+        selectedNodeId: removedIds.has(get().selectedNodeId ?? '') ? null : get().selectedNodeId,
+      }
+    })
+  },
   updateNodeData: (id, data) =>
     set({
       nodes: get().nodes.map((node) =>
@@ -86,12 +283,27 @@ export const useAppStore = create<AppState>((set, get) => ({
   updateNodeStatus: (id, status, summary, errorMessage) =>
     set({
       nodes: get().nodes.map((node) =>
-        node.id === id ? { ...node, data: { ...node.data, status, summary, errorMessage } } : node
+        node.id === id && node.type === 'block'
+          ? { ...node, data: { ...node.data, status, summary, errorMessage } }
+          : node
+      ),
+    }),
+  updateNodeParent: (nodeId, newParentId) =>
+    set({
+      nodes: get().nodes.map((node) =>
+        node.id === nodeId
+          ? {
+              ...node,
+              ...(newParentId
+                ? { parentId: newParentId, extent: 'parent' as const }
+                : { parentId: undefined, extent: undefined }),
+            }
+          : node
       ),
     }),
   projectName: translate(initialLocale, 'untitled'),
   setProjectName: (name) => set({ projectName: name }),
-  config: { agent: 'claude-code', model: 'claude-sonnet-4-6', workDir: './output', maxParallel: 3 },
+  config: { agent: 'claude-code', model: 'claude-sonnet-4-6', workDir: './workspace', maxParallel: 3 },
   setConfig: (config) =>
     set({
       config: {
@@ -128,12 +340,67 @@ export const useAppStore = create<AppState>((set, get) => ({
   setSelectedNodeId: (id) => set({ selectedNodeId: id }),
   chatOpen: true,
   setChatOpen: (open) => set({ chatOpen: open }),
-  chatHistories: new Map(),
-  updateChatHistory: (key, updater) => {
-    const current = get().chatHistories
-    const next = new Map(current)
-    next.set(key, updater(next.get(key) ?? []))
-    set({ chatHistories: next })
+  chatSidebarOpen: true,
+  setChatSidebarOpen: (open) => set({ chatSidebarOpen: open }),
+  chatSessions: [],
+  activeChatSessionId: null,
+  createChatSession: () => {
+    const id =
+      typeof crypto !== 'undefined' && 'randomUUID' in crypto
+        ? crypto.randomUUID()
+        : `session-${Date.now()}`
+    const now = Date.now()
+    const session: ChatSession = { id, title: '', messages: [], createdAt: now, updatedAt: now }
+    set({
+      chatSessions: [session, ...get().chatSessions],
+      activeChatSessionId: id,
+    })
+    return id
   },
-  clearChatHistories: () => set({ chatHistories: new Map() }),
+  switchChatSession: (id) => set({ activeChatSessionId: id }),
+  deleteChatSession: (id) => {
+    const remaining = get().chatSessions.filter((s) => s.id !== id)
+    const wasActive = get().activeChatSessionId === id
+    set({
+      chatSessions: remaining,
+      activeChatSessionId: wasActive ? (remaining[0]?.id ?? null) : get().activeChatSessionId,
+    })
+  },
+  updateActiveChatMessages: (updater) => {
+    const { activeChatSessionId, chatSessions } = get()
+
+    if (!activeChatSessionId) {
+      return
+    }
+
+    const now = Date.now()
+    const updated = chatSessions.map((session) => {
+      if (session.id !== activeChatSessionId) {
+        return session
+      }
+
+      const nextMessages = updater(session.messages)
+      const firstUser = nextMessages.find((m) => m.role === 'user')
+      const title = firstUser ? firstUser.content.slice(0, 30) : session.title
+
+      return { ...session, messages: nextMessages, title, updatedAt: now }
+    })
+
+    set({
+      chatSessions: updated.slice().sort((a, b) => b.updatedAt - a.updatedAt),
+    })
+  },
 }))
+
+if (typeof window !== 'undefined') {
+  const sessions = loadChatSessions()
+  useAppStore.setState({
+    chatSessions: sessions,
+    activeChatSessionId: sessions[0]?.id ?? null,
+  })
+  useAppStore.subscribe((state, previousState) => {
+    if (state.chatSessions !== previousState.chatSessions) {
+      saveChatSessions(state.chatSessions)
+    }
+  })
+}

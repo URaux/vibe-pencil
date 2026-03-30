@@ -3,12 +3,23 @@
 import { useMemo, useState } from 'react'
 import type { Edge, Node } from '@xyflow/react'
 import { t } from '@/lib/i18n'
+import { extractActionBlocks, extractVisibleChatText } from '@/lib/chat-actions'
+import { layoutArchitectureCanvas } from '@/lib/graph-layout'
 import { canvasToYaml } from '@/lib/schema-engine'
 import { useAppStore, type ChatMessage } from '@/lib/store'
 import { getNodeTypeLabel } from '@/lib/ui-text'
-import type { ArchitectNodeData, BuildStatus, EdgeType, NodeType } from '@/lib/types'
+import type {
+  BlockNodeData,
+  BuildStatus,
+  CanvasNodeData,
+  ContainerColor,
+  ContainerNodeData,
+  EdgeType,
+  VPNodeType,
+} from '@/lib/types'
 
 type Message = ChatMessage
+type CanvasNode = Node<CanvasNodeData>
 
 interface StreamEvent {
   type: 'chunk' | 'done' | 'error'
@@ -19,16 +30,20 @@ interface StreamEvent {
 type CanvasAction =
   | {
       action: 'add-node'
-      node: Partial<Node<ArchitectNodeData>> & {
-        type?: NodeType
+      node: Partial<CanvasNode> & {
+        type?: VPNodeType
         position?: { x?: number; y?: number }
-        data?: Partial<ArchitectNodeData>
+        parentId?: string | null
+        data?: Partial<CanvasNodeData>
         name?: string
         description?: string
         status?: BuildStatus
+        color?: ContainerColor
+        collapsed?: boolean
+        techStack?: string
       }
     }
-  | { action: 'update-node'; target_id: string; data: Partial<ArchitectNodeData> }
+  | { action: 'update-node'; target_id: string; data: Partial<CanvasNodeData> }
   | { action: 'remove-node'; target_id: string }
   | {
       action: 'add-edge'
@@ -39,35 +54,35 @@ type CanvasAction =
       }
     }
 
-const GLOBAL_CHAT_KEY = '__global__'
-const CANVAS_ACTION_BLOCK = /```(?:json)?(?::canvas-action)?\s*([\s\S]*?)```/gi
-const VALID_NODE_TYPES = new Set<NodeType>(['service', 'frontend', 'api', 'database', 'queue', 'external'])
+const VALID_NODE_TYPES = new Set<VPNodeType>(['container', 'block'])
 const VALID_EDGE_TYPES = new Set<EdgeType>(['sync', 'async', 'bidirectional'])
 const VALID_BUILD_STATUSES = new Set<BuildStatus>(['idle', 'building', 'done', 'error'])
-
-function getChatKey(nodeId: string | null) {
-  return nodeId ?? GLOBAL_CHAT_KEY
-}
+const VALID_CONTAINER_COLORS = new Set<ContainerColor>([
+  'blue',
+  'green',
+  'purple',
+  'amber',
+  'rose',
+  'slate',
+])
 
 function tryRepairJson(text: string) {
   let cleaned = text.trim()
   if (!cleaned) return null
 
-  // If it doesn't start with { or [, it's definitely not what we want
   if (!cleaned.startsWith('{') && !cleaned.startsWith('[')) {
     const startIdx = Math.max(cleaned.indexOf('{'), cleaned.indexOf('['))
     if (startIdx === -1) return null
     cleaned = cleaned.slice(startIdx)
   }
 
-  // Self-healing: count braces and brackets
   let openBraces = 0
   let openBrackets = 0
   let inString = false
   let escaped = false
   let lastValidIdx = 0
 
-  for (let i = 0; i < cleaned.length; i++) {
+  for (let i = 0; i < cleaned.length; i += 1) {
     const char = cleaned[i]
     if (char === '"' && !escaped) inString = !inString
     if (inString) {
@@ -75,18 +90,16 @@ function tryRepairJson(text: string) {
       continue
     }
 
-    if (char === '{') openBraces++
-    else if (char === '}') openBraces--
-    else if (char === '[') openBrackets++
-    else if (char === ']') openBrackets--
+    if (char === '{') openBraces += 1
+    else if (char === '}') openBraces -= 1
+    else if (char === '[') openBrackets += 1
+    else if (char === ']') openBrackets -= 1
 
-    // If we've balanced the root object/array, mark this as a potential valid end
     if (openBraces === 0 && openBrackets === 0) {
       lastValidIdx = i + 1
     }
   }
 
-  // If cut off, try to force close it
   let candidate = cleaned
   if (openBraces > 0 || openBrackets > 0 || inString) {
     if (inString) candidate += '"'
@@ -97,7 +110,6 @@ function tryRepairJson(text: string) {
   try {
     return JSON.parse(candidate)
   } catch {
-    // If repair failed, try the last known balanced point
     if (lastValidIdx > 0) {
       try {
         return JSON.parse(cleaned.slice(0, lastValidIdx))
@@ -105,33 +117,14 @@ function tryRepairJson(text: string) {
         return null
       }
     }
+
     return null
   }
 }
 
-function extractActionBlocks(content: string) {
-  // 1. Try traditional markdown blocks
-  const blocks = Array.from(content.matchAll(CANVAS_ACTION_BLOCK), (match) => match[1].trim())
-  
-  // 2. If no valid blocks or they look truncated, look for raw JSON patterns
-  // This helps when the AI forgets the closing ```
-  if (blocks.length === 0 || content.trim().endsWith(blocks[blocks.length - 1])) {
-    const rawJsonMatches = content.match(/\{(?:[^{}]|(\{[^{}]*\}))*"action"\s*:\s*"[^"]+"[\s\S]*?(?=\s*```|$)/g)
-    if (rawJsonMatches) {
-      for (const match of rawJsonMatches) {
-        if (!blocks.includes(match.trim())) {
-          blocks.push(match.trim())
-        }
-      }
-    }
-  }
-
-  return blocks.filter(block => block.includes('"action"') || block.includes("'action'"))
-}
-
 function buildNodeContext(
   selectedNodeId: string | null,
-  nodes: Node<ArchitectNodeData>[],
+  nodes: CanvasNode[],
   edges: Edge[]
 ) {
   if (!selectedNodeId) {
@@ -142,6 +135,20 @@ function buildNodeContext(
 
   if (!selectedNode) {
     return `Selected node ${selectedNodeId} is no longer on the canvas.`
+  }
+
+  if (selectedNode.type === 'container') {
+    const childBlocks = nodes.filter((node) => node.type === 'block' && node.parentId === selectedNode.id)
+
+    return [
+      `Node id: ${selectedNode.id}`,
+      `Node type: ${selectedNode.type}`,
+      `Node name: ${selectedNode.data.name || selectedNode.id}`,
+      `Color: ${selectedNode.data.color}`,
+      `Collapsed: ${selectedNode.data.collapsed ? 'yes' : 'no'}`,
+      `Child blocks: ${childBlocks.length}`,
+      ...childBlocks.map((block) => `- ${block.data.name || block.id}`),
+    ].join('\n')
   }
 
   const connectedEdges = edges.filter(
@@ -163,10 +170,11 @@ function buildNodeContext(
 
   return [
     `Node id: ${selectedNode.id}`,
-    `Node type: ${selectedNode.type ?? 'service'}`,
+    `Node type: ${selectedNode.type}`,
     `Node name: ${selectedNode.data.name || selectedNode.id}`,
     `Description: ${selectedNode.data.description || 'None provided.'}`,
     `Status: ${selectedNode.data.status}`,
+    `Tech stack: ${selectedNode.data.techStack || 'Not specified.'}`,
     'Connected edges:',
     edgeSummary,
   ].join('\n')
@@ -210,116 +218,241 @@ export function ChatPanel() {
   const projectName = useAppStore((state) => state.projectName)
   const backend = useAppStore((state) => state.config.agent)
   const model = useAppStore((state) => state.config.model)
+  const locale = useAppStore((state) => state.locale)
   const selectedNodeId = useAppStore((state) => state.selectedNodeId)
   const chatOpen = useAppStore((state) => state.chatOpen)
   const setChatOpen = useAppStore((state) => state.setChatOpen)
-  const addNode = useAppStore((state) => state.addNode)
-  const addCanvasEdge = useAppStore((state) => state.addCanvasEdge)
-  const removeNode = useAppStore((state) => state.removeNode)
-  const updateNodeData = useAppStore((state) => state.updateNodeData)
-  const chatHistories = useAppStore((state) => state.chatHistories)
-  const updateChatHistory = useAppStore((state) => state.updateChatHistory)
-  useAppStore((state) => state.locale)
+  const setCanvas = useAppStore((state) => state.setCanvas)
+  const chatSessions = useAppStore((state) => state.chatSessions)
+  const activeChatSessionId = useAppStore((state) => state.activeChatSessionId)
+  const createChatSession = useAppStore((state) => state.createChatSession)
+  const updateActiveChatMessages = useAppStore((state) => state.updateActiveChatMessages)
   const [message, setMessage] = useState('')
   const [isSending, setIsSending] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [actionErrors, setActionErrors] = useState<Record<string, string>>({})
+  const [lastCanvasSnapshot, setLastCanvasSnapshot] = useState<{
+    nodes: CanvasNode[]
+    edges: Edge[]
+  } | null>(null)
+  const [lastAppliedActionKey, setLastAppliedActionKey] = useState<string | null>(null)
 
-  const activeChatKey = getChatKey(selectedNodeId)
-  const activeMessages = chatHistories.get(activeChatKey) ?? []
+  const activeSession = chatSessions.find((s) => s.id === activeChatSessionId)
+  const activeMessages = activeSession?.messages ?? []
   const selectedNode = nodes.find((node) => node.id === selectedNodeId) ?? null
   const nodeContext = useMemo(
     () => buildNodeContext(selectedNodeId, nodes, edges),
     [edges, nodes, selectedNodeId]
   )
 
-  function appendAssistantText(chatKey: string, text: string) {
-    updateChatHistory(chatKey, (current) => {
+  function updateAssistantMessage(content: string, actions?: string[]) {
+    updateActiveChatMessages((current) => {
       if (current.length === 0) {
-        return [{ role: 'assistant', content: text }]
+        return [{ role: 'assistant', content, ...(actions ? { actions } : {}) }]
       }
 
       const lastMessage = current.at(-1)
 
       if (!lastMessage || lastMessage.role !== 'assistant') {
-        return [...current, { role: 'assistant', content: text }]
+        return [...current, { role: 'assistant', content, ...(actions ? { actions } : {}) }]
       }
 
-      return [...current.slice(0, -1), { ...lastMessage, content: lastMessage.content + text }]
+      return [...current.slice(0, -1), { ...lastMessage, content, ...(actions ? { actions } : {}) }]
     })
   }
 
-  function applyCanvasAction(rawAction: string, actionKey: string) {
-    try {
-      const parsed = tryRepairJson(rawAction)
-      if (!parsed) {
-        throw new Error(t('invalid_json_format') || 'Invalid JSON format')
+  function cloneCanvasSnapshot() {
+    return {
+      nodes: nodes.map((node) => ({
+        ...node,
+        position: { ...node.position },
+        data: { ...node.data },
+        ...(node.style ? { style: { ...node.style } } : {}),
+      })),
+      edges: edges.map((edge) => ({ ...edge })),
+    }
+  }
+
+  function applyActionToSnapshot(
+    action: CanvasAction,
+    currentNodes: CanvasNode[],
+    currentEdges: Edge[]
+  ): { nodes: CanvasNode[]; edges: Edge[] } {
+    if (action.action === 'add-node') {
+      const node = action.node ?? {}
+      const type = VALID_NODE_TYPES.has(node.type ?? 'block') ? (node.type ?? 'block') : 'block'
+      const id =
+        typeof node.id === 'string' && node.id
+          ? node.id
+          : `${type}-${typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : Date.now()}`
+
+      if (type === 'container') {
+        const data = node.data as Partial<ContainerNodeData> | undefined
+        const colorCandidate =
+          typeof data?.color === 'string'
+            ? data.color
+            : typeof node.color === 'string'
+              ? node.color
+              : 'blue'
+
+        const newNode: CanvasNode = {
+          id,
+          type,
+          position: {
+            x: typeof node.position?.x === 'number' ? node.position.x : 80 + (currentNodes.length % 3) * 280,
+            y: typeof node.position?.y === 'number' ? node.position.y : 80 + Math.floor(currentNodes.length / 3) * 220,
+          },
+          style: {
+            width:
+              typeof node.style === 'object' && node.style && typeof node.style.width === 'number'
+                ? node.style.width
+                : 400,
+            height:
+              typeof node.style === 'object' && node.style && typeof node.style.height === 'number'
+                ? node.style.height
+                : 300,
+          },
+          data: {
+            name:
+              typeof data?.name === 'string'
+                ? data.name
+                : typeof node.name === 'string'
+                  ? node.name
+                  : id,
+            color: VALID_CONTAINER_COLORS.has(colorCandidate as ContainerColor)
+              ? (colorCandidate as ContainerColor)
+              : 'blue',
+            collapsed:
+              typeof data?.collapsed === 'boolean'
+                ? data.collapsed
+                : typeof node.collapsed === 'boolean'
+                  ? node.collapsed
+                  : false,
+          } as CanvasNodeData,
+        }
+        return { nodes: [...currentNodes, newNode], edges: currentEdges }
       }
 
-      const actions = Array.isArray(parsed) ? parsed : [parsed]
+      const data = node.data as Partial<BlockNodeData> | undefined
+      const parentId =
+        typeof node.parentId === 'string' &&
+        currentNodes.some((entry) => entry.id === node.parentId && entry.type === 'container')
+          ? node.parentId
+          : undefined
+      const statusCandidate =
+        typeof data?.status === 'string' ? data.status : typeof node.status === 'string' ? node.status : 'idle'
 
-      for (const action of actions) {
-        if (action.action === 'add-node') {
-          const node = action.node ?? {}
-          const index = nodes.length
-          const type = VALID_NODE_TYPES.has(node.type ?? 'service') ? (node.type ?? 'service') : 'service'
-          const data: Partial<ArchitectNodeData> = node.data ?? {}
-          const statusCandidate = typeof data.status === 'string' ? data.status : node.status
-          const id =
-            typeof node.id === 'string' && node.id
-              ? node.id
-              : `${type}-${typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : Date.now()}`
+      const newNode: CanvasNode = {
+        id,
+        type,
+        position: {
+          x: typeof node.position?.x === 'number' ? node.position.x : parentId ? 24 : 80 + (currentNodes.length % 3) * 240,
+          y: typeof node.position?.y === 'number' ? node.position.y : parentId ? 72 : 80 + Math.floor(currentNodes.length / 3) * 180,
+        },
+        ...(parentId ? { parentId, extent: 'parent' as const } : {}),
+        data: {
+          name:
+            typeof data?.name === 'string'
+              ? data.name
+              : typeof node.name === 'string'
+                ? node.name
+                : id,
+          description:
+            typeof data?.description === 'string'
+              ? data.description
+              : typeof node.description === 'string'
+                ? node.description
+                : '',
+          status: VALID_BUILD_STATUSES.has(statusCandidate as BuildStatus)
+            ? (statusCandidate as BuildStatus)
+            : 'idle',
+          ...(typeof data?.summary === 'string' ? { summary: data.summary } : {}),
+          ...(typeof data?.errorMessage === 'string' ? { errorMessage: data.errorMessage } : {}),
+          ...(typeof data?.techStack === 'string'
+            ? { techStack: data.techStack }
+            : typeof node.techStack === 'string'
+              ? { techStack: node.techStack }
+              : {}),
+        } as CanvasNodeData,
+      }
+      return { nodes: [...currentNodes, newNode], edges: currentEdges }
+    }
 
-          addNode({
-            id,
-            type,
-            position: {
-              x: typeof node.position?.x === 'number' ? node.position.x : 80 + (index % 3) * 240,
-              y: typeof node.position?.y === 'number' ? node.position.y : 80 + Math.floor(index / 3) * 180,
-            },
-            data: {
-              name:
-                typeof data.name === 'string'
-                  ? data.name
-                  : typeof node.name === 'string'
-                    ? node.name
-                    : id,
-              description:
-                typeof data.description === 'string'
-                  ? data.description
-                  : typeof node.description === 'string'
-                    ? node.description
-                    : '',
-              status: VALID_BUILD_STATUSES.has(statusCandidate as BuildStatus)
-                ? (statusCandidate as BuildStatus)
-                : 'idle',
-              ...(typeof data.summary === 'string' ? { summary: data.summary } : {}),
-              ...(typeof data.errorMessage === 'string'
-                ? { errorMessage: data.errorMessage }
-                : {}),
-            },
-          })
-        } else if (action.action === 'update-node') {
-          updateNodeData(action.target_id, action.data)
-        } else if (action.action === 'remove-node') {
-          removeNode(action.target_id)
-        } else if (action.action === 'add-edge') {
-          const edge = action.edge
-          const type = VALID_EDGE_TYPES.has(edge.type ?? 'sync') ? (edge.type ?? 'sync') : 'sync'
+    if (action.action === 'update-node') {
+      return {
+        nodes: currentNodes.map((n) =>
+          n.id === action.target_id ? { ...n, data: { ...n.data, ...action.data } } : n
+        ),
+        edges: currentEdges,
+      }
+    }
 
-          addCanvasEdge({
-            id:
-              typeof edge.id === 'string' && edge.id
-                ? edge.id
-                : `edge-${typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : Date.now()}`,
-            source: edge.source,
-            target: edge.target,
-            type,
-            ...(edge.label ? { label: edge.label } : {}),
-          })
+    if (action.action === 'remove-node') {
+      return {
+        nodes: currentNodes.filter((n) => n.id !== action.target_id),
+        edges: currentEdges.filter(
+          (e) => e.source !== action.target_id && e.target !== action.target_id
+        ),
+      }
+    }
+
+    if (action.action === 'add-edge') {
+      const edge = action.edge
+
+      if (
+        !currentNodes.some((n) => n.id === edge.source && n.type === 'block') ||
+        !currentNodes.some((n) => n.id === edge.target && n.type === 'block')
+      ) {
+        throw new Error('Edges can only connect existing block nodes.')
+      }
+
+      const type = VALID_EDGE_TYPES.has(edge.type ?? 'sync') ? (edge.type ?? 'sync') : 'sync'
+
+      const newEdge: Edge = {
+        id:
+          typeof edge.id === 'string' && edge.id
+            ? edge.id
+            : `edge-${typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : Date.now()}`,
+        source: edge.source,
+        target: edge.target,
+        type,
+        ...(edge.label ? { label: edge.label } : {}),
+      }
+      return { nodes: currentNodes, edges: [...currentEdges, newEdge] }
+    }
+
+    return { nodes: currentNodes, edges: currentEdges }
+  }
+
+  async function applyCanvasActions(rawActions: string[], actionKey: string) {
+    if (rawActions.length === 0) {
+      return
+    }
+
+    const snapshot = cloneCanvasSnapshot()
+
+    try {
+      let workingNodes: CanvasNode[] = snapshot.nodes
+      let workingEdges: Edge[] = snapshot.edges
+
+      for (const rawAction of rawActions) {
+        const parsed = tryRepairJson(rawAction)
+        if (!parsed) {
+          throw new Error('Invalid JSON action block.')
+        }
+
+        const actions = Array.isArray(parsed) ? parsed : [parsed]
+        for (const action of actions as CanvasAction[]) {
+          const result = applyActionToSnapshot(action, workingNodes, workingEdges)
+          workingNodes = result.nodes
+          workingEdges = result.edges
         }
       }
 
+      const arranged = await layoutArchitectureCanvas(workingNodes, workingEdges)
+      setCanvas(arranged.nodes, arranged.edges)
+      setLastCanvasSnapshot(snapshot)
+      setLastAppliedActionKey(actionKey)
       setActionErrors((current) => {
         const next = { ...current }
         delete next[actionKey]
@@ -328,9 +461,20 @@ export function ChatPanel() {
     } catch (applyError) {
       setActionErrors((current) => ({
         ...current,
-        [actionKey]: applyError instanceof Error ? applyError.message : t('apply_canvas_failed'),
+        [actionKey]:
+          applyError instanceof Error ? applyError.message : t('apply_canvas_failed'),
       }))
     }
+  }
+
+  function restorePreviousCanvasVersion(actionKey: string) {
+    if (!lastCanvasSnapshot || lastAppliedActionKey !== actionKey) {
+      return
+    }
+
+    setCanvas(lastCanvasSnapshot.nodes, lastCanvasSnapshot.edges)
+    setLastCanvasSnapshot(null)
+    setLastAppliedActionKey(null)
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -342,13 +486,15 @@ export function ChatPanel() {
       return
     }
 
-    const chatKey = activeChatKey
+    const sessionId = activeChatSessionId ?? createChatSession()
     const nextHistory = [...activeMessages, { role: 'user' as const, content: trimmedMessage }]
+    const shouldAutoApply = activeMessages.length === 0
+    const assistantActionKey = `${sessionId}-${nextHistory.length}`
 
     setMessage('')
     setError(null)
     setIsSending(true)
-    updateChatHistory(chatKey, () => [...nextHistory, { role: 'assistant', content: '' }])
+    updateActiveChatMessages(() => [...nextHistory, { role: 'assistant', content: '' }])
 
     try {
       const response = await fetch('/api/chat', {
@@ -374,6 +520,7 @@ export function ChatPanel() {
       const decoder = new TextDecoder()
       let buffer = ''
       let fullAssistantText = ''
+      let visibleAssistantText = ''
 
       while (true) {
         const { value, done } = await reader.read()
@@ -390,7 +537,11 @@ export function ChatPanel() {
         for (const streamEvent of events) {
           if (streamEvent.type === 'chunk' && streamEvent.text) {
             fullAssistantText += streamEvent.text
-            appendAssistantText(chatKey, streamEvent.text)
+            const nextVisibleText = extractVisibleChatText(fullAssistantText)
+            if (nextVisibleText !== visibleAssistantText) {
+              visibleAssistantText = nextVisibleText
+              updateAssistantMessage(visibleAssistantText)
+            }
             continue
           }
 
@@ -400,14 +551,14 @@ export function ChatPanel() {
         }
       }
 
-      // Automatically apply canvas actions after stream completes
       const actionBlocks = extractActionBlocks(fullAssistantText)
-      for (let i = 0; i < actionBlocks.length; i++) {
-        applyCanvasAction(actionBlocks[i], `auto-${chatKey}-${Date.now()}-${i}`)
+      updateAssistantMessage(extractVisibleChatText(fullAssistantText), actionBlocks)
+      if (shouldAutoApply && actionBlocks.length > 0) {
+        await applyCanvasActions(actionBlocks, assistantActionKey)
       }
     } catch (sendError) {
       setError(sendError instanceof Error ? sendError.message : t('send_failed'))
-      updateChatHistory(chatKey, (current) => {
+      updateActiveChatMessages((current) => {
         const lastMessage = current.at(-1)
 
         if (!lastMessage || lastMessage.role !== 'assistant' || lastMessage.content.trim()) {
@@ -465,11 +616,11 @@ export function ChatPanel() {
             ) : null}
 
             {activeMessages.map((entry, messageIndex) => {
-              const actionBlocks = entry.role === 'assistant' ? extractActionBlocks(entry.content) : []
+              const actionBlocks = entry.role === 'assistant' ? (entry.actions ?? []) : []
 
               return (
                 <div
-                  key={`${activeChatKey}-${messageIndex}`}
+                  key={`${activeChatSessionId}-${messageIndex}`}
                   className={`rounded-[1.5rem] border px-4 py-3 text-sm shadow-sm ${
                     entry.role === 'user'
                       ? 'ml-6 border-orange-200 bg-orange-50 text-orange-900'
@@ -479,27 +630,42 @@ export function ChatPanel() {
                   <div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-400">
                     {entry.role === 'user' ? t('user') : t('assistant')}
                   </div>
-                  <div className="whitespace-pre-wrap break-words">{entry.content || '...'}</div>
+                  <div className="whitespace-pre-wrap break-words">
+                    {entry.content || (entry.role === 'assistant' && actionBlocks.length > 0 ? '' : '...')}
+                  </div>
                   {actionBlocks.length > 0 ? (
                     <div className="mt-3 flex flex-wrap gap-2">
-                      {actionBlocks.map((rawAction, actionIndex) => {
-                        const actionKey = `${activeChatKey}-${messageIndex}-${actionIndex}`
+                      {(() => {
+                        const actionKey = `${activeChatSessionId}-${messageIndex}`
 
                         return (
-                          <div key={actionKey} className="space-y-2">
-                            <button
-                              type="button"
-                              onClick={() => applyCanvasAction(rawAction, actionKey)}
-                              className="vp-button-primary rounded-full px-3 py-1 text-xs font-medium"
-                            >
-                              {t('apply_to_canvas')}
-                            </button>
+                          <div className="space-y-2">
+                            <div className="flex flex-wrap gap-2">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  void applyCanvasActions(actionBlocks, actionKey)
+                                }}
+                                className="vp-button-primary rounded-full px-3 py-1 text-xs font-medium"
+                              >
+                                {t('apply_to_canvas')}
+                              </button>
+                              {lastCanvasSnapshot && lastAppliedActionKey === actionKey ? (
+                                <button
+                                  type="button"
+                                  onClick={() => restorePreviousCanvasVersion(actionKey)}
+                                  className="vp-button-secondary rounded-full px-3 py-1 text-xs font-medium"
+                                >
+                                  {locale === 'zh' ? '恢复上一个版本' : 'Restore Previous Version'}
+                                </button>
+                              ) : null}
+                            </div>
                             {actionErrors[actionKey] ? (
-                              <div className="text-xs text-rose-600">{actionErrors[actionKey]}</div>
+                              <div className="max-h-16 overflow-y-auto text-xs text-rose-600">{actionErrors[actionKey]}</div>
                             ) : null}
                           </div>
                         )
-                      })}
+                      })()}
                     </div>
                   ) : null}
                 </div>
@@ -508,7 +674,7 @@ export function ChatPanel() {
           </div>
 
           <form onSubmit={handleSubmit} className="border-t border-slate-200 pt-4">
-            {error ? <div className="mb-3 text-sm text-rose-600">{error}</div> : null}
+            {error ? <div className="mb-3 max-h-20 overflow-y-auto text-sm text-rose-600">{error}</div> : null}
             <div className="flex gap-2">
               <input
                 type="text"

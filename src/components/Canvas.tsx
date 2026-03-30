@@ -8,18 +8,37 @@ import {
   MiniMap,
   ReactFlow,
   useReactFlow,
+  type Edge,
   type Node,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { ContextMenu } from '@/components/ContextMenu'
 import { edgeTypes } from '@/components/edges/edgeTypes'
 import { nodeTypes } from '@/components/nodes/nodeTypes'
+import {
+  BLOCK_HEIGHT,
+  BLOCK_WIDTH,
+  COLLAPSED_CONTAINER_HEIGHT,
+  CONTAINER_PADDING,
+  layoutArchitectureCanvas,
+} from '@/lib/graph-layout'
 import { useBuildActions } from '@/hooks/useBuildActions'
 import { t } from '@/lib/i18n'
 import { useAppStore } from '@/lib/store'
-import { getNodeTypeLabel } from '@/lib/ui-text'
-import type { ArchitectNodeData, NodeType } from '@/lib/types'
+import {
+  CONTAINER_COLOR_OPTIONS,
+  formatContainerColorLabel,
+  getNodeTypeLabel,
+} from '@/lib/ui-text'
+import type {
+  BlockNodeData,
+  CanvasNodeData,
+  ContainerColor,
+  ContainerNodeData,
+  VPNodeType,
+} from '@/lib/types'
 
+type CanvasNode = Node<CanvasNodeData>
 type ContextMenuState =
   | { kind: 'canvas'; x: number; y: number }
   | { kind: 'node'; x: number; y: number; nodeId: string }
@@ -28,6 +47,10 @@ type ContextMenuState =
 interface CanvasProps {
   onOpenImportDialog: () => void
 }
+
+const DEFAULT_CONTAINER_WIDTH = 400
+const DEFAULT_CONTAINER_HEIGHT = 300
+const BLOCK_MARGIN = 12
 
 function getMenuPosition(event: Pick<React.MouseEvent, 'clientX' | 'clientY'>) {
   const menuWidth = 224
@@ -40,24 +63,143 @@ function getMenuPosition(event: Pick<React.MouseEvent, 'clientX' | 'clientY'>) {
   }
 }
 
+function clamp(value: number, min: number, max: number) {
+  return Math.min(Math.max(value, min), max)
+}
+
+function cloneCanvas(nodes: CanvasNode[], edges: Edge[]) {
+  return {
+    nodes: nodes.map((node) => ({
+      ...node,
+      position: { ...node.position },
+      data: { ...node.data },
+      ...(node.style ? { style: { ...node.style } } : {}),
+    })),
+    edges: edges.map((edge) => ({ ...edge })),
+  }
+}
+
+function getContainerDimensions(node: Node<ContainerNodeData>) {
+  return {
+    width:
+      typeof node.style?.width === 'number' ? node.style.width : DEFAULT_CONTAINER_WIDTH,
+    height:
+      typeof node.style?.height === 'number' ? node.style.height : DEFAULT_CONTAINER_HEIGHT,
+  }
+}
+
+function getAbsolutePosition(node: CanvasNode, nodes: CanvasNode[]) {
+  if (!node.parentId) {
+    return node.position
+  }
+
+  const parent = nodes.find((entry) => entry.id === node.parentId)
+
+  if (!parent) {
+    return node.position
+  }
+
+  return {
+    x: parent.position.x + node.position.x,
+    y: parent.position.y + node.position.y,
+  }
+}
+
+function getRelativeBlockPosition(
+  absolutePosition: { x: number; y: number },
+  container: Node<ContainerNodeData>
+) {
+  const { width, height } = getContainerDimensions(container)
+  const maxX = Math.max(BLOCK_MARGIN, width - BLOCK_WIDTH - BLOCK_MARGIN)
+  const maxY = Math.max(CONTAINER_PADDING, height - BLOCK_HEIGHT - BLOCK_MARGIN)
+
+  return {
+    x: clamp(absolutePosition.x - container.position.x, BLOCK_MARGIN, maxX),
+    y: clamp(absolutePosition.y - container.position.y, CONTAINER_PADDING, maxY),
+  }
+}
+
+function getDropTargetContainer(
+  candidates: Node[],
+  excludeId?: string
+) {
+  return candidates
+    .filter(
+      (node): node is Node<ContainerNodeData> =>
+        node.type === 'container' &&
+        node.id !== excludeId &&
+        !(node.data as ContainerNodeData).collapsed
+    )
+    .at(-1)
+}
+
 export function Canvas({ onOpenImportDialog }: CanvasProps) {
   const nodes = useAppStore((state) => state.nodes)
   const edges = useAppStore((state) => state.edges)
+  const canvasVersion = useAppStore((state) => state.canvasVersion)
   const onNodesChange = useAppStore((state) => state.onNodesChange)
   const onEdgesChange = useAppStore((state) => state.onEdgesChange)
   const onConnect = useAppStore((state) => state.onConnect)
   const addNode = useAppStore((state) => state.addNode)
   const removeNode = useAppStore((state) => state.removeNode)
+  const setCanvas = useAppStore((state) => state.setCanvas)
   const setSelectedNodeId = useAppStore((state) => state.setSelectedNodeId)
   const setChatOpen = useAppStore((state) => state.setChatOpen)
   const updateNodeData = useAppStore((state) => state.updateNodeData)
   useAppStore((state) => state.locale)
-  const { screenToFlowPosition } = useReactFlow()
+  const { fitView, screenToFlowPosition, getIntersectingNodes } = useReactFlow()
   const { buildAll, buildNode, isBuilding } = useBuildActions()
   const [contextMenu, setContextMenu] = useState<ContextMenuState>(null)
   const [editingNodeId, setEditingNodeId] = useState<string | null>(null)
   const [draftName, setDraftName] = useState('')
   const [draftDescription, setDraftDescription] = useState('')
+  const [draftTechStack, setDraftTechStack] = useState('')
+  const [draftColor, setDraftColor] = useState<ContainerColor>('blue')
+
+  const toggleContainerCollapse = useCallback(
+    async (nodeId: string) => {
+      const canvas = cloneCanvas(nodes, edges)
+      const target = canvas.nodes.find(
+        (node): node is Node<ContainerNodeData> => node.id === nodeId && node.type === 'container'
+      )
+
+      if (!target) {
+        return
+      }
+
+      const nextCollapsed = !target.data.collapsed
+      const nextNodes = canvas.nodes.map((node) => {
+        if (node.id === nodeId && node.type === 'container') {
+          return {
+            ...node,
+            data: { ...node.data, collapsed: nextCollapsed },
+            style: {
+              ...node.style,
+              ...(nextCollapsed ? { height: COLLAPSED_CONTAINER_HEIGHT } : {}),
+            },
+          }
+        }
+
+        if (node.type === 'block' && node.parentId === nodeId) {
+          return {
+            ...node,
+            hidden: nextCollapsed,
+          }
+        }
+
+        return node
+      })
+
+      if (nextCollapsed) {
+        setCanvas(nextNodes, canvas.edges)
+        return
+      }
+
+      const arranged = await layoutArchitectureCanvas(nextNodes, canvas.edges)
+      setCanvas(arranged.nodes, arranged.edges)
+    },
+    [edges, nodes, setCanvas]
+  )
 
   const onDragOver = useCallback((event: React.DragEvent<HTMLDivElement>) => {
     event.preventDefault()
@@ -69,27 +211,102 @@ export function Canvas({ onOpenImportDialog }: CanvasProps) {
       event.preventDefault()
 
       const rawType = event.dataTransfer.getData('application/reactflow')
-      if (!(rawType in nodeTypes)) {
+      if (rawType !== 'container' && rawType !== 'block') {
         return
       }
 
-      const type = rawType as NodeType
+      const type = rawType as VPNodeType
       const position = screenToFlowPosition({
         x: event.clientX,
         y: event.clientY,
       })
 
-      const newNode: Node<ArchitectNodeData> = {
-        id: `${type}-${Date.now()}`,
-        type,
-        position,
-        data: { name: '', description: '', status: 'idle' },
+      if (type === 'container') {
+        useAppStore.getState().pushCanvasSnapshot()
+        addNode({
+          id: `container-${Date.now()}`,
+          type: 'container',
+          position,
+          style: { width: DEFAULT_CONTAINER_WIDTH, height: DEFAULT_CONTAINER_HEIGHT },
+          data: { name: '', color: 'blue', collapsed: false },
+        })
+        return
       }
 
-      addNode(newNode)
+      const targetContainer = getDropTargetContainer(
+        getIntersectingNodes({
+          x: position.x,
+          y: position.y,
+          width: BLOCK_WIDTH,
+          height: BLOCK_HEIGHT,
+        })
+      )
+
+      useAppStore.getState().pushCanvasSnapshot()
+      addNode({
+        id: `block-${Date.now()}`,
+        type: 'block',
+        position: targetContainer ? getRelativeBlockPosition(position, targetContainer) : position,
+        ...(targetContainer
+          ? { parentId: targetContainer.id, extent: 'parent' as const }
+          : {}),
+        data: { name: '', description: '', status: 'idle' },
+      })
     },
-    [addNode, screenToFlowPosition]
+    [addNode, getIntersectingNodes, screenToFlowPosition]
   )
+
+  const onNodeDragStop = useCallback(
+    (_event: React.MouseEvent, draggedNode: CanvasNode) => {
+      if (draggedNode.type !== 'block') {
+        return
+      }
+
+      const absolutePosition = getAbsolutePosition(draggedNode, nodes)
+      const targetContainer = getDropTargetContainer(
+        getIntersectingNodes(draggedNode),
+        draggedNode.id
+      )
+      const nextParentId = targetContainer?.id ?? null
+
+      if ((draggedNode.parentId ?? null) === nextParentId) {
+        return
+      }
+
+      useAppStore.getState().pushCanvasSnapshot()
+
+      const nextNodes = nodes.map((node) => {
+        if (node.id !== draggedNode.id || node.type !== 'block') {
+          return node
+        }
+
+        return {
+          ...node,
+          position: nextParentId && targetContainer
+            ? getRelativeBlockPosition(absolutePosition, targetContainer)
+            : absolutePosition,
+          ...(nextParentId
+            ? { parentId: nextParentId, extent: 'parent' as const }
+            : { parentId: undefined, extent: undefined }),
+        }
+      })
+
+      setCanvas(nextNodes, edges)
+    },
+    [edges, getIntersectingNodes, nodes, setCanvas]
+  )
+
+  useEffect(() => {
+    if (canvasVersion <= 0 || nodes.length === 0) {
+      return
+    }
+
+    const timer = window.setTimeout(() => {
+      void fitView({ padding: 0.1, duration: 300 })
+    }, 100)
+
+    return () => window.clearTimeout(timer)
+  }, [canvasVersion, fitView, nodes.length])
 
   useEffect(() => {
     if (!editingNodeId) {
@@ -120,6 +337,26 @@ export function Canvas({ onOpenImportDialog }: CanvasProps) {
     }
   }, [])
 
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+        e.preventDefault()
+        useAppStore.getState().undo()
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && e.shiftKey) {
+        e.preventDefault()
+        useAppStore.getState().redo()
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === 'y') {
+        e.preventDefault()
+        useAppStore.getState().redo()
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [])
+
   function openNodeEditor(nodeId: string) {
     const node = nodes.find((entry) => entry.id === nodeId)
 
@@ -128,8 +365,20 @@ export function Canvas({ onOpenImportDialog }: CanvasProps) {
     }
 
     setEditingNodeId(nodeId)
-    setDraftName(node.data.name)
-    setDraftDescription(node.data.description)
+    setDraftName(node.data.name ?? '')
+
+    if (node.type === 'container') {
+      const containerData = node.data as ContainerNodeData
+      setDraftColor(containerData.color)
+      setDraftDescription('')
+      setDraftTechStack('')
+    } else {
+      const blockData = node.data as BlockNodeData
+      setDraftDescription(blockData.description)
+      setDraftTechStack(blockData.techStack ?? '')
+      setDraftColor('blue')
+    }
+
     setContextMenu(null)
   }
 
@@ -137,6 +386,8 @@ export function Canvas({ onOpenImportDialog }: CanvasProps) {
     setEditingNodeId(null)
     setDraftName('')
     setDraftDescription('')
+    setDraftTechStack('')
+    setDraftColor('blue')
   }
 
   function saveNodeEdits(event: React.FormEvent<HTMLFormElement>) {
@@ -146,47 +397,86 @@ export function Canvas({ onOpenImportDialog }: CanvasProps) {
       return
     }
 
-    updateNodeData(editingNodeId, {
-      name: draftName.trim(),
-      description: draftDescription.trim(),
-    })
+    const node = nodes.find((entry) => entry.id === editingNodeId)
+
+    if (!node) {
+      return
+    }
+
+    if (node.type === 'container') {
+      updateNodeData(editingNodeId, {
+        name: draftName.trim(),
+        color: draftColor,
+      })
+    } else {
+      updateNodeData(editingNodeId, {
+        name: draftName.trim(),
+        description: draftDescription.trim(),
+        techStack: draftTechStack.trim(),
+      })
+    }
+
     closeNodeEditor()
   }
 
   const editingNode = editingNodeId ? nodes.find((node) => node.id === editingNodeId) ?? null : null
-  const nodeMenuItems =
+  const contextNode =
     contextMenu?.kind === 'node'
-      ? [
-          {
-            label: t('discuss_with_ai'),
-            onSelect: () => {
-              setSelectedNodeId(contextMenu.nodeId)
-              setChatOpen(true)
+      ? nodes.find((node) => node.id === contextMenu.nodeId) ?? null
+      : null
+
+  const nodeMenuItems =
+    contextMenu?.kind === 'node' && contextNode
+      ? contextNode.type === 'container'
+        ? [
+            {
+              label: t('edit'),
+              onSelect: () => openNodeEditor(contextNode.id),
             },
-          },
-          {
-            label: t('build_this_node'),
-            onSelect: () => buildNode(contextMenu.nodeId),
-            disabled: isBuilding,
-          },
-          {
-            label: t('edit'),
-            onSelect: () => openNodeEditor(contextMenu.nodeId),
-          },
-          {
-            label: t('delete'),
-            onSelect: () => removeNode(contextMenu.nodeId),
-            tone: 'danger' as const,
-          },
-        ]
+            {
+              label: (contextNode.data as ContainerNodeData).collapsed ? t('expand') : t('collapse'),
+              onSelect: () => {
+                void toggleContainerCollapse(contextNode.id)
+              },
+            },
+            {
+              label: t('delete'),
+              onSelect: () => removeNode(contextNode.id),
+              tone: 'danger' as const,
+            },
+          ]
+        : [
+            {
+              label: t('discuss_with_ai'),
+              onSelect: () => {
+                setSelectedNodeId(contextNode.id)
+                setChatOpen(true)
+              },
+            },
+            {
+              label: t('build_this_node'),
+              onSelect: () => buildNode(contextNode.id),
+              disabled: isBuilding,
+            },
+            {
+              label: t('edit'),
+              onSelect: () => openNodeEditor(contextNode.id),
+            },
+            {
+              label: t('delete'),
+              onSelect: () => removeNode(contextNode.id),
+              tone: 'danger' as const,
+            },
+          ]
       : []
+
   const canvasMenuItems =
     contextMenu?.kind === 'canvas'
       ? [
           {
             label: t('build_all'),
             onSelect: buildAll,
-            disabled: nodes.length === 0 || isBuilding,
+            disabled: nodes.filter((node) => node.type === 'block').length === 0 || isBuilding,
           },
           {
             label: t('import_project'),
@@ -207,6 +497,7 @@ export function Canvas({ onOpenImportDialog }: CanvasProps) {
         onConnect={onConnect}
         onDrop={onDrop}
         onDragOver={onDragOver}
+        onNodeDragStop={onNodeDragStop}
         onPaneClick={() => {
           setSelectedNodeId(null)
           setContextMenu(null)
@@ -312,23 +603,57 @@ export function Canvas({ onOpenImportDialog }: CanvasProps) {
                   type="text"
                   value={draftName}
                   onChange={(event) => setDraftName(event.target.value)}
-                  placeholder={t('sample_user_service')}
+                  placeholder={editingNode.type === 'container' ? t('container') : t('block')}
                   className="vp-input rounded-2xl px-4 py-3 text-sm"
                 />
               </label>
 
-              <label className="block">
-                <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
-                  {t('description')}
-                </span>
-                <textarea
-                  value={draftDescription}
-                  onChange={(event) => setDraftDescription(event.target.value)}
-                  rows={4}
-                  placeholder={t('node_desc_placeholder')}
-                  className="vp-input rounded-2xl px-4 py-3 text-sm"
-                />
-              </label>
+              {editingNode.type === 'container' ? (
+                <label className="block">
+                  <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+                    {t('color')}
+                  </span>
+                  <select
+                    value={draftColor}
+                    onChange={(event) => setDraftColor(event.target.value as ContainerColor)}
+                    className="vp-input w-full rounded-2xl px-4 py-3 text-sm"
+                  >
+                    {CONTAINER_COLOR_OPTIONS.map((color) => (
+                      <option key={color} value={color}>
+                        {formatContainerColorLabel(color)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : (
+                <>
+                  <label className="block">
+                    <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+                      {t('description')}
+                    </span>
+                    <textarea
+                      value={draftDescription}
+                      onChange={(event) => setDraftDescription(event.target.value)}
+                      rows={4}
+                      placeholder={t('node_desc_placeholder')}
+                      className="vp-input rounded-2xl px-4 py-3 text-sm"
+                    />
+                  </label>
+
+                  <label className="block">
+                    <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+                      {t('tech_stack')}
+                    </span>
+                    <input
+                      type="text"
+                      value={draftTechStack}
+                      onChange={(event) => setDraftTechStack(event.target.value)}
+                      placeholder="React 19 + Next.js 16"
+                      className="vp-input rounded-2xl px-4 py-3 text-sm"
+                    />
+                  </label>
+                </>
+              )}
 
               <div className="flex justify-end gap-2">
                 <button

@@ -3,34 +3,85 @@ import type { Edge, Node } from '@xyflow/react'
 import { extractAgentText, extractJsonObject } from '@/lib/agent-output'
 import { analyzeProject } from '@/lib/prompt-templates'
 import { agentRunner } from '@/lib/agent-runner-instance'
-import type { ArchitectNodeData, BuildStatus, EdgeType, NodeType } from '@/lib/types'
+import type {
+  BlockNodeData,
+  BuildStatus,
+  CanvasNodeData,
+  ContainerColor,
+  ContainerNodeData,
+  EdgeType,
+} from '@/lib/types'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 interface ImportProjectRequest {
   dir: string
-  backend?: 'claude-code' | 'codex'
+  backend?: 'claude-code' | 'codex' | 'gemini'
 }
 
 interface JsonLike {
   [key: string]: unknown
 }
 
-const VALID_NODE_TYPES = new Set<NodeType>(['service', 'frontend', 'api', 'database', 'queue', 'external'])
+interface ImportBlock {
+  id?: string
+  name?: string
+  description?: string
+  status?: string
+  techStack?: string
+  summary?: string
+  errorMessage?: string
+}
+
+interface ImportContainer {
+  id?: string
+  name?: string
+  color?: string
+  blocks?: ImportBlock[]
+}
+
+interface ImportEdge {
+  id?: string
+  source?: string
+  sourceId?: string
+  target?: string
+  targetId?: string
+  type?: string
+  label?: string
+}
+
 const VALID_EDGE_TYPES = new Set<EdgeType>(['sync', 'async', 'bidirectional'])
 const VALID_BUILD_STATUSES = new Set<BuildStatus>(['idle', 'building', 'done', 'error'])
+const VALID_CONTAINER_COLORS = new Set<ContainerColor>([
+  'blue',
+  'green',
+  'purple',
+  'amber',
+  'rose',
+  'slate',
+])
+
+const LEGACY_GROUP_MAP: Record<string, { containerName: string; color: ContainerColor }> = {
+  services: { containerName: 'Services', color: 'purple' },
+  frontends: { containerName: 'Frontend', color: 'blue' },
+  apis: { containerName: 'API Gateway', color: 'green' },
+  databases: { containerName: 'Data Layer', color: 'amber' },
+  queues: { containerName: 'Message Queue', color: 'slate' },
+  externals: { containerName: 'External', color: 'rose' },
+}
 
 function isObject(value: unknown): value is JsonLike {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
 }
 
-function getBackend(backend?: 'claude-code' | 'codex') {
-  if (backend === 'codex' || backend === 'claude-code') {
+function getBackend(backend?: 'claude-code' | 'codex' | 'gemini') {
+  if (backend === 'codex' || backend === 'claude-code' || backend === 'gemini') {
     return backend
   }
 
-  return process.env.VIBE_IMPORT_AGENT_BACKEND === 'codex' ? 'codex' : 'claude-code'
+  const envBackend = process.env.VIBE_IMPORT_AGENT_BACKEND
+  return envBackend === 'codex' || envBackend === 'gemini' ? envBackend : 'claude-code'
 }
 
 function buildPrompt(dir: string) {
@@ -43,32 +94,37 @@ function buildPrompt(dir: string) {
     }),
     '',
     'Return structured JSON for React Flow and nothing else, unless you need a fenced ```json block.',
-    'The JSON shape must be:',
+    'The preferred JSON shape is:',
     '{',
-    '  "nodes": [',
+    '  "containers": [',
     '    {',
-    '      "id": "frontend-app",',
-    '      "type": "frontend",',
-    '      "position": { "x": 0, "y": 0 },',
-    '      "data": {',
-    '        "name": "Frontend App",',
-    '        "description": "What this part does",',
-    '        "status": "idle"',
-    '      }',
+    '      "id": "container-client",',
+    '      "name": "Client Layer",',
+    '      "color": "blue",',
+    '      "blocks": [',
+    '        {',
+    '          "id": "block-web",',
+    '          "name": "Web App",',
+    '          "description": "User-facing application",',
+    '          "status": "idle",',
+    '          "techStack": "Next.js 16"',
+    '        }',
+    '      ]',
     '    }',
     '  ],',
     '  "edges": [',
     '    {',
     '      "id": "edge-1",',
-    '      "source": "frontend-app",',
-    '      "target": "api-gateway",',
+    '      "source": "block-web",',
+    '      "target": "block-api",',
     '      "type": "sync",',
     '      "label": "HTTPS"',
     '    }',
     '  ]',
     '}',
-    'Use only these node types: service, frontend, api, database, queue, external.',
+    'If you cannot produce the new format, the legacy shape with nodes.services/frontends/apis/databases/queues/externals is still accepted.',
     'Use only these edge types: sync, async, bidirectional.',
+    'Use only these container colors: blue, green, purple, amber, rose, slate.',
   ].join('\n')
 }
 
@@ -79,105 +135,237 @@ async function waitForCompletion(agentId: string, timeoutMs = 300000) {
     const status = agentRunner.getStatus(agentId)
 
     if (!status) {
-      throw new Error('未找到导入代理。')
+      throw new Error('Import agent not found.')
     }
 
     if (status.status === 'done') {
+      // Agent exited successfully but with non-zero exit code — treat output as best-effort
+      if (status.exitCode && status.exitCode !== 0 && !status.output.trim()) {
+        throw new Error(
+          `Agent exited with code ${status.exitCode}.${status.errorMessage ? ` ${status.errorMessage.slice(0, 200)}` : ''}`
+        )
+      }
       return status
     }
 
     if (status.status === 'error') {
-      throw new Error(status.errorMessage ?? '项目导入失败。')
+      const code = status.exitCode
+      const stderr = status.errorMessage?.slice(0, 300) ?? ''
+      const parts = ['Import agent failed']
+      if (code !== undefined && code !== null) parts.push(`(exit code ${code})`)
+      if (stderr) parts.push(`: ${stderr}`)
+      throw new Error(parts.join(''))
     }
 
     await new Promise((resolve) => setTimeout(resolve, 250))
   }
 
   agentRunner.stopAgent(agentId)
-  throw new Error('项目导入超时。')
+  throw new Error('Import timed out after 5 minutes. Try a smaller project or a faster backend.')
 }
 
-function normalizeNodes(rawNodes: unknown): Node<ArchitectNodeData>[] {
-  if (!Array.isArray(rawNodes)) {
-    return []
-  }
+function normalizeContainerColor(color: unknown): ContainerColor {
+  return VALID_CONTAINER_COLORS.has(color as ContainerColor) ? (color as ContainerColor) : 'blue'
+}
 
-  return rawNodes.flatMap((entry, index) => {
+function normalizeBuildStatus(status: unknown): BuildStatus {
+  return VALID_BUILD_STATUSES.has(status as BuildStatus) ? (status as BuildStatus) : 'idle'
+}
+
+function normalizeNewFormat(root: JsonLike) {
+  const nodes: Node<CanvasNodeData>[] = []
+  const nodeIds = new Set<string>()
+
+  const containers = Array.isArray(root.containers) ? root.containers : []
+  for (const [containerIndex, entry] of containers.entries()) {
     if (!isObject(entry)) {
-      return []
+      continue
     }
 
-    const data = isObject(entry.data) ? entry.data : {}
-    const type = VALID_NODE_TYPES.has(entry.type as NodeType) ? (entry.type as NodeType) : 'service'
-    const id =
-      typeof entry.id === 'string' && entry.id.trim() ? entry.id : `${type}-${index + 1}`
-    const statusCandidate =
-      typeof data.status === 'string'
-        ? data.status
-        : typeof entry.status === 'string'
-          ? entry.status
-          : 'idle'
+    const container = entry as ImportContainer
+    const containerId =
+      typeof container.id === 'string' && container.id.trim()
+        ? container.id
+        : `container-${containerIndex + 1}`
 
-    return [
-      {
-        id,
-        type,
-        position: {
-          x: isObject(entry.position) && typeof entry.position.x === 'number' ? entry.position.x : (index % 3) * 240,
-          y:
-            isObject(entry.position) && typeof entry.position.y === 'number'
-              ? entry.position.y
-              : Math.floor(index / 3) * 180,
-        },
+    nodes.push({
+      id: containerId,
+      type: 'container',
+      position: { x: 0, y: 0 },
+      style: { width: 400, height: 300 },
+      data: {
+        name:
+          typeof container.name === 'string' && container.name.trim()
+            ? container.name
+            : `Container ${containerIndex + 1}`,
+        color: normalizeContainerColor(container.color),
+        collapsed: false,
+      } satisfies ContainerNodeData,
+    })
+    nodeIds.add(containerId)
+
+    const blocks = Array.isArray(container.blocks) ? container.blocks : []
+    for (const [blockIndex, blockEntry] of blocks.entries()) {
+      if (!isObject(blockEntry)) {
+        continue
+      }
+
+      const block = blockEntry as ImportBlock
+      const blockId =
+        typeof block.id === 'string' && block.id.trim()
+          ? block.id
+          : `block-${containerIndex + 1}-${blockIndex + 1}`
+
+      nodes.push({
+        id: blockId,
+        type: 'block',
+        position: { x: 24, y: 72 },
+        parentId: containerId,
+        extent: 'parent',
         data: {
           name:
-            typeof data.name === 'string'
-              ? data.name
-              : typeof entry.name === 'string'
-                ? entry.name
-                : id,
-          description:
-            typeof data.description === 'string'
-              ? data.description
-              : typeof entry.description === 'string'
-                ? entry.description
-                : '',
-          status: VALID_BUILD_STATUSES.has(statusCandidate as BuildStatus)
-            ? (statusCandidate as BuildStatus)
-            : 'idle',
-          ...(typeof data.summary === 'string' ? { summary: data.summary } : {}),
-          ...(typeof data.errorMessage === 'string' ? { errorMessage: data.errorMessage } : {}),
-        },
-      },
-    ]
-  })
+            typeof block.name === 'string' && block.name.trim() ? block.name : blockId,
+          description: typeof block.description === 'string' ? block.description : '',
+          status: normalizeBuildStatus(block.status),
+          ...(typeof block.techStack === 'string' ? { techStack: block.techStack } : {}),
+          ...(typeof block.summary === 'string' ? { summary: block.summary } : {}),
+          ...(typeof block.errorMessage === 'string'
+            ? { errorMessage: block.errorMessage }
+            : {}),
+        } satisfies BlockNodeData,
+      })
+      nodeIds.add(blockId)
+    }
+  }
+
+  const edges = normalizeEdges(root.edges, nodeIds)
+  return { nodes, edges }
 }
 
-function normalizeEdges(rawEdges: unknown, nodeIds: Set<string>): Edge[] {
+function normalizeLegacyFormat(root: JsonLike) {
+  const nodes: Node<CanvasNodeData>[] = []
+  const nodeIds = new Set<string>()
+  const nameToId = new Map<string, string>()
+
+  const groups = isObject(root.nodes) ? root.nodes : {}
+  let containerIndex = 0
+
+  for (const [group, value] of Object.entries(groups)) {
+    const mapping = LEGACY_GROUP_MAP[group]
+    if (!mapping || !Array.isArray(value)) {
+      continue
+    }
+
+    containerIndex += 1
+    const containerId = `legacy-${group}`
+    nodes.push({
+      id: containerId,
+      type: 'container',
+      position: { x: 0, y: 0 },
+      style: { width: 400, height: 300 },
+      data: {
+        name: mapping.containerName,
+        color: mapping.color,
+        collapsed: false,
+      } satisfies ContainerNodeData,
+    })
+    nodeIds.add(containerId)
+
+    for (const [blockIndex, blockEntry] of value.entries()) {
+      if (!isObject(blockEntry)) {
+        continue
+      }
+
+      const block = blockEntry as ImportBlock
+      const blockId =
+        typeof block.id === 'string' && block.id.trim()
+          ? block.id
+          : `block-${containerIndex}-${blockIndex + 1}`
+
+      nameToId.set(typeof block.name === 'string' ? block.name : blockId, blockId)
+      nodes.push({
+        id: blockId,
+        type: 'block',
+        position: { x: 24, y: 72 },
+        parentId: containerId,
+        extent: 'parent',
+        data: {
+          name:
+            typeof block.name === 'string' && block.name.trim() ? block.name : blockId,
+          description: typeof block.description === 'string' ? block.description : '',
+          status: normalizeBuildStatus(block.status),
+          ...(typeof block.techStack === 'string' ? { techStack: block.techStack } : {}),
+          ...(typeof block.summary === 'string' ? { summary: block.summary } : {}),
+          ...(typeof block.errorMessage === 'string'
+            ? { errorMessage: block.errorMessage }
+            : {}),
+        } satisfies BlockNodeData,
+      })
+      nodeIds.add(blockId)
+    }
+  }
+
+  const edges = Array.isArray(root.edges)
+    ? root.edges.flatMap((entry, index) => {
+        if (!isObject(entry)) {
+          return []
+        }
+
+        const edge = entry as ImportEdge
+        const source = edge.sourceId || nameToId.get(edge.source ?? '') || edge.source
+        const target = edge.targetId || nameToId.get(edge.target ?? '') || edge.target
+
+        if (!source || !target || !nodeIds.has(source) || !nodeIds.has(target)) {
+          return []
+        }
+
+        return [
+          {
+            id:
+              typeof edge.id === 'string' && edge.id.trim()
+                ? edge.id
+                : `edge-${index + 1}`,
+            source,
+            target,
+            type: VALID_EDGE_TYPES.has(edge.type as EdgeType) ? (edge.type as EdgeType) : 'sync',
+            ...(typeof edge.label === 'string' ? { label: edge.label } : {}),
+          } satisfies Edge,
+        ]
+      })
+    : []
+
+  return { nodes, edges }
+}
+
+function normalizeEdges(rawEdges: unknown, nodeIds: Set<string>) {
   if (!Array.isArray(rawEdges)) {
     return []
   }
 
   return rawEdges.flatMap((entry, index) => {
-    if (!isObject(entry) || typeof entry.source !== 'string' || typeof entry.target !== 'string') {
+    if (!isObject(entry)) {
       return []
     }
 
-    if (!nodeIds.has(entry.source) || !nodeIds.has(entry.target)) {
+    const edge = entry as ImportEdge
+    if (
+      typeof edge.source !== 'string' ||
+      typeof edge.target !== 'string' ||
+      !nodeIds.has(edge.source) ||
+      !nodeIds.has(edge.target)
+    ) {
       return []
     }
-
-    const type = VALID_EDGE_TYPES.has(entry.type as EdgeType) ? (entry.type as EdgeType) : 'sync'
 
     return [
       {
         id:
-          typeof entry.id === 'string' && entry.id.trim() ? entry.id : `edge-${index + 1}`,
-        source: entry.source,
-        target: entry.target,
-        type,
-        ...(typeof entry.label === 'string' ? { label: entry.label } : {}),
-      },
+          typeof edge.id === 'string' && edge.id.trim() ? edge.id : `edge-${index + 1}`,
+        source: edge.source,
+        target: edge.target,
+        type: VALID_EDGE_TYPES.has(edge.type as EdgeType) ? (edge.type as EdgeType) : 'sync',
+        ...(typeof edge.label === 'string' ? { label: edge.label } : {}),
+      } satisfies Edge,
     ]
   })
 }
@@ -186,29 +374,26 @@ function normalizeCanvas(payload: unknown) {
   const root = isObject(payload) && isObject(payload.canvas) ? payload.canvas : payload
 
   if (!isObject(root)) {
-    throw new Error('代理没有返回 JSON 对象。')
+    throw new Error('Agent did not return a JSON object.')
   }
 
-  const nodes = normalizeNodes(root.nodes)
-
-  if (nodes.length === 0) {
-    throw new Error('代理没有返回可导入的节点。')
+  const canvas = isObject(root.nodes) ? normalizeLegacyFormat(root) : normalizeNewFormat(root)
+  if (canvas.nodes.length === 0) {
+    throw new Error('Agent did not return any importable nodes.')
   }
 
-  const edges = normalizeEdges(root.edges, new Set(nodes.map((node) => node.id)))
-
-  return { nodes, edges }
+  return canvas
 }
 
 export async function POST(request: Request) {
   const { dir, backend } = (await request.json()) as ImportProjectRequest
 
   if (!dir?.trim()) {
-    return Response.json({ error: '项目目录路径不能为空。' }, { status: 400 })
+    return Response.json({ error: 'Project directory path cannot be empty.' }, { status: 400 })
   }
 
   if (!fs.existsSync(dir) || !fs.statSync(dir).isDirectory()) {
-    return Response.json({ error: '项目目录不存在。' }, { status: 400 })
+    return Response.json({ error: 'Project directory does not exist.' }, { status: 400 })
   }
 
   try {
@@ -223,15 +408,14 @@ export async function POST(request: Request) {
     const parsed = extractJsonObject(agentText)
 
     if (!parsed) {
-      throw new Error('无法从代理输出中解析结构化 JSON。')
+      throw new Error('Could not parse structured JSON from the import agent output.')
     }
 
     const canvas = normalizeCanvas(parsed)
-
     return Response.json(canvas)
   } catch (error) {
     return Response.json(
-      { error: error instanceof Error ? error.message : '项目导入失败。' },
+      { error: error instanceof Error ? error.message : 'Project import failed.' },
       { status: 500 }
     )
   }

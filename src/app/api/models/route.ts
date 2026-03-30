@@ -18,9 +18,11 @@ const FALLBACK_MODELS: Record<AgentBackendType, string[]> = {
     'gpt-5.1-codex-mini',
   ],
   gemini: [
+    'gemini-3.1-pro-preview',
+    'gemini-3-flash-preview',
     'gemini-2.5-pro',
     'gemini-2.5-flash',
-    'gemini-2.0-flash',
+    'gemini-2.5-flash-lite',
   ],
 }
 
@@ -71,9 +73,17 @@ export async function GET(request: Request) {
       // Custom provider — fetch from OpenAI-compatible endpoint
       models = await fetchOpenAIModels(baseUrl, apiKey)
       if (models.length === 0) models = FALLBACK_MODELS[backend] ?? []
-    } else if (backend === 'gemini') {
-      models = await fetchGeminiModels()
+    } else if (
+      backend === 'claude-code' &&
+      process.env.USE_RELAY === 'true' &&
+      process.env.RELAY_API_BASE_URL &&
+      process.env.RELAY_API_KEY
+    ) {
+      // Relay fallback: fetch available Claude models from relay endpoint
+      models = await fetchOpenAIModels(process.env.RELAY_API_BASE_URL, process.env.RELAY_API_KEY)
+      if (models.length === 0) models = FALLBACK_MODELS[backend] ?? []
     } else {
+      // Use predefined model list for stability and cleanliness
       models = FALLBACK_MODELS[backend] ?? []
     }
 
