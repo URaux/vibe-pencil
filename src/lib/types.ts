@@ -1,6 +1,6 @@
 export type VPNodeType = 'container' | 'block'
 export type EdgeType = 'sync' | 'async' | 'bidirectional'
-export type BuildStatus = 'idle' | 'building' | 'done' | 'error'
+export type BuildStatus = 'idle' | 'waiting' | 'building' | 'done' | 'error' | 'blocked'
 
 export type ContainerColor = 'blue' | 'green' | 'purple' | 'amber' | 'rose' | 'slate'
 

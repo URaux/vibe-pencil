@@ -2,7 +2,7 @@ interface TopoNode {
   id: string
 }
 
-interface TopoEdge {
+export interface TopoEdge {
   source: string
   target: string
 }
@@ -53,4 +53,43 @@ export function topoSort(nodes: TopoNode[], edges: TopoEdge[]) {
   }
 
   return waves
+}
+
+/**
+ * Given an edge list, return all transitive downstream dependents of a node.
+ * "Downstream" means nodes that depend on the given node (directly or transitively).
+ *
+ * Edge direction convention (from topoSort above):
+ *   adjacency.get(edge.target)?.push(edge.source)
+ *   inDegree.set(edge.source, ...)
+ * This means edge.source has higher inDegree = later wave = depends on edge.target.
+ * So in the UI: edge.source -> edge.target means edge.source depends on edge.target.
+ *
+ * Therefore: downstream dependents of X are nodes where X appears as edge.target.
+ * We collect edge.source for each such edge, then recurse.
+ */
+export function getDownstreamDependents(
+  nodeId: string,
+  allNodeIds: string[],
+  edges: TopoEdge[]
+): string[] {
+  // Build reverse adjacency: target -> [sources that depend on it]
+  const dependents = new Map<string, string[]>()
+  for (const id of allNodeIds) dependents.set(id, [])
+  for (const edge of edges) {
+    dependents.get(edge.target)?.push(edge.source)
+  }
+
+  const visited = new Set<string>()
+  const queue = [nodeId]
+  while (queue.length > 0) {
+    const current = queue.pop()!
+    for (const dep of dependents.get(current) ?? []) {
+      if (!visited.has(dep)) {
+        visited.add(dep)
+        queue.push(dep)
+      }
+    }
+  }
+  return Array.from(visited)
 }

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { ReactFlowProvider } from '@xyflow/react'
 import Link from 'next/link'
 import { BuildButton } from '@/components/BuildButton'
+import { BuildDrawer } from '@/components/BuildDrawer'
 import { Canvas } from '@/components/Canvas'
 import { ChatPanel } from '@/components/ChatPanel'
 import { ChatSidebar } from '@/components/ChatSidebar'
@@ -179,6 +180,7 @@ export default function Home() {
         <ImportDialog open={importOpen} onClose={() => setImportOpen(false)} />
         <SettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} />
         <StatusBar onOpenSettings={() => setSettingsOpen(true)} />
+        <BuildDrawer />
       </main>
     </ReactFlowProvider>
   )

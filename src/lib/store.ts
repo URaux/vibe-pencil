@@ -21,6 +21,11 @@ interface BuildState {
   currentWave: number
   totalWaves: number
   targetNodeIds: string[]
+  waves: string[][]
+  nodeTimings: Record<string, { startedAt?: number; finishedAt?: number }>
+  blockedNodes: Record<string, string>
+  startedAt?: number
+  completedAt?: number
 }
 
 export interface ChatMessage {
@@ -68,6 +73,11 @@ interface AppState {
   setSaveState: (saveState: SaveState) => void
   buildState: BuildState
   setBuildState: (buildState: Partial<BuildState>) => void
+  drawerState: 'hidden' | 'open' | 'collapsed'
+  setDrawerState: (state: 'hidden' | 'open' | 'collapsed') => void
+  buildOutputLog: Record<string, string>
+  appendBuildOutput: (nodeId: string, text: string) => void
+  clearBuildOutputLog: () => void
   selectedNodeId: string | null
   setSelectedNodeId: (id: string | null) => void
   chatOpen: boolean
@@ -328,7 +338,17 @@ export const useAppStore = create<AppState>((set, get) => ({
   addHistory: (entry) => set({ history: [...get().history, entry] }),
   saveState: 'saved',
   setSaveState: (saveState) => set({ saveState }),
-  buildState: { active: false, currentWave: 0, totalWaves: 0, targetNodeIds: [] },
+  buildState: {
+    active: false,
+    currentWave: 0,
+    totalWaves: 0,
+    targetNodeIds: [],
+    waves: [],
+    nodeTimings: {},
+    blockedNodes: {},
+    startedAt: undefined,
+    completedAt: undefined,
+  },
   setBuildState: (buildState) =>
     set({
       buildState: {
@@ -336,6 +356,17 @@ export const useAppStore = create<AppState>((set, get) => ({
         ...buildState,
       },
     }),
+  drawerState: 'hidden',
+  setDrawerState: (state) => set({ drawerState: state }),
+  buildOutputLog: {},
+  appendBuildOutput: (nodeId, text) =>
+    set({
+      buildOutputLog: {
+        ...get().buildOutputLog,
+        [nodeId]: (get().buildOutputLog[nodeId] ?? '') + text,
+      },
+    }),
+  clearBuildOutputLog: () => set({ buildOutputLog: {} }),
   selectedNodeId: null,
   setSelectedNodeId: (id) => set({ selectedNodeId: id }),
   chatOpen: true,

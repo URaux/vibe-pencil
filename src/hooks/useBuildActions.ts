@@ -38,6 +38,30 @@ export function useBuildActions() {
   const selectedCount = selectedNodeIds.length
   const isBuilding = buildState.active || isPending
 
+  /**
+   * Compute the wave plan for a given mode without starting a build.
+   * Returns null if there are no target nodes.
+   */
+  function computeBuildPlan(mode: BatchBuildMode) {
+    const targetNodes =
+      mode === 'selected'
+        ? buildableNodes.filter((n) => selectedNodeIds.includes(n.id))
+        : buildableNodes
+
+    if (targetNodes.length === 0) return null
+
+    const targetEdges = edges.filter(
+      (e) =>
+        targetNodes.some((n) => n.id === e.source) &&
+        targetNodes.some((n) => n.id === e.target)
+    )
+
+    const waves = topoSort(targetNodes, targetEdges)
+    const nodeNames = new Map(targetNodes.map((n) => [n.id, n.data.name || n.id]))
+
+    return { waves, nodeNames, mode, targetNodes }
+  }
+
   async function runBatchBuild(mode: BatchBuildMode) {
     let targetNodeIds: string[] = []
 
@@ -88,8 +112,17 @@ export function useBuildActions() {
         })
       )
 
+      // Clear output log before starting new build
+      useAppStore.getState().clearBuildOutputLog()
+
+      // Set waiting status for all nodes not in wave 1
+      const wave1Set = new Set(waves[0] ?? [])
       for (const nodeId of targetNodeIds) {
-        updateNodeStatus(nodeId, 'idle', undefined, undefined)
+        if (wave1Set.has(nodeId)) {
+          updateNodeStatus(nodeId, 'idle', undefined, undefined)
+        } else {
+          updateNodeStatus(nodeId, 'waiting', undefined, undefined)
+        }
       }
 
       setBuildState({
@@ -97,6 +130,11 @@ export function useBuildActions() {
         currentWave: 1,
         totalWaves: waves.length,
         targetNodeIds,
+        waves,
+        nodeTimings: {},
+        blockedNodes: {},
+        startedAt: Date.now(),
+        completedAt: undefined,
       })
 
       const response = await fetch('/api/agent/spawn', {
@@ -160,12 +198,18 @@ export function useBuildActions() {
         'Keep changes focused on this node and note any required dependencies.',
       ].join('\n')
 
+      useAppStore.getState().clearBuildOutputLog()
       updateNodeStatus(nodeId, 'idle', undefined, undefined)
       setBuildState({
         active: true,
         currentWave: 1,
         totalWaves: 1,
         targetNodeIds: [nodeId],
+        waves: [[nodeId]],
+        nodeTimings: {},
+        blockedNodes: {},
+        startedAt: Date.now(),
+        completedAt: undefined,
       })
 
       const response = await fetch('/api/agent/spawn', {
@@ -230,6 +274,7 @@ export function useBuildActions() {
     buildAll,
     buildNode,
     buildSelected,
+    computeBuildPlan,
     isBuilding,
     selectedCount,
   }
