@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Edge, Node } from '@xyflow/react'
 import { t } from '@/lib/i18n'
 import { extractActionBlocks, extractVisibleChatText } from '@/lib/chat-actions'
@@ -240,6 +240,23 @@ export function ChatPanel() {
   const activeSession = chatSessions.find((s) => s.id === activeChatSessionId)
   const activeMessages = activeSession?.messages ?? []
   const selectedNode = nodes.find((node) => node.id === selectedNodeId) ?? null
+
+  // Auto-restore canvas when switching to a session without saved snapshot
+  const prevSessionRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (!activeChatSessionId || activeChatSessionId === prevSessionRef.current) return
+    prevSessionRef.current = activeChatSessionId
+    const session = chatSessions.find((s) => s.id === activeChatSessionId)
+    if (session?.canvasSnapshot) return // already has snapshot, store handled it
+    // Find last message with add-node actions and auto-apply
+    const lastActionMsg = [...(session?.messages ?? [])].reverse().find(
+      (m) => m.role === 'assistant' && m.actions?.some((a) => a.includes('"add-node"'))
+    )
+    if (lastActionMsg?.actions) {
+      const actionKey = `${activeChatSessionId}-auto-restore`
+      void applyCanvasActions(lastActionMsg.actions, actionKey)
+    }
+  }, [activeChatSessionId, chatSessions])
   const nodeContext = useMemo(
     () => buildNodeContext(selectedNodeId, nodes, edges),
     [edges, nodes, selectedNodeId]
@@ -400,10 +417,11 @@ export function ChatPanel() {
       const edge = action.edge
 
       if (
-        !currentNodes.some((n) => n.id === edge.source && n.type === 'block') ||
-        !currentNodes.some((n) => n.id === edge.target && n.type === 'block')
+        !currentNodes.some((n) => n.id === edge.source) ||
+        !currentNodes.some((n) => n.id === edge.target)
       ) {
-        throw new Error('Edges can only connect existing block nodes.')
+        // Skip edges referencing non-existent nodes instead of throwing
+        return { nodes: currentNodes, edges: currentEdges }
       }
 
       const type = VALID_EDGE_TYPES.has(edge.type ?? 'sync') ? (edge.type ?? 'sync') : 'sync'
@@ -432,8 +450,9 @@ export function ChatPanel() {
     const snapshot = cloneCanvasSnapshot()
 
     try {
-      let workingNodes: CanvasNode[] = snapshot.nodes
-      let workingEdges: Edge[] = snapshot.edges
+      // Full canvas replacement — AI actions describe the complete architecture
+      let workingNodes: CanvasNode[] = []
+      let workingEdges: Edge[] = []
 
       for (const rawAction of rawActions) {
         const parsed = tryRepairJson(rawAction)
@@ -441,8 +460,22 @@ export function ChatPanel() {
           throw new Error('Invalid JSON action block.')
         }
 
-        const actions = Array.isArray(parsed) ? parsed : [parsed]
-        for (const action of actions as CanvasAction[]) {
+        const rawList = Array.isArray(parsed) ? parsed : [parsed]
+        // Sort: add-node (containers first, then blocks) → update-node → remove-node → add-edge
+        const actionOrder: Record<string, number> = { 'add-node': 0, 'update-node': 1, 'remove-node': 2, 'add-edge': 3 }
+        const actions = (rawList as CanvasAction[]).sort((a, b) => {
+          const oa = actionOrder[a.action] ?? 1
+          const ob = actionOrder[b.action] ?? 1
+          if (oa !== ob) return oa - ob
+          // Within add-node, containers before blocks
+          if (a.action === 'add-node' && b.action === 'add-node') {
+            const aIsContainer = a.node?.type === 'container' ? 0 : 1
+            const bIsContainer = b.node?.type === 'container' ? 0 : 1
+            return aIsContainer - bIsContainer
+          }
+          return 0
+        })
+        for (const action of actions) {
           const result = applyActionToSnapshot(action, workingNodes, workingEdges)
           workingNodes = result.nodes
           workingEdges = result.edges
@@ -451,6 +484,16 @@ export function ChatPanel() {
 
       const arranged = await layoutArchitectureCanvas(workingNodes, workingEdges)
       setCanvas(arranged.nodes, arranged.edges)
+      // Save canvas snapshot to current chat session for session switching
+      if (activeChatSessionId) {
+        const sessions = useAppStore.getState().chatSessions
+        const updated = sessions.map((s) =>
+          s.id === activeChatSessionId
+            ? { ...s, canvasSnapshot: { nodes: arranged.nodes, edges: arranged.edges } }
+            : s
+        )
+        useAppStore.setState({ chatSessions: updated })
+      }
       setLastCanvasSnapshot(snapshot)
       setLastAppliedActionKey(actionKey)
       setActionErrors((current) => {
@@ -556,6 +599,46 @@ export function ChatPanel() {
       if (shouldAutoApply && actionBlocks.length > 0) {
         await applyCanvasActions(actionBlocks, assistantActionKey)
       }
+      // Auto-generate session title via AI summary
+      const currentSession = useAppStore.getState().chatSessions.find((s) => s.id === activeChatSessionId)
+      if (currentSession && !currentSession.title && activeChatSessionId) {
+        const sid = activeChatSessionId
+        const visibleText = extractVisibleChatText(fullAssistantText)
+        // Fire-and-forget: ask AI for a short title
+        fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            message: `Based on this conversation, generate a short title (max 20 chars, Chinese preferred). Just output the title, nothing else.\n\nUser: ${trimmedMessage}\nAssistant: ${visibleText.slice(0, 500)}`,
+            history: [],
+            nodeContext: '',
+            architecture_yaml: '',
+            backend,
+            model,
+          }),
+        }).then(async (res) => {
+          if (!res.ok || !res.body) return
+          const reader = res.body.getReader()
+          const dec = new TextDecoder()
+          let title = ''
+          while (true) {
+            const { done, value } = await reader.read()
+            if (done) break
+            for (const line of dec.decode(value, { stream: true }).split('\n')) {
+              if (line.startsWith('data:')) {
+                try {
+                  const evt = JSON.parse(line.slice(5).trim()) as { text?: string }
+                  if (evt.text) title += evt.text
+                } catch { /* skip */ }
+              }
+            }
+          }
+          const cleaned = title.replace(/^["'`]|["'`]$/g, '').trim()
+          if (cleaned) {
+            useAppStore.getState().renameChatSession(sid, cleaned.slice(0, 30))
+          }
+        }).catch(() => { /* title generation is best-effort */ })
+      }
     } catch (sendError) {
       setError(sendError instanceof Error ? sendError.message : t('send_failed'))
       updateActiveChatMessages((current) => {
@@ -616,7 +699,11 @@ export function ChatPanel() {
             ) : null}
 
             {activeMessages.map((entry, messageIndex) => {
-              const actionBlocks = entry.role === 'assistant' ? (entry.actions ?? []) : []
+              const rawActionBlocks = entry.role === 'assistant' ? (entry.actions ?? []) : []
+              // Only show "Apply to Canvas" if actions contain add-node (full architecture)
+              const actionBlocks = rawActionBlocks.some((block) => block.includes('"add-node"'))
+                ? rawActionBlocks
+                : []
 
               return (
                 <div

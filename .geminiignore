@@ -1,0 +1,8 @@
+node_modules
+.next
+.git
+output
+public
+package-lock.json
+tsconfig.tsbuildinfo
+*.log

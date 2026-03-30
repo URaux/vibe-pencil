@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #0d1117; font-family: -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; padding: 40px; }
+.diagram { width: 900px; margin: 0 auto; }
+.title { color: #e6edf3; font-size: 28px; font-weight: 700; text-align: center; margin-bottom: 8px; letter-spacing: 2px; }
+.subtitle { color: #7d8590; font-size: 14px; text-align: center; margin-bottom: 32px; }
+
+.row { display: flex; gap: 16px; margin-bottom: 16px; justify-content: center; }
+.container { border-radius: 16px; padding: 20px; flex: 1; min-width: 0; }
+.container-title { font-size: 13px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+.container-title .dot { width: 8px; height: 8px; border-radius: 50%; }
+
+.purple { background: rgba(139, 92, 246, 0.08); border: 1px solid rgba(139, 92, 246, 0.25); }
+.purple .container-title { color: #a78bfa; }
+.purple .dot { background: #a78bfa; }
+
+.green { background: rgba(52, 211, 153, 0.08); border: 1px solid rgba(52, 211, 153, 0.25); }
+.green .container-title { color: #6ee7b7; }
+.green .dot { background: #6ee7b7; }
+
+.amber { background: rgba(251, 191, 36, 0.08); border: 1px solid rgba(251, 191, 36, 0.25); }
+.amber .container-title { color: #fcd34d; }
+.amber .dot { background: #fcd34d; }
+
+.blue { background: rgba(59, 130, 246, 0.08); border: 1px solid rgba(59, 130, 246, 0.25); }
+.blue .container-title { color: #93c5fd; }
+.blue .dot { background: #93c5fd; }
+
+.rose { background: rgba(244, 63, 94, 0.08); border: 1px solid rgba(244, 63, 94, 0.25); }
+.rose .container-title { color: #fda4af; }
+.rose .dot { background: #fda4af; }
+
+.block { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 12px 14px; margin-bottom: 8px; }
+.block:last-child { margin-bottom: 0; }
+.block-name { color: #e6edf3; font-size: 13px; font-weight: 600; margin-bottom: 3px; }
+.block-desc { color: #7d8590; font-size: 11px; line-height: 1.4; }
+.block-tech { display: inline-block; background: rgba(255,255,255,0.06); color: #7d8590; font-size: 10px; padding: 2px 8px; border-radius: 4px; margin-top: 4px; }
+
+.blocks-row { display: flex; gap: 8px; }
+.blocks-row .block { flex: 1; }
+
+.flow-section { margin: 32px 0; }
+.flow-title { color: #e6edf3; font-size: 18px; font-weight: 600; text-align: center; margin-bottom: 20px; }
+
+.flow-steps { display: flex; align-items: center; justify-content: center; gap: 0; }
+.flow-step { text-align: center; width: 140px; }
+.flow-icon { width: 56px; height: 56px; border-radius: 14px; margin: 0 auto 8px; display: flex; align-items: center; justify-content: center; font-size: 24px; }
+.flow-label { color: #e6edf3; font-size: 12px; font-weight: 600; }
+.flow-sublabel { color: #7d8590; font-size: 10px; margin-top: 2px; }
+.flow-arrow { color: #30363d; font-size: 24px; margin: 0 4px; padding-bottom: 20px; }
+
+.step-purple .flow-icon { background: rgba(139, 92, 246, 0.15); color: #a78bfa; }
+.step-green .flow-icon { background: rgba(52, 211, 153, 0.15); color: #6ee7b7; }
+.step-blue .flow-icon { background: rgba(59, 130, 246, 0.15); color: #93c5fd; }
+.step-amber .flow-icon { background: rgba(251, 191, 36, 0.15); color: #fcd34d; }
+.step-rose .flow-icon { background: rgba(244, 63, 94, 0.15); color: #fda4af; }
+
+.tech-bar { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-top: 24px; }
+.tech-tag { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); color: #7d8590; font-size: 11px; padding: 4px 12px; border-radius: 20px; }
+</style>
+</head>
+<body>
+<div class="diagram">
+  <div class="title">VIBE PENCIL</div>
+  <div class="subtitle">Visual Architecture Editor + AI Code Generation</div>
+
+  <!-- Flow -->
+  <div class="flow-steps">
+    <div class="flow-step step-purple">
+      <div class="flow-icon">🎨</div>
+      <div class="flow-label">设计</div>
+      <div class="flow-sublabel">画布拖拽</div>
+    </div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step step-green">
+      <div class="flow-icon">💬</div>
+      <div class="flow-label">讨论</div>
+      <div class="flow-sublabel">AI 对话</div>
+    </div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step step-blue">
+      <div class="flow-icon">📐</div>
+      <div class="flow-label">序列化</div>
+      <div class="flow-sublabel">Canvas → YAML</div>
+    </div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step step-amber">
+      <div class="flow-icon">⚡</div>
+      <div class="flow-label">拓扑排序</div>
+      <div class="flow-sublabel">波次调度</div>
+    </div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step step-rose">
+      <div class="flow-icon">🚀</div>
+      <div class="flow-label">构建</div>
+      <div class="flow-sublabel">并行生成代码</div>
+    </div>
+  </div>
+
+  <!-- Architecture -->
+  <div class="flow-section">
+    <div class="flow-title">系统架构</div>
+  </div>
+
+  <div class="row">
+    <div class="container purple" style="flex: 1.2;">
+      <div class="container-title"><span class="dot"></span>前端</div>
+      <div class="block">
+        <div class="block-name">React Flow 画布</div>
+        <div class="block-desc">Container + Block 两层架构，elkjs 复合布局，8 方向智能连接点</div>
+        <span class="block-tech">@xyflow/react v12</span>
+      </div>
+      <div class="block">
+        <div class="block-name">聊天面板 + 会话侧栏</div>
+        <div class="block-desc">Claude.ai 风格会话管理，AI 提议画布修改 → 一键应用</div>
+        <span class="block-tech">Zustand v5</span>
+      </div>
+      <div class="block">
+        <div class="block-name">Undo / Redo</div>
+        <div class="block-desc">50 步快照栈，拖拽仅在 dragStart 快照一次</div>
+      </div>
+    </div>
+    <div class="container green" style="flex: 0.8;">
+      <div class="container-title"><span class="dot"></span>后端 API</div>
+      <div class="block">
+        <div class="block-name">AgentRunner</div>
+        <div class="block-desc">子进程生命周期管理，SSE 事件广播</div>
+        <span class="block-tech">child_process.spawn</span>
+      </div>
+      <div class="block">
+        <div class="block-name">SchemaEngine</div>
+        <div class="block-desc">画布 ↔ YAML 双向序列化，子图选择性导出</div>
+      </div>
+      <div class="block">
+        <div class="block-name">拓扑排序</div>
+        <div class="block-desc">Kahn 算法 → 波次调度，maxParallel 并发控制</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="container blue">
+      <div class="container-title"><span class="dot"></span>AI CLI 后端（三选一）</div>
+      <div class="blocks-row">
+        <div class="block">
+          <div class="block-name">Claude Code</div>
+          <div class="block-desc">stdin pipe<br/>stream-json</div>
+        </div>
+        <div class="block">
+          <div class="block-name">Codex</div>
+          <div class="block-desc">exec --full-auto<br/>JSON output</div>
+        </div>
+        <div class="block">
+          <div class="block-name">Gemini CLI</div>
+          <div class="block-desc">-p prompt<br/>Win32 特殊处理</div>
+        </div>
+      </div>
+    </div>
+    <div class="container rose" style="flex: 0.5;">
+      <div class="container-title"><span class="dot"></span>输出解析</div>
+      <div class="block">
+        <div class="block-name">extractAgentText</div>
+        <div class="block-desc">ANSI 过滤、thinking 过滤、不完整 JSON 缓冲、UTF-8 多字节处理</div>
+        <span class="block-tech">StringDecoder</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="tech-bar">
+    <span class="tech-tag">Next.js 16</span>
+    <span class="tech-tag">React 19</span>
+    <span class="tech-tag">React Flow v12</span>
+    <span class="tech-tag">elkjs</span>
+    <span class="tech-tag">Tailwind v4</span>
+    <span class="tech-tag">Zustand v5</span>
+    <span class="tech-tag">SSE</span>
+    <span class="tech-tag">Vitest v4</span>
+    <span class="tech-tag">TypeScript</span>
+  </div>
+</div>
+</body>
+</html>

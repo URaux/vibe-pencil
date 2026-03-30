@@ -40,6 +40,7 @@ export interface ChatSession {
   messages: ChatMessage[]
   createdAt: number
   updatedAt: number
+  canvasSnapshot?: { nodes: Node<CanvasNodeData>[]; edges: Edge[] }
 }
 
 interface AppState {
@@ -89,6 +90,7 @@ interface AppState {
   createChatSession: () => string
   switchChatSession: (id: string) => void
   deleteChatSession: (id: string) => void
+  renameChatSession: (id: string, title: string) => void
   updateActiveChatMessages: (updater: (msgs: ChatMessage[]) => ChatMessage[]) => void
 }
 
@@ -388,13 +390,40 @@ export const useAppStore = create<AppState>((set, get) => ({
     })
     return id
   },
-  switchChatSession: (id) => set({ activeChatSessionId: id }),
+  switchChatSession: (id) => {
+    const { activeChatSessionId, chatSessions, nodes, edges } = get()
+    // Save current canvas to the session we're leaving
+    const updated = chatSessions.map((s) =>
+      s.id === activeChatSessionId
+        ? { ...s, canvasSnapshot: { nodes, edges } }
+        : s
+    )
+    // Restore canvas from the session we're switching to
+    const target = updated.find((s) => s.id === id)
+    if (target?.canvasSnapshot) {
+      set({
+        chatSessions: updated,
+        activeChatSessionId: id,
+        nodes: target.canvasSnapshot.nodes,
+        edges: target.canvasSnapshot.edges,
+      })
+    } else {
+      set({ chatSessions: updated, activeChatSessionId: id })
+    }
+  },
   deleteChatSession: (id) => {
     const remaining = get().chatSessions.filter((s) => s.id !== id)
     const wasActive = get().activeChatSessionId === id
     set({
       chatSessions: remaining,
       activeChatSessionId: wasActive ? (remaining[0]?.id ?? null) : get().activeChatSessionId,
+    })
+  },
+  renameChatSession: (id, title) => {
+    set({
+      chatSessions: get().chatSessions.map((s) =>
+        s.id === id ? { ...s, title } : s
+      ),
     })
   },
   updateActiveChatMessages: (updater) => {
@@ -411,8 +440,11 @@ export const useAppStore = create<AppState>((set, get) => ({
       }
 
       const nextMessages = updater(session.messages)
-      const firstUser = nextMessages.find((m) => m.role === 'user')
-      const title = firstUser ? firstUser.content.slice(0, 30) : session.title
+      // Keep existing title if manually set or already generated
+      // Only auto-set from first user message as fallback
+      const title = session.title
+        ? session.title
+        : (nextMessages.find((m) => m.role === 'user')?.content.slice(0, 30) ?? '')
 
       return { ...session, messages: nextMessages, title, updatedAt: now }
     })

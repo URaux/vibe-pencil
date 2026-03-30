@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import type { Edge, Node } from '@xyflow/react'
 import { layoutArchitectureCanvas } from '@/lib/graph-layout'
+import { canvasToYaml } from '@/lib/schema-engine'
 import { t } from '@/lib/i18n'
 import { useAppStore } from '@/lib/store'
 import type { CanvasNodeData } from '@/lib/types'
@@ -23,8 +24,12 @@ function getProjectNameFromPath(dir: string) {
 
 export function ImportDialog({ open, onClose }: ImportDialogProps) {
   const backend = useAppStore((state) => state.config.agent)
+  const model = useAppStore((state) => state.config.model)
   const setCanvas = useAppStore((state) => state.setCanvas)
   const setProjectName = useAppStore((state) => state.setProjectName)
+  const setChatOpen = useAppStore((state) => state.setChatOpen)
+  const createChatSession = useAppStore((state) => state.createChatSession)
+  const updateActiveChatMessages = useAppStore((state) => state.updateActiveChatMessages)
   useAppStore((state) => state.locale)
   const [dir, setDir] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -62,10 +67,64 @@ export function ImportDialog({ open, onClose }: ImportDialogProps) {
       setProgress(t('applying_import'))
       const arranged = await layoutArchitectureCanvas(payload.nodes ?? [], payload.edges ?? [])
       setCanvas(arranged.nodes, arranged.edges)
-      setProjectName(getProjectNameFromPath(trimmedDir))
+      const importedProjectName = getProjectNameFromPath(trimmedDir)
+      setProjectName(importedProjectName)
       setProgress(null)
       setDir('')
       onClose()
+
+      // Auto-create a chat session and spawn an intro overview
+      const sessionId = createChatSession()
+      const yaml = canvasToYaml(arranged.nodes, arranged.edges, importedProjectName)
+      const introPrompt = `I just imported a codebase from "${trimmedDir}". Here is the generated architecture:\n\n${yaml}\n\nPlease give me a brief overview of this architecture — what are the main components, how they connect, and any observations about the design. Point out anything that looks incomplete or could be improved. Keep it concise. If you see issues with the generated architecture (missing components, wrong relationships), suggest canvas actions to fix them.`
+
+      updateActiveChatMessages(() => [
+        { role: 'user' as const, content: `导入项目: ${trimmedDir}` },
+        { role: 'assistant' as const, content: '' },
+      ])
+      setChatOpen(true)
+
+      // Stream the intro response
+      try {
+        const chatRes = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            message: introPrompt,
+            history: [],
+            nodeContext: '',
+            architecture_yaml: yaml,
+            backend,
+            model,
+          }),
+        })
+        if (chatRes.ok && chatRes.body) {
+          const reader = chatRes.body.getReader()
+          const decoder = new TextDecoder()
+          let fullText = ''
+          while (true) {
+            const { done, value } = await reader.read()
+            if (done) break
+            const chunk = decoder.decode(value, { stream: true })
+            // Extract text from SSE data lines
+            for (const line of chunk.split('\n')) {
+              if (line.startsWith('data:')) {
+                try {
+                  const evt = JSON.parse(line.slice(5).trim()) as { text?: string }
+                  if (evt.text) fullText += evt.text
+                } catch { /* skip */ }
+              }
+            }
+            updateActiveChatMessages((msgs) => {
+              const updated = [...msgs]
+              if (updated.length > 0) {
+                updated[updated.length - 1] = { ...updated[updated.length - 1], content: fullText }
+              }
+              return updated
+            })
+          }
+        }
+      } catch { /* intro chat is best-effort */ }
     } catch (importError) {
       const msg = importError instanceof Error ? importError.message : t('import_failed')
       // Surface exit code info if present, otherwise use generic message

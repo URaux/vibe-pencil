@@ -1,0 +1,179 @@
+{
+  "portrait": {
+    "summary": "[USER]是那种会在凌晨三点给AI发Telegram消息说'这个线扭的有点难绷'然后推翻整个架构方案的人。把Claude Code当项目经理用、把Codex当码农用、自己当产品总监——30天烧了6亿token，同时紧盯每一分quota。说话直接但不粗糙，纠正AI的方式不是'你写错了'而是'你想的太简单了'。"
+  },
+  "topDomains": [
+    "AI Agent编排与多模型协作",
+    "可视化架构编辑器开发",
+    "RAG系统与知识库集成",
+    "AI辅助求职与简历工程",
+    "桌面智能体与对话系统"
+  ],
+  "cognitiveStyle": {
+    "abstraction": 75,
+    "aestheticRigor": 80,
+    "challengeRate": 85,
+    "divergence": 40,
+    "controlGrain": 70,
+    "teachingDrive": 78
+  },
+  "capabilityRings": [
+    { "name": "AI Agent系统设计", "tier": "core" },
+    { "name": "产品定义与用户体验", "tier": "core" },
+    { "name": "多工具编排与成本优化", "tier": "core" },
+    { "name": "前端交互开发(React/Next.js)", "tier": "proficient" },
+    { "name": "RAG与向量检索", "tier": "proficient" },
+    { "name": "CLI工具链集成", "tier": "proficient" },
+    { "name": "DevOps与进程管理", "tier": "proficient" },
+    { "name": "Prompt工程与LLM调教", "tier": "peripheral" },
+    { "name": "嵌入式开发(ESP32)", "tier": "peripheral" },
+    { "name": "技术写作与简历优化", "tier": "peripheral" }
+  ],
+  "decisionStyle": [
+    {
+      "key": "killVsInvent",
+      "name": "破立倾向",
+      "left": "渐进优化",
+      "right": "推翻重来",
+      "score": 72,
+      "evidence": [
+        {
+          "quote": "重新设计吧，感觉差不多算推倒重来了，因为我想了一下会用vibe coding的人其实也没那么在乎现在这个节点的分类",
+          "context": "架构编辑器的6种节点类型方案不满意，决定重构为两层架构"
+        },
+        {
+          "quote": "这个架构图把我的审美和想法摧残的一干二净我决定先休息一下不搞他",
+          "context": "对AI生成的架构图连线效果极度不满"
+        }
+      ],
+      "take": "不是推翻癖，是一旦发现底层假设错了就不愿意在错误的地基上修补——能忍到验证完才推翻，说明破的不是冲动而是判断。"
+    },
+    {
+      "key": "namingVsExecuting",
+      "name": "定义权",
+      "left": "执行框架",
+      "right": "定义框架",
+      "score": 68,
+      "evidence": [
+        {
+          "quote": "记忆系统是手段不是目的",
+          "context": "纠正AI将技术实现当作简历标题的写法"
+        },
+        {
+          "quote": "确保用户不在自嗨，要有第一性原理奥卡姆剃刀",
+          "context": "为架构编辑器的AI助手注入方法论约束"
+        }
+      ],
+      "take": "习惯给事物重新命名——不是学究式的术语癖，而是用命名来暴露AI没想清楚的问题。'记忆系统是手段不是目的'这句话比任何代码review都锋利。"
+    },
+    {
+      "key": "intuitionVsData",
+      "name": "决策触发",
+      "left": "数据驱动",
+      "right": "直觉驱动",
+      "score": 70,
+      "evidence": [
+        {
+          "quote": "这个线扭的有点难绷",
+          "context": "评判架构图的连线路径"
+        },
+        {
+          "quote": "只有左下角有个构建波次的提示，其他地方没有什么让我感觉到他在干活的体验，这样会让人不安",
+          "context": "评价Build All功能的用户反馈缺失"
+        },
+        {
+          "quote": "我看了下文件的修改时间感觉你从下午四点钟就卡死了",
+          "context": "用文件时间戳诊断Codex进程死锁"
+        }
+      ],
+      "take": "先靠直觉捕获'不对劲'，再用极其务实的手段验证——用文件修改时间判断进程死活，这种混搭风格很少见。"
+    },
+    {
+      "key": "calibrateVsShip",
+      "name": "校准倾向",
+      "left": "先发后改",
+      "right": "想好再做",
+      "score": 35,
+      "evidence": [
+        {
+          "quote": "OK你改吧，rag我想想怎么做",
+          "context": "让AI先动手改代码，自己同步思考方向"
+        },
+        {
+          "quote": "你先plan一下不急着修，别乱写",
+          "context": "发现多个bug时要求先规划再执行"
+        }
+      ],
+      "take": "表面上是'先干再说'，但只对AI的执行如此——自己对产品方向的校准从不含糊。本质是'你先跑我先想，想好了再纠正你'。"
+    },
+    {
+      "key": "subtractVsAdd",
+      "name": "加减法",
+      "left": "加功能",
+      "right": "砍功能",
+      "score": 55,
+      "evidence": [
+        {
+          "quote": "信号与系统可以删了",
+          "context": "简历内容裁剪"
+        },
+        {
+          "quote": "其实我想全选，排序的话是a>=b>c>d",
+          "context": "架构编辑器功能选型时想要全部都做"
+        }
+      ],
+      "take": "胃口很大但刀法很准——想全要，但砍起来绝不手软。不是做减法的人，是知道什么时候该做减法的人。"
+    }
+  ],
+  "controlSignature": {
+    "domains": [
+      {
+        "name": "产品定义 & 用户画像",
+        "grip": 10,
+        "evidence": [
+          "你可以默认用这个应用的人有一点程序设计的思想但是对具体的编程语言完全达不到可以编写程序的水平，所以很具体的代码操作可以对用户屏蔽掉",
+          "这个架构更多的是脑图，把架构写好了剩下的全交给agent就好了",
+          "重新设计吧，感觉差不多算推倒重来了，因为我想了一下会用vibe coding的人其实也没那么在乎现在这个节点的分类"
+        ]
+      },
+      {
+        "name": "简历叙事 & 面试话术",
+        "grip": 9,
+        "evidence": [
+          "记忆系统是手段不是目的",
+          "过于拟合JD会导致项目本身不能被好好讲清楚",
+          "小标题和内容不匹配"
+        ]
+      },
+      {
+        "name": "视觉审美 & 交互体验",
+        "grip": 8,
+        "evidence": [
+          "这个线都耦在一起了看着很不清楚也影响观看，杂乱的线也会给人带来误导",
+          "只有左下角有个构建波次的提示，这样会让人不安",
+          "像饥荒和Claude Code那样整点神秘加载文字和小动画"
+        ]
+      },
+      {
+        "name": "成本 & 资源管控",
+        "grip": 8,
+        "evidence": [
+          "如果不是复杂任务可以用sonnet，别全都上opus",
+          "你要不先把cron停了，quota要没了",
+          "你能不能写一个简历生成器别自己硬在那渲染"
+        ]
+      },
+      {
+        "name": "代码实现",
+        "grip": 0,
+        "evidence": []
+      },
+      {
+        "name": "Git操作 & 部署",
+        "grip": 0,
+        "evidence": []
+      }
+    ],
+    "signature": "紧控'做什么'和'看起来像不像对的'，放手'怎么写代码'"
+  }
+}
