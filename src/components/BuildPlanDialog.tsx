@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { t } from '@/lib/i18n'
 import { useAppStore } from '@/lib/store'
 
@@ -49,7 +50,7 @@ export function BuildPlanDialog({
     }
   }
 
-  return (
+  return createPortal(
     <div
       className="vp-dialog-backdrop fixed inset-0 z-50 flex items-center justify-center p-6"
       onClick={handleBackdropClick}
@@ -132,6 +133,7 @@ export function BuildPlanDialog({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
