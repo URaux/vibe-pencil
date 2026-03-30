@@ -1,151 +1,186 @@
 # Vibe Pencil
 
-A visual architecture editor where users design software systems on a node-graph canvas, discuss the design with an AI assistant, and then generate code by dispatching the canvas to a local AI CLI tool (Claude Code, Codex, or Gemini CLI).
+**中文** | [English](README.en.md)
 
-**Target users**: People with product thinking who cannot code — PMs, founders, designers — who want to turn system diagrams directly into working code without writing a single line themselves.
+可视化架构编辑器 —— 在画布上设计软件架构，与 AI 讨论方案，一键生成代码。
 
----
-
-## What it does
-
-1. **Design** — Drag containers and blocks onto a canvas, connect them with typed edges, and describe each component.
-2. **Discuss** — Open the chat panel, select a node or stay in global mode, and have a conversation with the AI about tradeoffs, implementation order, or missing pieces. The AI can propose canvas mutations (add/update/remove nodes and edges) that the user can apply with one click.
-3. **Build** — Click "Build All" to spawn agents. The canvas is serialized to YAML and passed as a prompt to the configured CLI tool. Agents run in parallel waves respecting the topological order of the graph.
-4. **Import** — Reverse-engineer an existing codebase into an architecture canvas automatically.
+**目标用户**：有产品思维但不会写代码的人 —— PM、创始人、设计师 —— 把系统架构图直接变成可运行的代码。
 
 ---
 
-## Tech Stack
+## 它能做什么
 
-| Layer | Technology |
-|---|---|
-| Framework | Next.js 16 (App Router, Node.js runtime) |
-| Canvas | React Flow (`@xyflow/react` v12) |
-| Layout | elkjs (compound layout) |
-| Styling | Tailwind CSS v4 |
-| State | Zustand v5 |
-| Streaming | Server-Sent Events (SSE) via `ReadableStream` |
-| Agent execution | Node.js `child_process.spawn` |
-| YAML serialization | `yaml` v2 |
-| Tests | Vitest v4 + Testing Library |
+```
+  设计 ──→ 讨论 ──→ 构建
+  画布拖拽    AI 对话    一键生成代码
+```
+
+1. **设计** — 拖拽容器和模块到画布，用连线描述依赖关系
+2. **讨论** — 打开聊天面板，选择一个节点或全局模式，与 AI 讨论架构方案。AI 可以提议画布修改（增删改节点和连线），用户一键应用
+3. **构建** — 点击 "Build All"，画布序列化为 YAML 作为 prompt 发给 AI CLI 工具。按拓扑排序的波次并行生成代码
+4. **导入** — 反向工程现有代码库，自动生成架构画布
 
 ---
 
-## Architecture
+## 系统架构
 
-### Canvas — Container + Block Model
+```mermaid
+graph TB
+    subgraph Frontend["前端 (Next.js 16 + React Flow)"]
+        Canvas["画布<br/>Container + Block 两层架构"]
+        Chat["聊天面板<br/>AI 对话 + Apply to Canvas"]
+        Sidebar["会话列表<br/>Claude.ai 风格"]
+    end
 
-The canvas uses a two-layer node architecture:
+    subgraph Backend["后端 (Node.js API Routes)"]
+        AgentRunner["AgentRunner<br/>子进程管理 + SSE 流式输出"]
+        SchemaEngine["SchemaEngine<br/>画布 ↔ YAML 双向序列化"]
+        TopoSort["拓扑排序<br/>Kahn 算法 → 波次调度"]
+    end
 
-| Type | Description |
+    subgraph Agents["AI CLI 后端"]
+        CC["Claude Code<br/>stdin pipe + stream-json"]
+        Codex["Codex<br/>exec --full-auto"]
+        Gemini["Gemini CLI<br/>-p prompt"]
+    end
+
+    Canvas --> SchemaEngine
+    Chat --> AgentRunner
+    SchemaEngine --> AgentRunner
+    AgentRunner --> TopoSort
+    TopoSort --> AgentRunner
+    AgentRunner --> CC
+    AgentRunner --> Codex
+    AgentRunner --> Gemini
+    AgentRunner -->|SSE| Canvas
+```
+
+## 构建流程
+
+```mermaid
+sequenceDiagram
+    participant U as 用户
+    participant C as 画布
+    participant S as SchemaEngine
+    participant T as 拓扑排序
+    participant A as AgentRunner
+    participant AI as AI CLI
+
+    U->>C: 点击 Build All
+    C->>S: nodes + edges
+    S->>S: 序列化为 YAML
+    C->>T: 节点 + 边
+    T->>T: Kahn 算法
+    T->>A: Wave 0: [节点A, 节点B]
+    par 并行执行
+        A->>AI: spawn 节点A
+        A->>AI: spawn 节点B
+    end
+    AI-->>A: SSE 输出流
+    A-->>C: 实时状态更新
+    T->>A: Wave 1: [节点C]
+    A->>AI: spawn 节点C
+    AI-->>A: 完成
+    A-->>U: 构建完成
+```
+
+---
+
+## 画布模型
+
+```mermaid
+graph LR
+    subgraph Container1["容器: Agent Core (紫色)"]
+        B1["模块: LangGraph Agent"]
+        B2["模块: MCP Runtime"]
+    end
+    subgraph Container2["容器: MCP Servers (绿色)"]
+        B3["模块: docs-rag"]
+        B4["模块: web-search"]
+    end
+    B2 -->|MCP stdio| B3
+    B2 -->|MCP stdio| B4
+```
+
+**两层架构**：
+- **Container（容器）** — 分组容器，可折叠，6 种颜色标签
+- **Block（模块）** — 具体组件，绑定在容器内，含名称、描述、技术栈、构建状态
+
+**连线类型**：
+| 类型 | 描述 |
 |---|---|
-| `container` | Grouping container (e.g., a microservice cluster, data layer). Has a color label and can be collapsed. |
-| `block` | Individual component inside a container. Has name, description, status, and optional techStack. |
+| `sync` | 同步调用（HTTP, gRPC 等） |
+| `async` | 异步消息 |
+| `bidirectional` | 双向通信（WebSocket） |
 
-Blocks are bound to their parent container via React Flow's `parentId` + `extent: 'parent'`. The elkjs compound layout engine automatically arranges blocks within their containers.
+---
 
-**Edge types** (3):
+## 技术栈
 
-| Type | Description |
+| 层级 | 技术 |
 |---|---|
-| `sync` | Synchronous call (HTTP, gRPC, etc.) |
-| `async` | One-way async message |
-| `bidirectional` | Two-way communication (WebSocket, bidirectional stream) |
+| 框架 | Next.js 16 (App Router) |
+| 画布 | React Flow (`@xyflow/react` v12) |
+| 布局 | elkjs（复合布局引擎） |
+| 样式 | Tailwind CSS v4 |
+| 状态 | Zustand v5 |
+| 流式传输 | Server-Sent Events (SSE) |
+| Agent 执行 | Node.js `child_process.spawn` |
+| YAML 序列化 | `yaml` v2 |
+| 测试 | Vitest v4 + Testing Library |
 
-**8-direction handles**: Nodes expose handles on all 8 sides (top, bottom, left, right, and corners). Smart position-aware handle assignment picks the optimal handle pair based on relative node positions.
+---
 
-### SchemaEngine (`src/lib/schema-engine.ts`)
+## 功能列表
 
-Converts between the live React Flow canvas and a YAML document that is fed to agents as context.
+- Container + Block 两层架构 + elkjs 复合布局
+- 8 方向智能连接点 + 位置感知边路由
+- 三种 AI 后端：Claude Code / Codex / Gemini CLI
+- 图感知并行构建（拓扑排序 → 波次调度）
+- SSE 实时流式构建进度
+- AI 聊天 + "Apply to Canvas" 画布修改提议
+- 聊天会话管理（Claude.ai 风格侧栏）
+- 导入现有代码库 → 自动生成架构画布
+- 导出 YAML / JSON
+- Undo / Redo（50 步）
+- 中英双语 i18n
+- 项目名称可编辑
+- 自动保存
+- 开发进度 Dashboard
 
-- `canvasToYaml(nodes, edges, projectName, selectedIds?)` — serializes the canvas (or a subgraph when `selectedIds` is provided) into a structured YAML document grouped by container.
-- `yamlToCanvas(yamlStr)` — parses YAML back into React Flow nodes and edges with auto-assigned grid positions.
+---
 
-### AgentRunner (`src/lib/agent-runner.ts`)
+## API 接口
 
-A singleton `EventEmitter` that manages child processes for all three CLI backends.
-
-**How each backend is spawned**:
-
-| Backend | Command | Stdin |
+| 方法 | 路由 | 描述 |
 |---|---|---|
-| `claude-code` | `claude -p --output-format stream-json --verbose [--model X]` | prompt piped via stdin |
-| `codex` | `codex exec --full-auto --json [--model X] -` | prompt piped via stdin |
-| `gemini` (Windows) | `node <gemini-cli/dist/index.js> -p "<prompt>" -m <model>` | none |
-| `gemini` (POSIX) | `gemini -p "<prompt>" -m <model>` | none |
-
-**Build All** executes a topologically ordered wave plan via `buildAll(waves, prompts, backend, workDir, maxParallel, model?)`.
-
-### Topological Sort (`src/lib/topo-sort.ts`)
-
-Kahn's algorithm produces build waves — groups of nodes that can be built in parallel. Throws on cycle detection.
-
-### Chat Sidebar (`src/components/ChatSidebar.tsx`)
-
-Claude.ai-style session list with localStorage persistence. Each session maintains independent chat history. Sessions are sorted by last activity.
-
-### Undo / Redo
-
-50-step snapshot stack. `Ctrl+Z` / `Ctrl+Shift+Z`. Drag operations snapshot once at drag start to avoid per-frame snapshots.
+| `POST` | `/api/agent/spawn` | 启动单个 Agent 或完整 BuildAll 波次计划 |
+| `GET` | `/api/agent/status` | 查询 Agent 状态 |
+| `GET` | `/api/agent/stream` | SSE 事件流（状态变更、输出、波次） |
+| `POST` | `/api/agent/stop` | 终止运行中的 Agent |
+| `POST` | `/api/chat` | SSE 流式 AI 对话 |
+| `GET` | `/api/models` | 获取指定后端的模型列表 |
+| `POST` | `/api/project/save` | 保存项目 |
+| `POST` | `/api/project/load` | 加载项目 |
+| `POST` | `/api/project/import` | 反向工程代码库生成画布 |
 
 ---
 
-## Features
-
-- Container + Block two-layer architecture with elkjs compound layout
-- 8-direction smart handles with position-aware edge routing
-- Three AI backends: Claude Code, Codex, Gemini CLI
-- Graph-aware parallel builds (topological sort → wave scheduling)
-- SSE real-time streaming of build progress
-- AI chat with "Apply to Canvas" mutations
-- Chat sidebar with session management (Claude.ai style)
-- Import existing codebase → auto-generate architecture canvas
-- Export to YAML / JSON
-- Undo / Redo (50 steps)
-- i18n: Chinese / English
-- Editable project name in status bar
-- Auto-save to workspace
-- Dev Progress Dashboard
-
----
-
-## API Routes
-
-| Method | Route | Description |
-|---|---|---|
-| `POST` | `/api/agent/spawn` | Spawn a single agent or kick off a full `buildAll` wave plan |
-| `GET` | `/api/agent/status` | Poll status for a given `agentId` |
-| `GET` | `/api/agent/stream` | SSE stream of all agent events |
-| `POST` | `/api/agent/stop` | Kill a running agent |
-| `POST` | `/api/chat` | SSE streaming chat with canvas context |
-| `GET` | `/api/models` | Model list for a given backend |
-| `POST` | `/api/project/save` | Save project to disk |
-| `POST` | `/api/project/load` | Load project from disk |
-| `POST` | `/api/project/import` | Reverse-engineer codebase into canvas |
-| `POST` | `/api/dashboard/generate` | Generate dev progress dashboard |
-| `POST` | `/api/dashboard/save` | Save dashboard data |
-| `POST` | `/api/dashboard/load` | Load dashboard data |
-
----
-
-## Development
-
-**Prerequisites**: Node.js 20+, npm.
+## 快速开始
 
 ```bash
 git clone https://github.com/URaux/vibe-pencil.git
 cd vibe-pencil
 npm install
-npm run dev        # starts Next.js on http://localhost:3000
+npm run dev        # http://localhost:3000
 ```
 
-**Tests**:
+**测试**：
 ```bash
-npx vitest run     # run all tests once
-npx vitest         # watch mode
+npx vitest run     # 运行全部测试
 ```
 
-**Required CLI tools** (install globally before using the respective backend):
+**需要安装的 AI CLI 工具**（按需选择）：
 - Claude Code: `npm install -g @anthropic-ai/claude-code`
 - Codex: `npm install -g @openai/codex`
 - Gemini CLI: `npm install -g @google/gemini-cli`
