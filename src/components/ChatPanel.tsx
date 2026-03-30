@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Edge, Node } from '@xyflow/react'
 import { t } from '@/lib/i18n'
 import { extractActionBlocks, extractVisibleChatText } from '@/lib/chat-actions'
+import { ChatMarkdown } from './ChatMarkdown'
 import { layoutArchitectureCanvas } from '@/lib/graph-layout'
 import { canvasToYaml } from '@/lib/schema-engine'
 import { useAppStore, type ChatMessage } from '@/lib/store'
@@ -552,6 +553,7 @@ export function ChatPanel() {
           architecture_yaml: canvasToYaml(nodes, edges, projectName),
           backend,
           model,
+          locale,
         }),
       })
 
@@ -604,17 +606,21 @@ export function ChatPanel() {
       if (currentSession && !currentSession.title && activeChatSessionId) {
         const sid = activeChatSessionId
         const visibleText = extractVisibleChatText(fullAssistantText)
+        const titleInstruction = locale === 'zh'
+          ? `根据以下对话生成一个简短标题（最多20字），只输出标题。\n\n用户: ${trimmedMessage}\nAI: ${visibleText.slice(0, 500)}`
+          : `Generate a short title (max 20 chars) for this conversation. Output only the title.\n\nUser: ${trimmedMessage}\nAI: ${visibleText.slice(0, 500)}`
         // Fire-and-forget: ask AI for a short title
         fetch('/api/chat', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            message: `Based on this conversation, generate a short title (max 20 chars, Chinese preferred). Just output the title, nothing else.\n\nUser: ${trimmedMessage}\nAssistant: ${visibleText.slice(0, 500)}`,
+            message: titleInstruction,
             history: [],
             nodeContext: '',
             architecture_yaml: '',
             backend,
             model,
+            locale,
           }),
         }).then(async (res) => {
           if (!res.ok || !res.body) return
@@ -717,9 +723,19 @@ export function ChatPanel() {
                   <div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-400">
                     {entry.role === 'user' ? t('user') : t('assistant')}
                   </div>
-                  <div className="whitespace-pre-wrap break-words">
-                    {entry.content || (entry.role === 'assistant' && actionBlocks.length > 0 ? '' : '...')}
-                  </div>
+                  {entry.role === 'assistant' ? (
+                    <div className="break-words">
+                      {entry.content ? (
+                        <ChatMarkdown content={entry.content} />
+                      ) : (
+                        actionBlocks.length > 0 ? null : <span>...</span>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="whitespace-pre-wrap break-words">
+                      {entry.content || '...'}
+                    </div>
+                  )}
                   {actionBlocks.length > 0 ? (
                     <div className="mt-3 flex flex-wrap gap-2">
                       {(() => {

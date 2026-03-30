@@ -1,8 +1,9 @@
 import fs from 'fs'
 import type { Edge, Node } from '@xyflow/react'
 import { extractAgentText, extractJsonObject } from '@/lib/agent-output'
-import { analyzeProject } from '@/lib/prompt-templates'
+import { buildSystemContext } from '@/lib/context-engine'
 import { agentRunner } from '@/lib/agent-runner-instance'
+import type { Locale } from '@/lib/i18n'
 import type {
   BlockNodeData,
   BuildStatus,
@@ -18,6 +19,7 @@ export const dynamic = 'force-dynamic'
 interface ImportProjectRequest {
   dir: string
   backend?: 'claude-code' | 'codex' | 'gemini'
+  locale?: Locale // NEW
 }
 
 interface JsonLike {
@@ -84,14 +86,18 @@ function getBackend(backend?: 'claude-code' | 'codex' | 'gemini') {
   return envBackend === 'codex' || envBackend === 'gemini' ? envBackend : 'claude-code'
 }
 
-function buildPrompt(dir: string) {
+function buildPrompt(dir: string, locale: Locale = 'en') {
+  const systemContext = buildSystemContext({ locale, role: 'import' })
+
+  const exampleContainerName = locale === 'zh' ? '客户端层' : 'Client Layer'
+  const exampleBlockName = locale === 'zh' ? 'Web 应用' : 'Web App'
+  const exampleBlockDesc = locale === 'zh' ? '用户交互界面' : 'User-facing application'
+
   return [
-    analyzeProject({
-      architecture_yaml: 'No architecture YAML exists yet. Infer architecture directly from the current workspace.',
-      project_context: `Import source directory: ${dir}`,
-      user_feedback:
-        'Reverse-engineer the current codebase into a React Flow architecture canvas. Favor a compact but meaningful graph.',
-    }),
+    systemContext,
+    '',
+    `Import source directory: ${dir}`,
+    'Reverse-engineer the current codebase into a React Flow architecture canvas. Favor a compact but meaningful graph.',
     '',
     'Return structured JSON for React Flow and nothing else, unless you need a fenced ```json block.',
     'The preferred JSON shape is:',
@@ -99,13 +105,13 @@ function buildPrompt(dir: string) {
     '  "containers": [',
     '    {',
     '      "id": "container-client",',
-    '      "name": "Client Layer",',
+    `      "name": "${exampleContainerName}",`,
     '      "color": "blue",',
     '      "blocks": [',
     '        {',
     '          "id": "block-web",',
-    '          "name": "Web App",',
-    '          "description": "User-facing application",',
+    `          "name": "${exampleBlockName}",`,
+    `          "description": "${exampleBlockDesc}",`,
     '          "status": "idle",',
     '          "techStack": "Next.js 16"',
     '        }',
@@ -386,7 +392,7 @@ function normalizeCanvas(payload: unknown) {
 }
 
 export async function POST(request: Request) {
-  const { dir, backend } = (await request.json()) as ImportProjectRequest
+  const { dir, backend, locale } = (await request.json()) as ImportProjectRequest
 
   if (!dir?.trim()) {
     return Response.json({ error: 'Project directory path cannot be empty.' }, { status: 400 })
@@ -399,7 +405,7 @@ export async function POST(request: Request) {
   try {
     const agentId = agentRunner.spawnAgent(
       'project-import',
-      buildPrompt(dir),
+      buildPrompt(dir, locale),
       getBackend(backend),
       dir
     )

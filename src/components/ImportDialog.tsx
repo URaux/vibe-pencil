@@ -30,7 +30,7 @@ export function ImportDialog({ open, onClose }: ImportDialogProps) {
   const setChatOpen = useAppStore((state) => state.setChatOpen)
   const createChatSession = useAppStore((state) => state.createChatSession)
   const updateActiveChatMessages = useAppStore((state) => state.updateActiveChatMessages)
-  useAppStore((state) => state.locale)
+  const locale = useAppStore((state) => state.locale)
   const [dir, setDir] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [progress, setProgress] = useState<string | null>(null)
@@ -55,7 +55,7 @@ export function ImportDialog({ open, onClose }: ImportDialogProps) {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ dir: trimmedDir, backend }),
+        body: JSON.stringify({ dir: trimmedDir, backend, locale }),
       })
 
       const payload = (await response.json()) as Partial<ImportResponse> & { error?: string }
@@ -96,6 +96,7 @@ export function ImportDialog({ open, onClose }: ImportDialogProps) {
             architecture_yaml: yaml,
             backend,
             model,
+            locale,
           }),
         })
         if (chatRes.ok && chatRes.body) {

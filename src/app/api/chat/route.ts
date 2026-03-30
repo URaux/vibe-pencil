@@ -1,6 +1,8 @@
 import type { AgentBackend } from '@/lib/agent-runner'
 import { agentRunner } from '@/lib/agent-runner-instance'
 import { extractAgentText } from '@/lib/agent-output'
+import { buildSystemContext } from '@/lib/context-engine'
+import type { Locale } from '@/lib/i18n'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -17,21 +19,8 @@ interface ChatRequest {
   architecture_yaml: string
   backend?: AgentBackend
   model?: string
+  locale?: Locale // NEW
 }
-
-const CANVAS_ACTION_INSTRUCTIONS = [
-  'CRITICAL: If you need to modify the canvas, place ALL ```json:canvas-action blocks at the very START of your response.',
-  'Do not provide a preamble. Output JSON first, then explain your reasoning.',
-  'When you recommend canvas modifications, include a ```json:canvas-action block.',
-  'Use one of these actions:',
-  '- add-node container: {"action":"add-node","node":{"id?":"container-app","type":"container","position?":{"x":0,"y":0},"data":{"name":"Application Layer","color":"blue","collapsed":false},"style":{"width":400,"height":300}}}',
-  '- add-node block: {"action":"add-node","node":{"id?":"block-web","type":"block","parentId?":"container-app","position?":{"x":24,"y":72},"data":{"name":"Web App","description":"User-facing app","status":"idle","techStack":"Next.js 16"}}}',
-  '- update-node: {"action":"update-node","target_id":"node-id","data":{"name":"...","description":"...","techStack":"...","color":"green","collapsed":true}}',
-  '- remove-node: {"action":"remove-node","target_id":"node-id"}',
-  '- add-edge: {"action":"add-edge","edge":{"id?":"edge-1","source":"block-web","target":"block-api","type":"sync","label?":"HTTPS"}}',
-  'Only create edges between block nodes.',
-  'Keep normal prose AFTER the code block, and keep code blocks valid JSON.',
-].join('\n')
 
 function formatHistory(history: ChatMessage[] | undefined) {
   if (!history?.length) {
@@ -49,12 +38,14 @@ function getBackend(backend?: AgentBackend): AgentBackend {
   return (process.env.VIBE_CHAT_AGENT_BACKEND as AgentBackend) ?? 'claude-code'
 }
 
-function buildPrompt({ message, history, nodeContext, architecture_yaml }: ChatRequest) {
+function buildPrompt({ message, history, nodeContext, architecture_yaml, locale }: ChatRequest) {
+  const systemContext = buildSystemContext({
+    locale: locale ?? 'en',
+    role: 'chat',
+  })
+
   return [
-    'You are the AI discussion panel for a software architecture canvas.',
-    'Respond as a collaborative architecture assistant grounded in the provided canvas state.',
-    'Reference the selected node context when it is available.',
-    CANVAS_ACTION_INSTRUCTIONS,
+    systemContext,
     '',
     'Architecture YAML:',
     architecture_yaml,

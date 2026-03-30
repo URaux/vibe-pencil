@@ -1,22 +1,13 @@
+import { buildSystemContext } from './context-engine'
+import type { Locale } from './i18n'
+
 interface PromptTemplateInput {
   architecture_yaml: string
   selected_nodes?: string[]
   project_context?: string
   user_feedback?: string
+  locale?: Locale // defaults to 'en' if not provided
 }
-
-const PERSONA = [
-  'You are an AI architecture consultant.',
-  'Use first-principles thinking, apply Occam\'s razor, and prefer practical choices over fashionable complexity.',
-].join('\n')
-
-const CANVAS_ACTION_INSTRUCTIONS = [
-  'When you recommend a canvas change, wrap it in a ```json:canvas-action block.',
-  'Example:',
-  '```json:canvas-action',
-  '{"action": "add-node", "node": {"type": "service", "name": "CacheService", "description": "..."}}',
-  '```',
-].join('\n')
 
 function formatContext(input: PromptTemplateInput) {
   return [
@@ -33,17 +24,18 @@ function buildPrompt(
   title: string,
   task: string,
   input: PromptTemplateInput,
-  includeCanvasActions: boolean
+  _includeCanvasActions: boolean
 ) {
+  const locale = input.locale ?? 'en'
+  const systemContext = buildSystemContext({ locale, role: 'build' })
+
   return [
-    PERSONA,
+    systemContext,
     '',
     `Task: ${title}`,
     task,
     '',
     formatContext(input),
-    '',
-    includeCanvasActions ? CANVAS_ACTION_INSTRUCTIONS : '',
   ]
     .filter(Boolean)
     .join('\n')

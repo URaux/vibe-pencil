@@ -28,6 +28,7 @@ export function useBuildActions() {
   const edges = useAppStore((state) => state.edges)
   const projectName = useAppStore((state) => state.projectName)
   const config = useAppStore((state) => state.config)
+  const locale = useAppStore((state) => state.locale)
   const buildState = useAppStore((state) => state.buildState)
   const updateNodeStatus = useAppStore((state) => state.updateNodeStatus)
   const setBuildState = useAppStore((state) => state.setBuildState)
@@ -100,6 +101,7 @@ export function useBuildActions() {
                 waveSummary,
               ].join('\n'),
               user_feedback: `Implement the target node directly in ${config.workDir}. Keep changes focused on ${targetName}.`,
+              locale,
             }),
             '',
             'Execution instructions:',
@@ -190,6 +192,7 @@ export function useBuildActions() {
             ...techInfo,
           ].join('\n'),
           user_feedback: `Implement ${targetName} directly in ${config.workDir}. Keep changes focused on this node.`,
+          locale,
         }),
         '',
         'Execution instructions:',
