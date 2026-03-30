@@ -1,5 +1,6 @@
 'use client'
 
+import { memo } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeHighlight from 'rehype-highlight'
@@ -8,7 +9,7 @@ interface ChatMarkdownProps {
   content: string
 }
 
-export function ChatMarkdown({ content }: ChatMarkdownProps) {
+export const ChatMarkdown = memo(function ChatMarkdown({ content }: ChatMarkdownProps) {
   return (
     <ReactMarkdown
       remarkPlugins={[remarkGfm]}
@@ -53,6 +54,15 @@ export function ChatMarkdown({ content }: ChatMarkdownProps) {
         },
         h3({ children }) {
           return <h3 className="my-1.5 text-sm font-semibold">{children}</h3>
+        },
+        h4({ children }) {
+          return <h4 className="my-1.5 text-sm font-semibold">{children}</h4>
+        },
+        h5({ children }) {
+          return <h5 className="my-1.5 text-sm font-semibold">{children}</h5>
+        },
+        h6({ children }) {
+          return <h6 className="my-1.5 text-sm font-semibold">{children}</h6>
         },
         table({ children }) {
           return (
@@ -101,4 +111,4 @@ export function ChatMarkdown({ content }: ChatMarkdownProps) {
       {content}
     </ReactMarkdown>
   )
-}
+})

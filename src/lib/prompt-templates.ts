@@ -23,8 +23,7 @@ function formatContext(input: PromptTemplateInput) {
 function buildPrompt(
   title: string,
   task: string,
-  input: PromptTemplateInput,
-  _includeCanvasActions: boolean
+  input: PromptTemplateInput
 ) {
   const locale = input.locale ?? 'en'
   const systemContext = buildSystemContext({ locale, role: 'build' })
@@ -45,8 +44,7 @@ export function buildAll(input: PromptTemplateInput) {
   return buildPrompt(
     'Build entire project',
     'Produce a phased implementation plan for the full architecture and call out any missing components.',
-    input,
-    true
+    input
   )
 }
 
@@ -54,8 +52,7 @@ export function buildNode(input: PromptTemplateInput) {
   return buildPrompt(
     'Build selected node',
     'Focus on the selected node set, describe how to implement it, and note upstream or downstream dependencies.',
-    input,
-    true
+    input
   )
 }
 
@@ -63,8 +60,7 @@ export function buildSubgraph(input: PromptTemplateInput) {
   return buildPrompt(
     'Build selected subgraph',
     'Design and sequence the selected subgraph so the resulting plan is coherent, minimal, and buildable.',
-    input,
-    true
+    input
   )
 }
 
@@ -72,8 +68,7 @@ export function analyzeProject(input: PromptTemplateInput) {
   return buildPrompt(
     'Analyze project',
     'Review the architecture, identify structural risks, and recommend the simplest viable improvements.',
-    input,
-    false
+    input
   )
 }
 
@@ -81,7 +76,6 @@ export function refactorNode(input: PromptTemplateInput) {
   return buildPrompt(
     'Refactor selected node',
     'Propose a refactor plan for the selected node set that reduces complexity while preserving behavior.',
-    input,
-    true
+    input
   )
 }

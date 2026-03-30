@@ -1,5 +1,5 @@
-const CANVAS_ACTION_FENCE = /```(?:json)?(?::canvas-action)?/i
-const CANVAS_ACTION_BLOCK = /```(?:json)?(?::canvas-action)?\s*([\s\S]*?)```/gi
+const CANVAS_ACTION_FENCE = /```json:canvas-action/i
+const CANVAS_ACTION_BLOCK = /```json:canvas-action\s*([\s\S]*?)```/gi
 
 export function extractActionBlocks(content: string) {
   const blocks = Array.from(content.matchAll(CANVAS_ACTION_BLOCK), (match) => match[1].trim())

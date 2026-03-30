@@ -27,7 +27,9 @@ function formatHistory(history: ChatMessage[] | undefined) {
     return 'No prior conversation.'
   }
 
-  return history.map((entry) => `${entry.role.toUpperCase()}: ${entry.content}`).join('\n\n')
+  return history
+    .map((entry) => `<${entry.role}>\n${entry.content}\n</${entry.role}>`)
+    .join('\n\n')
 }
 
 function getBackend(backend?: AgentBackend): AgentBackend {

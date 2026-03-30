@@ -8,37 +8,26 @@ export interface ContextOptions {
   skillContent?: string // Pre-merged skill markdown (from skill-loader)
 }
 
-const PERSONAS: Record<AgentRole, { en: string; zh: string }> = {
-  chat: {
-    en: 'You are the AI discussion panel for a software architecture canvas. Respond as a collaborative architecture assistant grounded in the provided canvas state.',
-    zh: 'You are the AI discussion panel for a software architecture canvas. Respond as a collaborative architecture assistant grounded in the provided canvas state.',
-  },
-  import: {
-    en: 'You are an AI architecture reverse-engineer. Analyze the given codebase and produce a structured architecture representation.',
-    zh: 'You are an AI architecture reverse-engineer. Analyze the given codebase and produce a structured architecture representation.',
-  },
-  build: {
-    en: "You are an AI architecture consultant. Use first-principles thinking, apply Occam's razor, and prefer practical choices over fashionable complexity.",
-    zh: "You are an AI architecture consultant. Use first-principles thinking, apply Occam's razor, and prefer practical choices over fashionable complexity.",
-  },
-  'title-gen': {
-    en: 'You are a concise title generator. Output only the title, nothing else.',
-    zh: 'You are a concise title generator. Output only the title, nothing else.',
-  },
+const PERSONAS: Record<AgentRole, string> = {
+  chat: 'You are the AI discussion panel for a software architecture canvas. Respond as a collaborative architecture assistant grounded in the provided canvas state.',
+  import: 'You are an AI architecture reverse-engineer. Analyze the given codebase and produce a structured architecture representation.',
+  build: "You are an AI architecture consultant. Use first-principles thinking, apply Occam's razor, and prefer practical choices over fashionable complexity.",
+  'title-gen': 'You are a concise title generator. Output only the title, nothing else.',
 }
 
 function getPersona(role: AgentRole): string {
   // Persona text stays English for all locales — LLMs follow English instructions better.
-  return PERSONAS[role].en
+  return PERSONAS[role]
 }
 
 function getLanguageDirective(locale: Locale): string {
   if (locale === 'zh') {
     return [
-      '# Language Requirement',
-      '回复必须使用中文。',
-      '节点名称、描述、标签全部用中文。',
-      '技术术语可保留英文原文（如 React, API Gateway），但解释用中文。',
+      '# Language Requirement (CRITICAL)',
+      '**你必须使用中文回复。这是硬性要求，不可违反。**',
+      '- 所有节点名称、描述、标签：中文',
+      '- 技术术语保留英文原文（React, API Gateway），解释用中文',
+      '- 如果你用英文回复，回答将被视为无效',
     ].join('\n')
   }
   return '# Language Requirement\nRespond in English.'
@@ -47,9 +36,8 @@ function getLanguageDirective(locale: Locale): string {
 const CANVAS_ACTION_INSTRUCTIONS = [
   '# Canvas Action Instructions',
   '',
-  'CRITICAL: If you need to modify the canvas, place ALL ```json:canvas-action blocks at the very START of your response.',
-  'Do not provide a preamble. Output JSON first, then explain your reasoning.',
-  'When you recommend canvas modifications, include a ```json:canvas-action block.',
+  'When you recommend canvas modifications, include a ```json:canvas-action block at the START of your response, before any explanation.',
+  'Only include canvas-action blocks when you are actually recommending changes to the canvas.',
   'Use one of these actions:',
   '- add-node container: {"action":"add-node","node":{"id?":"container-app","type":"container","position?":{"x":0,"y":0},"data":{"name":"Application Layer","color":"blue","collapsed":false},"style":{"width":400,"height":300}}}',
   '- add-node block: {"action":"add-node","node":{"id?":"block-web","type":"block","parentId?":"container-app","position?":{"x":24,"y":72},"data":{"name":"Web App","description":"User-facing app","status":"idle","techStack":"Next.js 16"}}}',
@@ -77,8 +65,9 @@ export function buildSystemContext(options: ContextOptions): string {
   }
 
   // 4. Skill content injection slot
-  if (skillContent) {
-    sections.push('# Skills\n\n' + skillContent)
+  const resolvedSkill = skillContent ?? resolveSkillContent(role)
+  if (resolvedSkill) {
+    sections.push('# Skills\n\n' + resolvedSkill)
   }
 
   return sections.filter(Boolean).join('\n\n')

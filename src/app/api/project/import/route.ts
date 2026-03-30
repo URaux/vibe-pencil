@@ -145,12 +145,12 @@ async function waitForCompletion(agentId: string, timeoutMs = 300000) {
     }
 
     if (status.status === 'done') {
-      // Agent exited successfully but with non-zero exit code — treat output as best-effort
       if (status.exitCode && status.exitCode !== 0 && !status.output.trim()) {
         throw new Error(
           `Agent exited with code ${status.exitCode}.${status.errorMessage ? ` ${status.errorMessage.slice(0, 200)}` : ''}`
         )
       }
+      // Non-zero exit with output — attempt best-effort parse (deliberate: fall through)
       return status
     }
 
@@ -378,16 +378,17 @@ function normalizeEdges(rawEdges: unknown, nodeIds: Set<string>) {
 
 function normalizeCanvas(payload: unknown) {
   const root = isObject(payload) && isObject(payload.canvas) ? payload.canvas : payload
-
   if (!isObject(root)) {
     throw new Error('Agent did not return a JSON object.')
   }
-
-  const canvas = isObject(root.nodes) ? normalizeLegacyFormat(root) : normalizeNewFormat(root)
+  // Try new format first, fall back to legacy if no nodes produced
+  let canvas = normalizeNewFormat(root)
+  if (canvas.nodes.length === 0 && isObject(root.nodes)) {
+    canvas = normalizeLegacyFormat(root)
+  }
   if (canvas.nodes.length === 0) {
     throw new Error('Agent did not return any importable nodes.')
   }
-
   return canvas
 }
 
