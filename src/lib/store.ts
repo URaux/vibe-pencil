@@ -257,15 +257,19 @@ export const useAppStore = create<AppState>((set, get) => ({
       ),
     })
   },
-  setCanvas: (nodes, edges) =>
+  setCanvas: (nodes, edges) => {
+    // Filter out invalid edges: both source and target must exist as block nodes
+    const nodeIds = new Set(nodes.map((n) => n.id))
+    const validEdges = edges.filter((e) => nodeIds.has(e.source) && nodeIds.has(e.target))
     set({
       nodes,
-      edges,
+      edges: validEdges,
       canvasVersion: get().canvasVersion + 1,
       selectedNodeId: nodes.some((node) => node.id === get().selectedNodeId)
         ? get().selectedNodeId
         : null,
-    }),
+    })
+  },
   addNode: (node) => set({ nodes: [...get().nodes, node] }),
   addCanvasEdge: (edge) => set({ edges: addEdge(edge, get().edges) }),
   removeNode: (id) => {
