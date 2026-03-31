@@ -145,6 +145,8 @@ export const translations = {
     importing_skill: '导入中...',
     import_success: '导入成功',
     retry_failed: '重试失败节点',
+    confirm_design: '确认方案，开始生成架构',
+    brainstorm_hint: '当前为需求讨论阶段，确认后开始生成架构',
   },
   en: {
     nodes: 'Nodes',
@@ -290,6 +292,8 @@ export const translations = {
     importing_skill: 'Importing...',
     import_success: 'Import successful',
     retry_failed: 'Retry Failed Nodes',
+    confirm_design: 'Confirm design, generate architecture',
+    brainstorm_hint: 'Brainstorming phase — confirm to start generating architecture',
   },
 } satisfies Record<Locale, Record<string, string>>
 

@@ -37,12 +37,15 @@ export interface ChatMessage {
   canvasAfter?: { nodes: Node<CanvasNodeData>[]; edges: Edge[] }
 }
 
+export type SessionPhase = 'brainstorm' | 'design' | 'iterate'
+
 export interface ChatSession {
   id: string
   title: string
   messages: ChatMessage[]
   createdAt: number
   updatedAt: number
+  phase: SessionPhase
   canvasSnapshot?: { nodes: Node<CanvasNodeData>[]; edges: Edge[]; projectName?: string }
 }
 
@@ -94,6 +97,7 @@ interface AppState {
   switchChatSession: (id: string) => void
   deleteChatSession: (id: string) => void
   renameChatSession: (id: string, title: string) => void
+  setSessionPhase: (id: string, phase: SessionPhase) => void
   updateActiveChatMessages: (updater: (msgs: ChatMessage[]) => ChatMessage[]) => void
 }
 
@@ -110,7 +114,9 @@ function loadChatSessions(): ChatSession[] {
     const stored = window.localStorage.getItem(CHAT_SESSIONS_STORAGE_KEY)
 
     if (stored) {
-      return JSON.parse(stored) as ChatSession[]
+      const parsed = JSON.parse(stored) as ChatSession[]
+      // Backward compat: default missing phase to 'iterate' for existing sessions
+      return parsed.map((s) => ({ ...s, phase: s.phase ?? 'iterate' }))
     }
 
     // Migrate from legacy Map-based storage
@@ -130,6 +136,7 @@ function loadChatSessions(): ChatSession[] {
             messages,
             createdAt: now - (entries.length - index) * 1000,
             updatedAt: now - (entries.length - index) * 1000,
+            phase: 'iterate' as SessionPhase,
           }
         })
 
@@ -390,7 +397,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         ? { ...s, canvasSnapshot: { nodes, edges, projectName } }
         : s
     )
-    const session: ChatSession = { id, title: '', messages: [], createdAt: now, updatedAt: now }
+    const session: ChatSession = { id, title: '', messages: [], createdAt: now, updatedAt: now, phase: 'brainstorm' }
     const untitled = translate(locale, 'untitled')
     set({
       chatSessions: [session, ...updatedSessions],
@@ -450,6 +457,13 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({
       chatSessions: get().chatSessions.map((s) =>
         s.id === id ? { ...s, title } : s
+      ),
+    })
+  },
+  setSessionPhase: (id, phase) => {
+    set({
+      chatSessions: get().chatSessions.map((s) =>
+        s.id === id ? { ...s, phase } : s
       ),
     })
   },

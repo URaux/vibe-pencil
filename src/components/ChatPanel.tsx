@@ -249,6 +249,7 @@ export function ChatPanel() {
   const chatSessions = useAppStore((state) => state.chatSessions)
   const activeChatSessionId = useAppStore((state) => state.activeChatSessionId)
   const createChatSession = useAppStore((state) => state.createChatSession)
+  const setSessionPhase = useAppStore((state) => state.setSessionPhase)
   const updateActiveChatMessages = useAppStore((state) => state.updateActiveChatMessages)
   const workDir = useAppStore((state) => state.config.workDir)
   const { applyCanvasActions, restoreSnapshot, actionErrors } = useCanvasActions()
@@ -375,6 +376,7 @@ export function ChatPanel() {
           backend,
           model,
           locale,
+          phase: activeSession?.phase ?? 'brainstorm',
         }),
       })
 
@@ -422,9 +424,14 @@ export function ChatPanel() {
 
       const actionBlocks = extractActionBlocks(fullAssistantText)
       updateAssistantMessage(extractVisibleChatText(fullAssistantText), actionBlocks)
-      // Auto-apply canvas actions only when stream completed without error
-      if (streamCompletedNormally && actionBlocks.length > 0) {
+      // Auto-apply canvas actions only when stream completed without error and not in brainstorm phase
+      const currentPhase = useAppStore.getState().chatSessions.find((s) => s.id === sessionId)?.phase ?? 'brainstorm'
+      if (streamCompletedNormally && actionBlocks.length > 0 && currentPhase !== 'brainstorm') {
         await applyCanvasActions(actionBlocks, messageIndex)
+        // Auto-transition from design to iterate after first successful apply
+        if (currentPhase === 'design') {
+          useAppStore.getState().setSessionPhase(sessionId, 'iterate')
+        }
       }
       // Auto-generate session title + project name via lightweight title endpoint
       const sid = sessionId
@@ -593,6 +600,24 @@ export function ChatPanel() {
 
           <form onSubmit={handleSubmit} className="border-t border-slate-200 pt-4">
             {error ? <div className="mb-3 max-h-20 overflow-y-auto text-sm text-rose-600">{error}</div> : null}
+            {activeSession?.phase === 'brainstorm' ? (
+              <div className="mb-3 flex items-center justify-between">
+                <span className="text-xs text-slate-500">
+                  {locale === 'zh' ? '需求讨论中' : 'Brainstorming'}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (activeChatSessionId) {
+                      setSessionPhase(activeChatSessionId, 'design')
+                    }
+                  }}
+                  className="rounded-full border border-orange-200 bg-orange-50 px-3 py-1.5 text-xs font-medium text-orange-700 hover:bg-orange-100 transition-colors"
+                >
+                  {locale === 'zh' ? '确认方案，开始生成架构 →' : 'Start Designing →'}
+                </button>
+              </div>
+            ) : null}
             {hasBuildSummary ? (
               <div className="mb-3 flex items-center gap-2">
                 <button

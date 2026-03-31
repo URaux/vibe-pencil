@@ -171,7 +171,7 @@ export function BuildDrawer() {
 
   if (drawerState === 'collapsed') {
     return (
-      <div className="vp-drawer-enter fixed bottom-0 left-0 right-0 z-40">
+      <div className="vp-drawer-enter fixed bottom-12 left-0 right-0 z-40">
         <CollapsedStrip onClick={handleExpand} />
       </div>
     )
@@ -180,7 +180,7 @@ export function BuildDrawer() {
   // Open state
   return (
     <div
-      className="vp-panel vp-drawer-enter fixed bottom-0 left-0 right-0 z-40 flex flex-col border-t border-slate-200/80"
+      className="vp-panel vp-drawer-enter fixed bottom-12 left-0 right-0 z-40 flex flex-col border-t border-slate-200/80"
       style={{ height: panelHeight }}
     >
       {/* Drag handle */}

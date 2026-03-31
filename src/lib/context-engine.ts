@@ -1,4 +1,5 @@
 import type { Locale } from './i18n'
+import type { SessionPhase } from './store'
 
 export type AgentType = 'canvas' | 'build'
 
@@ -22,6 +23,7 @@ export interface ContextOptions {
   taskParams?: Record<string, string>  // dir, workDir, nodeName, waveInfo, etc.
   codeContext?: string
   buildSummaryContext?: string
+  sessionPhase?: SessionPhase
 }
 
 // ---------------------------------------------------------------------------
@@ -256,7 +258,7 @@ const CANVAS_ACTION_INSTRUCTIONS = [
   '- Keep normal prose AFTER the code block, and keep code blocks valid JSON.',
 ].join('\n')
 
-function layerOutputFormat(agentType: AgentType, task: TaskType, locale: Locale): string {
+function layerOutputFormat(agentType: AgentType, task: TaskType, locale: Locale, sessionPhase?: SessionPhase): string {
   if (task === 'import' || task === 'import-enhance') {
     const exampleContainerName = locale === 'zh' ? '客户端层' : 'Client Layer'
     const exampleBlockName = locale === 'zh' ? 'Web 应用' : 'Web App'
@@ -304,8 +306,21 @@ function layerOutputFormat(agentType: AgentType, task: TaskType, locale: Locale)
     return '# Output Format\n\nWrite files directly to the filesystem. Do not output file contents to stdout unless asked.'
   }
 
+  // canvas agent in brainstorm phase: suppress canvas-action instructions
+  if (sessionPhase === 'brainstorm') {
+    return [
+      '# Output Format',
+      '',
+      'Respond in Markdown only. Do NOT generate any ```json:canvas-action blocks.',
+      'Focus on understanding requirements, clarifying questions, and proposing design approaches.',
+      'When you have enough information, summarize the proposed architecture in text.',
+      'The user will explicitly transition to design mode when ready.',
+      locale === 'zh' ? '当前处于需求讨论阶段。请通过提问和讨论来理解用户需求，不要直接生成架构。' : '',
+    ].filter(Boolean).join('\n')
+  }
+
   // canvas agent: discuss, discuss-node, analyze — all support canvas actions
-  return CANVAS_ACTION_INSTRUCTIONS
+  return CANVAS_ACTION_INSTRUCTIONS + '\n\nRemember: Follow any skill guidelines listed above. They take precedence over default behavior.'
 }
 
 // ---------------------------------------------------------------------------
@@ -324,6 +339,7 @@ export function buildSystemContext(options: ContextOptions): string {
     taskParams = {},
     codeContext,
     buildSummaryContext,
+    sessionPhase,
   } = options
 
   const resolvedSkill = skillContent ?? resolveSkillContent(agentType, task, taskParams.techStack)
@@ -338,7 +354,7 @@ export function buildSystemContext(options: ContextOptions): string {
     layerTask(task, taskParams),                                                    // L4
     layerSkills(resolvedSkill, agentType),                                          // L5
     layerConstraints(agentType, taskParams),                                        // L6
-    layerOutputFormat(agentType, task, locale),                                     // L7
+    layerOutputFormat(agentType, task, locale, sessionPhase),                       // L7
   ]
 
   return layers.filter(Boolean).join('\n\n')

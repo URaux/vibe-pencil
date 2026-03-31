@@ -3,6 +3,7 @@ import { agentRunner } from '@/lib/agent-runner-instance'
 import { extractAgentText } from '@/lib/agent-output'
 import { buildSystemContext } from '@/lib/context-engine'
 import type { Locale } from '@/lib/i18n'
+import type { SessionPhase } from '@/lib/store'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -23,6 +24,7 @@ interface ChatRequest {
   backend?: AgentBackend
   model?: string
   locale?: Locale
+  phase?: SessionPhase
 }
 
 function formatHistory(history: ChatMessage[] | undefined) {
@@ -52,6 +54,7 @@ function buildPrompt({
   buildSummaryContext,
   architecture_yaml,
   locale,
+  phase,
 }: ChatRequest) {
   const systemContext = buildSystemContext({
     agentType: 'canvas',
@@ -62,6 +65,7 @@ function buildPrompt({
     conversationHistory: formatHistory(history),
     codeContext,
     buildSummaryContext,
+    sessionPhase: phase,
   })
 
   return [
