@@ -72,6 +72,15 @@ export function useBuildActions() {
   const setBuildState = useAppStore((state) => state.setBuildState)
   const [isPending, startTransition] = useTransition()
 
+  // Create project-specific subdirectory under workDir
+  const projectSlug = projectName
+    .toLowerCase()
+    .replace(/[^a-z0-9\u4e00-\u9fff-]/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+    || 'untitled'
+  const projectWorkDir = `${config.workDir}/${projectSlug}`
+
   const buildableNodes = nodes.filter((node): node is Node<BlockNodeData> => node.type === 'block')
   const selectedNodeIds = buildableNodes.filter((node) => node.selected).map((node) => node.id)
   const selectedCount = selectedNodeIds.length
@@ -152,7 +161,7 @@ export function useBuildActions() {
                 ...(node.data.techStack ? [`Tech stack: ${node.data.techStack}`] : []),
                 waveSummary,
               ].join('\n'),
-              user_feedback: `Implement the target node directly in ${config.workDir}. Keep changes focused on ${targetName}.`,
+              user_feedback: `Implement the target node directly in ${projectWorkDir}. Keep changes focused on ${targetName}.`,
               locale,
             }),
             '',
@@ -200,7 +209,7 @@ export function useBuildActions() {
           waves,
           prompts,
           backend: config.agent,
-          workDir: config.workDir,
+          workDir: projectWorkDir,
           maxParallel: config.maxParallel,
           model: config.model,
         }),
@@ -243,7 +252,7 @@ export function useBuildActions() {
             `Target node: ${targetName}`,
             ...techInfo,
           ].join('\n'),
-          user_feedback: `Implement ${targetName} directly in ${config.workDir}. Keep changes focused on this node.`,
+          user_feedback: `Implement ${targetName} directly in ${projectWorkDir}. Keep changes focused on this node.`,
           locale,
         }),
         '',
@@ -276,7 +285,7 @@ export function useBuildActions() {
           nodeId,
           prompt,
           backend: config.agent,
-          workDir: config.workDir,
+          workDir: projectWorkDir,
           model: config.model,
         }),
       })
@@ -356,7 +365,7 @@ export function useBuildActions() {
               ...techInfo,
               waveSummary,
             ].join('\n'),
-            user_feedback: `Retry implementing ${targetName} in ${config.workDir}. Keep changes focused on this node.`,
+            user_feedback: `Retry implementing ${targetName} in ${projectWorkDir}. Keep changes focused on this node.`,
             locale,
           }),
           '',
@@ -396,7 +405,7 @@ export function useBuildActions() {
           waves,
           prompts,
           backend: config.agent,
-          workDir: config.workDir,
+          workDir: projectWorkDir,
           maxParallel: config.maxParallel,
           model: config.model,
         }),
