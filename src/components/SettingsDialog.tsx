@@ -40,8 +40,16 @@ function SkillsPanel() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [expandedSkill, setExpandedSkill] = useState<string | null>(null)
+  const [showAddForm, setShowAddForm] = useState(false)
+  const [addName, setAddName] = useState('')
+  const [addCategory, setAddCategory] = useState('core')
+  const [addDesc, setAddDesc] = useState('')
+  const [addScope, setAddScope] = useState<string[]>(['global', 'node', 'build'])
+  const [addTags, setAddTags] = useState('')
+  const [addContent, setAddContent] = useState('')
+  const [addSaving, setAddSaving] = useState(false)
 
-  useEffect(() => {
+  const loadSkills = useCallback(() => {
     setLoading(true)
     setError(null)
     fetch('/api/skills/list', { method: 'POST' })
@@ -55,6 +63,39 @@ function SkillsPanel() {
       )
       .finally(() => setLoading(false))
   }, [])
+
+  useEffect(() => {
+    loadSkills()
+  }, [loadSkills])
+
+  async function handleAddSkill() {
+    if (!addName.trim() || !addContent.trim()) return
+    setAddSaving(true)
+    try {
+      const res = await fetch('/api/skills/add', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: addName.trim(),
+          category: addCategory,
+          description: addDesc.trim(),
+          scope: addScope,
+          tags: addTags.split(/[,，]/).map((t) => t.trim()).filter(Boolean),
+          content: addContent.trim(),
+        }),
+      })
+      if (res.ok) {
+        setShowAddForm(false)
+        setAddName('')
+        setAddDesc('')
+        setAddTags('')
+        setAddContent('')
+        loadSkills()
+      }
+    } finally {
+      setAddSaving(false)
+    }
+  }
 
   if (loading) {
     return (
@@ -166,6 +207,92 @@ function SkillsPanel() {
             </div>
           </div>
         ))}
+
+      {/* Add Skill */}
+      {showAddForm ? (
+        <div className="rounded-2xl border border-blue-200 bg-blue-50 p-4 space-y-3">
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-blue-600">添加技能</p>
+          <input
+            type="text"
+            placeholder="技能名称 (英文, 如 my-custom-rule)"
+            value={addName}
+            onChange={(e) => setAddName(e.target.value)}
+            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:border-blue-400 focus:outline-none"
+          />
+          <select
+            value={addCategory}
+            onChange={(e) => setAddCategory(e.target.value)}
+            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:border-blue-400 focus:outline-none"
+          >
+            <option value="core">core（通用）</option>
+            <option value="frontend">frontend（前端）</option>
+            <option value="backend">backend（后端）</option>
+            <option value="architect">architect（架构）</option>
+            <option value="testing">testing（测试）</option>
+          </select>
+          <input
+            type="text"
+            placeholder="中文描述"
+            value={addDesc}
+            onChange={(e) => setAddDesc(e.target.value)}
+            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:border-blue-400 focus:outline-none"
+          />
+          <input
+            type="text"
+            placeholder="标签 (逗号分隔, 如 React, 组件设计)"
+            value={addTags}
+            onChange={(e) => setAddTags(e.target.value)}
+            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:border-blue-400 focus:outline-none"
+          />
+          <div className="flex gap-3 text-xs">
+            {['global', 'node', 'build'].map((s) => (
+              <label key={s} className="flex items-center gap-1">
+                <input
+                  type="checkbox"
+                  checked={addScope.includes(s)}
+                  onChange={(e) =>
+                    setAddScope(e.target.checked ? [...addScope, s] : addScope.filter((x) => x !== s))
+                  }
+                  className="accent-blue-500"
+                />
+                {s}
+              </label>
+            ))}
+          </div>
+          <textarea
+            placeholder="技能内容 (Markdown)&#10;例如:&#10;# React 规范&#10;- 使用函数式组件&#10;- 避免在 render 中创建闭包"
+            value={addContent}
+            onChange={(e) => setAddContent(e.target.value)}
+            rows={5}
+            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-mono focus:border-blue-400 focus:outline-none"
+          />
+          <div className="flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => setShowAddForm(false)}
+              className="vp-button-secondary rounded-full px-4 py-1.5 text-xs"
+            >
+              取消
+            </button>
+            <button
+              type="button"
+              onClick={() => void handleAddSkill()}
+              disabled={addSaving || !addName.trim() || !addContent.trim()}
+              className="vp-button-primary rounded-full px-4 py-1.5 text-xs disabled:opacity-50"
+            >
+              {addSaving ? '保存中...' : '保存'}
+            </button>
+          </div>
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setShowAddForm(true)}
+          className="vp-button-secondary w-full rounded-xl py-2 text-sm"
+        >
+          + 添加技能
+        </button>
+      )}
     </div>
   )
 }
