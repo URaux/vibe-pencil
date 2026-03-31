@@ -185,6 +185,39 @@ export function ExportMenu() {
     close()
   }
 
+  async function handleExportCode() {
+    close()
+    const state = useAppStore.getState()
+    const projectSlug = state.projectName
+      .toLowerCase()
+      .replace(/[^a-z0-9\u4e00-\u9fff-]/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '') || 'project'
+    const projectWorkDir = `${state.config.workDir}/${projectSlug}`
+
+    try {
+      const res = await fetch('/api/project/export-code', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ workDir: projectWorkDir, projectName: state.projectName }),
+      })
+      if (!res.ok) {
+        const err = await res.json() as { error?: string }
+        alert(err.error ?? 'Export failed')
+        return
+      }
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${projectSlug}.zip`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch {
+      // Silent fail
+    }
+  }
+
   function handleCopyAiPrompt() {
     const state = useAppStore.getState()
     const yaml = canvasToYaml(state.nodes, state.edges, state.projectName)
@@ -227,6 +260,7 @@ export function ExportMenu() {
           {/* Group: Project */}
           <GroupLabel>{t('export_group_project')}</GroupLabel>
           <ExportItem label={t('export_archive')} desc={t('export_archive_desc')} onClick={handleExportArchive} />
+          <ExportItem label={t('export_code')} desc={t('export_code_desc')} onClick={() => void handleExportCode()} />
           <ExportItem label={t('copy_yaml')} desc={t('copy_yaml_desc')} onClick={handleCopyYaml} />
           <ExportItem label={t('copy_ai_prompt')} desc={t('copy_ai_prompt_desc')} onClick={handleCopyAiPrompt} />
         </div>

@@ -152,6 +152,8 @@ export const translations = {
     api_key: 'API 密钥',
     api_model: '模型名称',
     custom_api_chat_only: '自定义 API 目前仅支持对话，构建需要 CLI 后端（Claude Code / Codex / Gemini）。',
+    export_code: '导出代码包',
+    export_code_desc: '将构建产物打包为 ZIP 下载',
   },
   en: {
     nodes: 'Nodes',
@@ -304,6 +306,8 @@ export const translations = {
     api_key: 'API Key',
     api_model: 'Model Name',
     custom_api_chat_only: 'Custom API supports chat only. Build requires a CLI backend (Claude Code / Codex / Gemini).',
+    export_code: 'Export Code Package',
+    export_code_desc: 'Download build output as ZIP',
   },
 } satisfies Record<Locale, Record<string, string>>
 
