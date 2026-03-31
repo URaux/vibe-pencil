@@ -1,22 +1,12 @@
 import {
   BaseEdge,
   EdgeLabelRenderer,
-  getStraightPath,
-  getSmoothStepPath,
+  getBezierPath,
   type EdgeProps,
 } from '@xyflow/react'
 
 export function BidirectionalEdge(props: EdgeProps) {
-  const isIntraContainer = props.data?.isIntraContainer === true
-  const [smoothPath, smoothLabelX, smoothLabelY] = getSmoothStepPath({
-    ...props,
-    borderRadius: 8,
-    offset: 12,
-  })
-  const [straightPath, straightLabelX, straightLabelY] = getStraightPath(props)
-  const edgePath = isIntraContainer ? straightPath : smoothPath
-  const labelX = isIntraContainer ? straightLabelX : smoothLabelX
-  const labelY = isIntraContainer ? straightLabelY : smoothLabelY
+  const [edgePath, labelX, labelY] = getBezierPath(props)
 
   return (
     <>

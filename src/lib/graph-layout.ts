@@ -71,8 +71,8 @@ export async function layoutArchitectureCanvas(
         'elk.direction': 'DOWN',
         'elk.edgeRouting': 'ORTHOGONAL',
         'elk.padding': `[top=${CONTAINER_PADDING},left=${CONTAINER_SIDE_PADDING},bottom=${CONTAINER_SIDE_PADDING},right=${CONTAINER_SIDE_PADDING}]`,
-        'elk.spacing.nodeNode': '40',
-        'elk.spacing.edgeNode': '20',
+        'elk.spacing.nodeNode': '60',
+        'elk.spacing.edgeNode': '30',
       },
       children: (container.data as ContainerNodeData).collapsed
         ? []
@@ -130,9 +130,9 @@ export async function layoutArchitectureCanvas(
       'elk.direction': 'DOWN',
       'elk.edgeRouting': 'ORTHOGONAL',
       'elk.hierarchyHandling': 'INCLUDE_CHILDREN',
-      'elk.spacing.nodeNode': '60',
-      'elk.spacing.edgeNode': '40',
-      'elk.layered.spacing.nodeNodeBetweenLayers': '80',
+      'elk.spacing.nodeNode': '80',
+      'elk.spacing.edgeNode': '50',
+      'elk.layered.spacing.nodeNodeBetweenLayers': '100',
       'elk.layered.crossingMinimization.strategy': 'LAYER_SWEEP',
     },
     children: elkChildren,
