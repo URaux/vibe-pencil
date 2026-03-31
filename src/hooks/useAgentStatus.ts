@@ -87,6 +87,20 @@ export function useAgentStatus() {
           const existing = timings[payload.nodeId] ?? {}
           timings[payload.nodeId] = { ...existing, finishedAt: Date.now() }
           store.setBuildState({ nodeTimings: timings })
+
+          // Push a system message into the active chat session so the Chat agent
+          // has passive awareness of build completions and failures.
+          const node = store.nodes.find((n) => n.id === payload.nodeId)
+          const name = (node?.data as import('@/lib/types').BlockNodeData | undefined)?.name || payload.nodeId
+
+          if (payload.status === 'done') {
+            store.appendSystemChatMessage(`[构建] ${name} 构建完成`)
+          } else {
+            const output = store.buildOutputLog[payload.nodeId] ?? ''
+            const lastLine = output.split(/\r?\n/).filter(Boolean).at(-1) ?? ''
+            const errorMsg = lastLine || (node?.data as import('@/lib/types').BlockNodeData | undefined)?.errorMessage || '未知错误'
+            store.appendSystemChatMessage(`[构建] ${name} 构建失败: ${errorMsg.slice(0, 150)}`)
+          }
         }
 
         // When a node errors, block its downstream dependents

@@ -99,6 +99,7 @@ interface AppState {
   renameChatSession: (id: string, title: string) => void
   setSessionPhase: (id: string, phase: SessionPhase) => void
   updateActiveChatMessages: (updater: (msgs: ChatMessage[]) => ChatMessage[]) => void
+  appendSystemChatMessage: (content: string) => void
 }
 
 const initialLocale = getLocale()
@@ -485,6 +486,27 @@ export const useAppStore = create<AppState>((set, get) => ({
       const title = session.title
 
       return { ...session, messages: nextMessages, title, updatedAt: now }
+    })
+
+    set({
+      chatSessions: updated.slice().sort((a, b) => b.updatedAt - a.updatedAt),
+    })
+  },
+  appendSystemChatMessage: (content) => {
+    const { activeChatSessionId, chatSessions } = get()
+
+    if (!activeChatSessionId) {
+      return
+    }
+
+    const now = Date.now()
+    const updated = chatSessions.map((session) => {
+      if (session.id !== activeChatSessionId) {
+        return session
+      }
+
+      const systemMessage: ChatMessage = { role: 'assistant', content }
+      return { ...session, messages: [...session.messages, systemMessage], updatedAt: now }
     })
 
     set({

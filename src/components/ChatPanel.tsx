@@ -6,6 +6,7 @@ import { t } from '@/lib/i18n'
 import { extractActionBlocks, extractVisibleChatText } from '@/lib/chat-actions'
 import { ChatMarkdown } from './ChatMarkdown'
 import { canvasToYaml } from '@/lib/schema-engine'
+import { formatBuildContext } from '@/lib/build-context-formatter'
 import { useAppStore } from '@/lib/store'
 import { getNodeTypeLabel } from '@/lib/ui-text'
 import { useCanvasActions } from '@/hooks/useCanvasActions'
@@ -377,6 +378,11 @@ export function ChatPanel() {
           model,
           locale,
           phase: activeSession?.phase ?? 'brainstorm',
+          buildSummaryContext: formatBuildContext(
+            useAppStore.getState().buildState,
+            useAppStore.getState().nodes,
+            useAppStore.getState().buildOutputLog
+          ) ?? undefined,
         }),
       })
 
@@ -529,6 +535,22 @@ export function ChatPanel() {
               const actionBlocks = rawActionBlocks.some((block) => block.includes('"add-node"'))
                 ? rawActionBlocks
                 : []
+
+              // System messages (build events) render as slim muted banners, not bubbles
+              const isSystemMessage =
+                entry.role === 'assistant' &&
+                (entry.content.startsWith('[构建]') || entry.content.startsWith('[系统]'))
+
+              if (isSystemMessage) {
+                return (
+                  <div
+                    key={`${activeChatSessionId}-${messageIndex}`}
+                    className="rounded-xl bg-slate-100 px-3 py-2 text-xs text-slate-500 italic"
+                  >
+                    {entry.content}
+                  </div>
+                )
+              }
 
               return (
                 <div
