@@ -84,6 +84,28 @@ export function extractVisibleChatText(content: string) {
     }
   }
 
-  // Strip hidden title tags before returning
-  return dedupeRepeatedResponse(visible).replace(/<!--\s*title:\s*.+?\s*-->/g, '').trim()
+  // Strip hidden title tags and user-choice blocks before returning
+  return dedupeRepeatedResponse(visible)
+    .replace(/<!--\s*title:\s*.+?\s*-->/g, '')
+    .replace(/```json:user-choice[\s\S]*?```/gi, '')
+    .trim()
+}
+
+export interface UserChoice {
+  question: string
+  options: string[]
+}
+
+export function extractUserChoices(content: string): UserChoice[] {
+  const CHOICE_BLOCK = /```json:user-choice\s*([\s\S]*?)```/gi
+  const choices: UserChoice[] = []
+  for (const match of content.matchAll(CHOICE_BLOCK)) {
+    try {
+      const parsed = JSON.parse(match[1].trim()) as { question?: string; options?: string[] }
+      if (parsed.question && Array.isArray(parsed.options) && parsed.options.length >= 2) {
+        choices.push({ question: parsed.question, options: parsed.options })
+      }
+    } catch { /* skip invalid */ }
+  }
+  return choices
 }

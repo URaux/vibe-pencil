@@ -316,8 +316,8 @@ function layerOutputFormat(agentType: AgentType, task: TaskType, locale: Locale,
       'When you have enough information, summarize the proposed architecture in text.',
       'The user will explicitly transition to design mode when ready.',
       locale === 'zh'
-        ? '当前处于需求讨论阶段。请通过提问和讨论来理解用户需求，不要直接生成架构。\n每次只问 1-2 个最关键的问题，不要一次列出所有问题。等用户回答后再继续深入。如果有明确选项，用编号列出供用户选择（例如"1. 方案A 2. 方案B 3. 自定义输入"）。\n在你的第一次回复末尾，用 <!-- title: 你总结的项目标题 --> 格式输出一个简短的项目标题（不超过15字）。这个标题对用户不可见，仅用于系统内部。'
-        : 'Ask only 1-2 key questions at a time. Wait for the user\'s answer before diving deeper. When there are clear options, list them as numbered choices (e.g., "1. Option A  2. Option B  3. Custom input").\nAt the end of your first response, output a short project title (max 15 chars) in this hidden format: <!-- title: Your Project Title -->. This is invisible to the user, used internally only.',
+        ? '当前处于需求讨论阶段。请通过提问和讨论来理解用户需求，不要直接生成架构。\n每次只问 1-2 个最关键的问题，不要一次列出所有问题。等用户回答后再继续深入。\n当你需要用户做选择时，用以下格式输出选项（不要用普通编号列表）：\n```json:user-choice\n{"question":"你的问题","options":["选项A","选项B","选项C"]}\n```\n普通的信息列表、模块清单等不要用这个格式，只在需要用户做决定时使用。\n在你的第一次回复末尾，用 <!-- title: 你总结的项目标题 --> 格式输出一个简短的项目标题（不超过15字）。这个标题对用户不可见，仅用于系统内部。'
+        : 'Ask only 1-2 key questions at a time. Wait for the user\'s answer before diving deeper.\nWhen you need the user to make a choice, output options in this format (do NOT use regular numbered lists for choices):\n```json:user-choice\n{"question":"Your question","options":["Option A","Option B","Option C"]}\n```\nDo NOT use this format for informational lists or module descriptions — only for decisions.\nAt the end of your first response, output a short project title (max 15 chars) in this hidden format: <!-- title: Your Project Title -->. This is invisible to the user, used internally only.',
     ].filter(Boolean).join('\n')
   }
 

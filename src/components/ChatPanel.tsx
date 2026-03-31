@@ -4,8 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Edge, Node } from '@xyflow/react'
 import { t } from '@/lib/i18n'
 import { getRandomChatThinkingMessage } from '@/lib/loading-messages'
-import { extractActionBlocks, extractVisibleChatText } from '@/lib/chat-actions'
-import { parseOptions } from '@/lib/option-parser'
+import { extractActionBlocks, extractVisibleChatText, extractUserChoices } from '@/lib/chat-actions'
 import { ChatMarkdown } from './ChatMarkdown'
 import { OptionCards } from './OptionCards'
 import { canvasToYaml } from '@/lib/schema-engine'
@@ -676,13 +675,13 @@ export function ChatPanel() {
                 ? rawActionBlocks
                 : []
 
-              // Detect if this is the last assistant message (for option cards)
+              // Detect if this is the last assistant message (for user-choice cards)
               const isLastAssistant =
                 entry.role === 'assistant' && messageIndex === activeMessages.length - 1
-              const parsedOptions =
+              const userChoices =
                 isLastAssistant && !isSending && entry.content
-                  ? parseOptions(entry.content)
-                  : null
+                  ? extractUserChoices(entry.content)
+                  : []
 
               // System messages (build events) render as slim muted banners, not bubbles
               const isSystemMessage =
@@ -715,23 +714,17 @@ export function ChatPanel() {
                   {entry.role === 'assistant' ? (
                     <div className="break-words">
                       {entry.content ? (
-                        parsedOptions ? (
-                          <>
-                            {parsedOptions.textBefore && (
-                              <ChatMarkdown content={parsedOptions.textBefore} />
-                            )}
+                        <>
+                          <ChatMarkdown content={entry.content} />
+                          {userChoices.map((choice, ci) => (
                             <OptionCards
-                              options={parsedOptions.options}
+                              key={ci}
+                              options={choice.options.map((opt, oi) => ({ number: String(oi + 1), text: opt }))}
                               disabled={isSending}
                               onSelect={(text) => { void handleOptionSelect(text) }}
                             />
-                            {parsedOptions.textAfter && (
-                              <ChatMarkdown content={parsedOptions.textAfter} />
-                            )}
-                          </>
-                        ) : (
-                          <ChatMarkdown content={entry.content} />
-                        )
+                          ))}
+                        </>
                       ) : (
                         actionBlocks.length > 0 ? null : (
                           <div className="flex items-center gap-2 text-slate-400">
