@@ -135,6 +135,10 @@ export const translations = {
     copy: '复制',
     copied: '已复制',
     pin_to_bottom: '固定到底部',
+    scanning_project: '正在扫描项目结构...',
+    ai_reviewing: 'AI 正在审查架构...',
+    enhance_complete: '架构优化完成',
+    enhance_failed: 'AI 优化失败 — 已保留骨架',
   },
   en: {
     nodes: 'Nodes',
@@ -270,6 +274,10 @@ export const translations = {
     copy: 'Copy',
     copied: 'Copied',
     pin_to_bottom: 'Pin to bottom',
+    scanning_project: 'Scanning project structure...',
+    ai_reviewing: 'AI is reviewing your architecture...',
+    enhance_complete: 'Architecture enhanced',
+    enhance_failed: 'AI enhancement failed — skeleton preserved',
   },
 } satisfies Record<Locale, Record<string, string>>
 

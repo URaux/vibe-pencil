@@ -3,12 +3,13 @@ import type { Locale } from './i18n'
 export type AgentType = 'canvas' | 'build'
 
 export type TaskType =
-  | 'discuss'       // chat global mode
-  | 'discuss-node'  // chat with selected node
-  | 'import'        // reverse-engineer codebase
-  | 'analyze'       // review architecture
-  | 'implement'     // build a node
-  | 'refactor'      // refactor a node
+  | 'discuss'         // chat global mode
+  | 'discuss-node'    // chat with selected node
+  | 'import'          // reverse-engineer codebase
+  | 'import-enhance'  // refine skeleton with pre-digested project data
+  | 'analyze'         // review architecture
+  | 'implement'       // build a node
+  | 'refactor'        // refactor a node
 
 export interface ContextOptions {
   agentType: AgentType
@@ -111,6 +112,37 @@ function layerTask(task: TaskType, taskParams: Record<string, string> = {}): str
       ].join('\n')
     }
 
+    case 'import-enhance': {
+      const dir = taskParams.dir ?? '<unknown dir>'
+      const projectSummary = taskParams.projectSummary ?? ''
+      const existingYaml = taskParams.existingYaml ?? ''
+      return [
+        '# Task',
+        '',
+        `Refine the architecture of the project at: ${dir}`,
+        '',
+        'A preliminary scan has already been performed. The project summary and initial skeleton are provided below.',
+        'Your job is to:',
+        '1. Add meaningful descriptions to each block',
+        '2. Identify the correct tech stack for each block',
+        '3. Fix any incorrect container groupings (split or merge as needed)',
+        '4. Add missing edges that represent real data flows',
+        '5. Remove any blocks that are too granular or redundant',
+        '6. Add any major architectural components the scan missed',
+        '',
+        'DO NOT read files from the filesystem. All the information you need is in this prompt.',
+        'DO NOT use any tools. Respond with JSON only.',
+        '',
+        '## Pre-analyzed Project Summary',
+        '',
+        projectSummary,
+        '',
+        '## Current Skeleton (to refine)',
+        '',
+        existingYaml,
+      ].join('\n')
+    }
+
     case 'analyze':
       return '# Task\n\nReview the architecture, identify structural risks, and recommend the simplest viable improvements.'
 
@@ -188,7 +220,7 @@ const CANVAS_ACTION_INSTRUCTIONS = [
 ].join('\n')
 
 function layerOutputFormat(agentType: AgentType, task: TaskType, locale: Locale): string {
-  if (task === 'import') {
+  if (task === 'import' || task === 'import-enhance') {
     const exampleContainerName = locale === 'zh' ? '客户端层' : 'Client Layer'
     const exampleBlockName = locale === 'zh' ? 'Web 应用' : 'Web App'
     const exampleBlockDesc = locale === 'zh' ? '用户交互界面' : 'User-facing application'
