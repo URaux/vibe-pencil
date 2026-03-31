@@ -16,7 +16,9 @@ interface ChatRequest {
   message: string
   history?: ChatMessage[]
   nodeContext?: string
+  selectedNodeId?: string
   codeContext?: string
+  buildSummaryContext?: string
   architecture_yaml: string
   backend?: AgentBackend
   model?: string
@@ -41,38 +43,33 @@ function getBackend(backend?: AgentBackend): AgentBackend {
   return (process.env.VIBE_CHAT_AGENT_BACKEND as AgentBackend) ?? 'claude-code'
 }
 
-function buildPrompt({ message, history, nodeContext, codeContext, architecture_yaml, locale }: ChatRequest) {
+function buildPrompt({
+  message,
+  history,
+  nodeContext,
+  selectedNodeId,
+  codeContext,
+  buildSummaryContext,
+  architecture_yaml,
+  locale,
+}: ChatRequest) {
   const systemContext = buildSystemContext({
+    agentType: 'canvas',
+    task: selectedNodeId ? 'discuss-node' : 'discuss',
     locale: locale ?? 'en',
-    role: 'chat',
+    canvasYaml: architecture_yaml,
+    selectedNodeContext: nodeContext ?? (selectedNodeId ? undefined : 'Global chat mode. No node is selected.'),
+    conversationHistory: formatHistory(history),
+    codeContext,
+    buildSummaryContext,
   })
 
-  const parts = [
+  return [
     systemContext,
     '',
-    'Architecture YAML:',
-    architecture_yaml,
-    '',
-    'Selected node context:',
-    nodeContext ?? 'Global chat mode. No node is selected.',
-  ]
-
-  if (codeContext) {
-    parts.push('')
-    parts.push('Code context (files from the built node):')
-    parts.push(codeContext)
-  }
-
-  parts.push(
-    '',
-    'Conversation so far:',
-    formatHistory(history),
-    '',
     'Latest user message:',
-    message
-  )
-
-  return parts.join('\n')
+    message,
+  ].join('\n')
 }
 
 function stripAnsi(text: string): string {

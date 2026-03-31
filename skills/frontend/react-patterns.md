@@ -1,3 +1,13 @@
+---
+name: react-patterns
+description: React component patterns and hooks best practices
+category: frontend
+source: local
+tags: [react, components, hooks]
+scope: [node, build]
+priority: 80
+---
+
 # React Patterns
 
 - Prefer functional components with hooks

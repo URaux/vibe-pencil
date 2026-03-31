@@ -1,3 +1,13 @@
+---
+name: code-style
+description: Code style and naming conventions
+category: core
+source: local
+tags: [code-quality, naming]
+scope: [global, node, build]
+priority: 100
+---
+
 # Code Style
 
 - Use descriptive names; avoid abbreviations unless universally known

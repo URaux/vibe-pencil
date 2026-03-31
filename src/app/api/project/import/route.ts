@@ -87,51 +87,12 @@ function getBackend(backend?: 'claude-code' | 'codex' | 'gemini') {
 }
 
 function buildPrompt(dir: string, locale: Locale = 'en') {
-  const systemContext = buildSystemContext({ locale, role: 'import' })
-
-  const exampleContainerName = locale === 'zh' ? '客户端层' : 'Client Layer'
-  const exampleBlockName = locale === 'zh' ? 'Web 应用' : 'Web App'
-  const exampleBlockDesc = locale === 'zh' ? '用户交互界面' : 'User-facing application'
-
-  return [
-    systemContext,
-    '',
-    `Import source directory: ${dir}`,
-    'Reverse-engineer the current codebase into a React Flow architecture canvas. Favor a compact but meaningful graph.',
-    '',
-    'Return structured JSON for React Flow and nothing else, unless you need a fenced ```json block.',
-    'The preferred JSON shape is:',
-    '{',
-    '  "containers": [',
-    '    {',
-    '      "id": "container-client",',
-    `      "name": "${exampleContainerName}",`,
-    '      "color": "blue",',
-    '      "blocks": [',
-    '        {',
-    '          "id": "block-web",',
-    `          "name": "${exampleBlockName}",`,
-    `          "description": "${exampleBlockDesc}",`,
-    '          "status": "idle",',
-    '          "techStack": "Next.js 16"',
-    '        }',
-    '      ]',
-    '    }',
-    '  ],',
-    '  "edges": [',
-    '    {',
-    '      "id": "edge-1",',
-    '      "source": "block-web",',
-    '      "target": "block-api",',
-    '      "type": "sync",',
-    '      "label": "HTTPS"',
-    '    }',
-    '  ]',
-    '}',
-    'If you cannot produce the new format, the legacy shape with nodes.services/frontends/apis/databases/queues/externals is still accepted.',
-    'Use only these edge types: sync, async, bidirectional.',
-    'Use only these container colors: blue, green, purple, amber, rose, slate.',
-  ].join('\n')
+  return buildSystemContext({
+    agentType: 'canvas',
+    task: 'import',
+    locale,
+    taskParams: { dir: dir.trim() },
+  })
 }
 
 async function waitForCompletion(agentId: string, timeoutMs = 300000) {

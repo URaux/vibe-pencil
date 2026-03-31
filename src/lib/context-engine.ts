@@ -1,26 +1,33 @@
 import type { Locale } from './i18n'
 
-export type AgentRole = 'chat' | 'import' | 'build' | 'title-gen'
+export type AgentType = 'canvas' | 'build'
+
+export type TaskType =
+  | 'discuss'       // chat global mode
+  | 'discuss-node'  // chat with selected node
+  | 'import'        // reverse-engineer codebase
+  | 'analyze'       // review architecture
+  | 'implement'     // build a node
+  | 'refactor'      // refactor a node
 
 export interface ContextOptions {
+  agentType: AgentType
+  task: TaskType
   locale: Locale
-  role: AgentRole
-  skillContent?: string // Pre-merged skill markdown (from skill-loader)
+  skillContent?: string
+  canvasYaml?: string
+  selectedNodeContext?: string
+  conversationHistory?: string
+  taskParams?: Record<string, string>  // dir, workDir, nodeName, waveInfo, etc.
+  codeContext?: string
+  buildSummaryContext?: string
 }
 
-const PERSONAS: Record<AgentRole, string> = {
-  chat: 'You are the AI discussion panel for a software architecture canvas. Respond as a collaborative architecture assistant grounded in the provided canvas state.',
-  import: 'You are an AI architecture reverse-engineer. Analyze the given codebase and produce a structured architecture representation.',
-  build: "You are an AI architecture consultant. Use first-principles thinking, apply Occam's razor, and prefer practical choices over fashionable complexity.",
-  'title-gen': 'You are a concise title generator. Output only the title, nothing else.',
-}
+// ---------------------------------------------------------------------------
+// L0: Language directive
+// ---------------------------------------------------------------------------
 
-function getPersona(role: AgentRole): string {
-  // Persona text stays English for all locales — LLMs follow English instructions better.
-  return PERSONAS[role]
-}
-
-function getLanguageDirective(locale: Locale): string {
+function layerLanguage(locale: Locale): string {
   if (locale === 'zh') {
     return [
       '# Language Requirement (CRITICAL)',
@@ -33,8 +40,140 @@ function getLanguageDirective(locale: Locale): string {
   return '# Language Requirement\nRespond in English.'
 }
 
+// ---------------------------------------------------------------------------
+// L1: Identity — single identity for both agent types
+// ---------------------------------------------------------------------------
+
+function layerIdentity(): string {
+  return 'You are the AI assistant for Vibe Pencil, a visual architecture editor. You help users design, analyze, and build software architectures represented as canvas graphs of containers and blocks.'
+}
+
+// ---------------------------------------------------------------------------
+// L2: Conversation history (canvas agent discuss tasks only)
+// ---------------------------------------------------------------------------
+
+function layerHistory(conversationHistory: string | undefined): string | null {
+  if (!conversationHistory) return null
+  return `# Conversation History\n\n${conversationHistory}`
+}
+
+// ---------------------------------------------------------------------------
+// L3: Canvas state
+// ---------------------------------------------------------------------------
+
+function layerCanvasState(
+  canvasYaml: string | undefined,
+  selectedNodeContext: string | undefined,
+  buildSummaryContext: string | undefined,
+  codeContext: string | undefined
+): string | null {
+  const parts: string[] = []
+
+  if (canvasYaml) {
+    parts.push(`# Architecture YAML\n\n${canvasYaml}`)
+  }
+
+  if (selectedNodeContext) {
+    parts.push(`# Selected Node Context\n\n${selectedNodeContext}`)
+  }
+
+  if (buildSummaryContext) {
+    parts.push(`# Build Summary\n\n${buildSummaryContext}`)
+  }
+
+  if (codeContext) {
+    parts.push(`# Code Context (files from the built node)\n\n${codeContext}`)
+  }
+
+  return parts.length > 0 ? parts.join('\n\n') : null
+}
+
+// ---------------------------------------------------------------------------
+// L4: Task definition
+// ---------------------------------------------------------------------------
+
+function layerTask(task: TaskType, taskParams: Record<string, string> = {}): string {
+  switch (task) {
+    case 'discuss':
+      return '# Task\n\nDiscuss the architecture with the user. Answer questions, suggest improvements, and help reason about the design.'
+
+    case 'discuss-node':
+      return '# Task\n\nDiscuss the selected node with the user. Focus on its responsibilities, implementation details, dependencies, and how it fits into the broader architecture.'
+
+    case 'import': {
+      const dir = taskParams.dir ?? '<unknown dir>'
+      return [
+        '# Task',
+        '',
+        `Reverse-engineer the codebase at: ${dir}`,
+        'Analyze the project and produce a structured architecture representation as React Flow canvas data.',
+        'Favor a compact but meaningful graph.',
+      ].join('\n')
+    }
+
+    case 'analyze':
+      return '# Task\n\nReview the architecture, identify structural risks, and recommend the simplest viable improvements.'
+
+    case 'implement': {
+      const nodeName = taskParams.nodeName ?? 'the target node'
+      const workDir = taskParams.workDir ?? '<workDir>'
+      const waveInfo = taskParams.waveInfo ? `\n\nWave context: ${taskParams.waveInfo}` : ''
+      return `# Task\n\nImplement ${nodeName} in ${workDir}. Write all necessary files to make this node functional according to the architecture.${waveInfo}`
+    }
+
+    case 'refactor': {
+      const nodeName = taskParams.nodeName ?? 'the target node'
+      return `# Task\n\nRefactor ${nodeName}. Propose and apply a refactor plan that reduces complexity while preserving behavior.`
+    }
+
+    default:
+      return '# Task\n\nAssist the user with their request.'
+  }
+}
+
+// ---------------------------------------------------------------------------
+// L5: Skills
+// ---------------------------------------------------------------------------
+
+function layerSkills(skillContent: string | undefined): string | null {
+  if (!skillContent) return null
+  return `# Skills\n\n${skillContent}`
+}
+
+// ---------------------------------------------------------------------------
+// L6: Constraints
+// ---------------------------------------------------------------------------
+
+function layerConstraints(agentType: AgentType, taskParams: Record<string, string> = {}): string {
+  if (agentType === 'canvas') {
+    return [
+      '# Constraints',
+      '',
+      'Do NOT modify any files on the filesystem.',
+      'You may suggest canvas actions (add/update/remove nodes and edges) via structured JSON blocks.',
+      'All suggestions are proposals — the user decides whether to apply them.',
+    ].join('\n')
+  }
+
+  // build agent
+  const workDir = taskParams.workDir ?? '<workDir>'
+  return [
+    '# Constraints',
+    '',
+    `Only modify files within: ${workDir}`,
+    'Do not read or write files outside this directory.',
+    'Do not modify the canvas YAML directly — your output is files on disk.',
+  ].join('\n')
+}
+
+// ---------------------------------------------------------------------------
+// L7: Output format
+// ---------------------------------------------------------------------------
+
 const CANVAS_ACTION_INSTRUCTIONS = [
-  '# Canvas Action Instructions',
+  '# Output Format',
+  '',
+  'Respond in Markdown.',
   '',
   'When you recommend canvas modifications, include a ```json:canvas-action block at the START of your response, before any explanation.',
   'Only include canvas-action blocks when you are actually recommending changes to the canvas.',
@@ -48,43 +187,107 @@ const CANVAS_ACTION_INSTRUCTIONS = [
   'Keep normal prose AFTER the code block, and keep code blocks valid JSON.',
 ].join('\n')
 
+function layerOutputFormat(agentType: AgentType, task: TaskType, locale: Locale): string {
+  if (task === 'import') {
+    const exampleContainerName = locale === 'zh' ? '客户端层' : 'Client Layer'
+    const exampleBlockName = locale === 'zh' ? 'Web 应用' : 'Web App'
+    const exampleBlockDesc = locale === 'zh' ? '用户交互界面' : 'User-facing application'
+
+    return [
+      '# Output Format',
+      '',
+      'Return structured JSON for React Flow and nothing else, unless you need a fenced ```json block.',
+      'The preferred JSON shape is:',
+      '{',
+      '  "containers": [',
+      '    {',
+      '      "id": "container-client",',
+      `      "name": "${exampleContainerName}",`,
+      '      "color": "blue",',
+      '      "blocks": [',
+      '        {',
+      '          "id": "block-web",',
+      `          "name": "${exampleBlockName}",`,
+      `          "description": "${exampleBlockDesc}",`,
+      '          "status": "idle",',
+      '          "techStack": "Next.js 16"',
+      '        }',
+      '      ]',
+      '    }',
+      '  ],',
+      '  "edges": [',
+      '    {',
+      '      "id": "edge-1",',
+      '      "source": "block-web",',
+      '      "target": "block-api",',
+      '      "type": "sync",',
+      '      "label": "HTTPS"',
+      '    }',
+      '  ]',
+      '}',
+      'If you cannot produce the new format, the legacy shape with nodes.services/frontends/apis/databases/queues/externals is still accepted.',
+      'Use only these edge types: sync, async, bidirectional.',
+      'Use only these container colors: blue, green, purple, amber, rose, slate.',
+    ].join('\n')
+  }
+
+  if (agentType === 'build') {
+    return '# Output Format\n\nWrite files directly to the filesystem. Do not output file contents to stdout unless asked.'
+  }
+
+  // canvas agent: discuss, discuss-node, analyze — all support canvas actions
+  return CANVAS_ACTION_INSTRUCTIONS
+}
+
+// ---------------------------------------------------------------------------
+// Main assembler
+// ---------------------------------------------------------------------------
+
 export function buildSystemContext(options: ContextOptions): string {
-  const { locale, role, skillContent } = options
+  const {
+    agentType,
+    task,
+    locale,
+    skillContent,
+    canvasYaml,
+    selectedNodeContext,
+    conversationHistory,
+    taskParams = {},
+    codeContext,
+    buildSummaryContext,
+  } = options
 
-  const sections: string[] = []
+  const resolvedSkill = skillContent ?? resolveSkillContent(agentType, task)
 
-  // 1. Persona (role-specific)
-  sections.push(getPersona(role))
+  const layers: Array<string | null> = [
+    layerLanguage(locale),                                                          // L0
+    layerIdentity(),                                                                // L1
+    task === 'discuss' || task === 'discuss-node'                                  // L2
+      ? layerHistory(conversationHistory)
+      : null,
+    layerCanvasState(canvasYaml, selectedNodeContext, buildSummaryContext, codeContext), // L3
+    layerTask(task, taskParams),                                                    // L4
+    layerSkills(resolvedSkill),                                                     // L5
+    layerConstraints(agentType, taskParams),                                        // L6
+    layerOutputFormat(agentType, task, locale),                                     // L7
+  ]
 
-  // 2. Language directive
-  sections.push(getLanguageDirective(locale))
-
-  // 3. Canvas action instructions (only for roles that modify canvas)
-  if (role === 'chat' || role === 'import') {
-    sections.push(CANVAS_ACTION_INSTRUCTIONS)
-  }
-
-  // 4. Skill content injection slot
-  const resolvedSkill = skillContent ?? resolveSkillContent(role)
-  if (resolvedSkill) {
-    sections.push('# Skills\n\n' + resolvedSkill)
-  }
-
-  return sections.filter(Boolean).join('\n\n')
+  return layers.filter(Boolean).join('\n\n')
 }
 
 /**
  * Placeholder for skill system integration (see SKILL-SYSTEM-PLAN.md).
  * When the skill system is implemented, this function will resolve
- * and merge skills based on agent level and node context.
+ * and merge skills based on agent type, task, and node context.
  *
  * For now, returns undefined (no skills injected).
  */
 export function resolveSkillContent(
-  _role: AgentRole,
+  _agentType: AgentType,
+  _task?: TaskType,
   _nodeId?: string
 ): string | undefined {
   // TODO: Implement when skill system is built
-  // return mergeSkills(resolveSkills(role, node))
+  // return mergeSkills(resolveSkills(agentType, task, nodeId))
   return undefined
 }

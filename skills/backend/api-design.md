@@ -1,3 +1,13 @@
+---
+name: api-design
+description: REST API conventions and backend design patterns
+category: backend
+source: local
+tags: [api, rest, backend]
+scope: [node, build]
+priority: 80
+---
+
 # REST API Conventions
 
 - Resource-based URLs: nouns not verbs (/users not /getUsers)

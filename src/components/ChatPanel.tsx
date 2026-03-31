@@ -139,17 +139,85 @@ function buildNodeContext(
   }
 
   if (selectedNode.type === 'container') {
-    const childBlocks = nodes.filter((node) => node.type === 'block' && node.parentId === selectedNode.id)
+    const containerData = selectedNode.data as ContainerNodeData
+    const childBlocks = nodes.filter(
+      (node) => node.type === 'block' && node.parentId === selectedNode.id
+    )
+    const childIds = new Set(childBlocks.map((b) => b.id))
+    const nodeNames = new Map(nodes.map((node) => [node.id, node.data.name || node.id]))
 
-    return [
-      `Node id: ${selectedNode.id}`,
-      `Node type: ${selectedNode.type}`,
-      `Node name: ${selectedNode.data.name || selectedNode.id}`,
-      `Color: ${selectedNode.data.color}`,
-      `Collapsed: ${selectedNode.data.collapsed ? 'yes' : 'no'}`,
-      `Child blocks: ${childBlocks.length}`,
-      ...childBlocks.map((block) => `- ${block.data.name || block.id}`),
-    ].join('\n')
+    // Partition edges into internal (both endpoints are children) vs external (one endpoint is outside)
+    const internalEdges = edges.filter(
+      (edge) => childIds.has(edge.source) && childIds.has(edge.target)
+    )
+    const externalEdges = edges.filter(
+      (edge) =>
+        (childIds.has(edge.source) && !childIds.has(edge.target)) ||
+        (!childIds.has(edge.source) && childIds.has(edge.target))
+    )
+
+    const sections: string[] = [
+      `Selected Container: "${containerData.name || selectedNode.id}" (type: container)`,
+      `Color: ${containerData.color}`,
+      `Collapsed: ${containerData.collapsed ? 'yes' : 'no'}`,
+      '',
+      `Child Blocks (${childBlocks.length}):`,
+    ]
+
+    for (const block of childBlocks) {
+      const bd = block.data as BlockNodeData
+      const meta: string[] = []
+      if (bd.status) meta.push(`status: ${bd.status}`)
+      if (bd.techStack) meta.push(`techStack: ${bd.techStack}`)
+      const metaStr = meta.length > 0 ? ` (${meta.join(', ')})` : ''
+      sections.push(`  - ${bd.name || block.id}${metaStr}`)
+      if (bd.description) {
+        sections.push(`    Description: ${bd.description}`)
+      }
+      if (bd.status === 'error' && bd.errorMessage) {
+        sections.push(`    Error: "${bd.errorMessage}"`)
+      }
+      const bs = bd.buildSummary
+      if (bs) {
+        const fileParts: string[] = []
+        if (bs.filesCreated.length > 0) fileParts.push(`files: [${bs.filesCreated.join(', ')}]`)
+        if (bs.dependencies.length > 0) fileParts.push(`deps: [${bs.dependencies.join(', ')}]`)
+        if (fileParts.length > 0) {
+          sections.push(`    Build: ${fileParts.join(', ')}`)
+        }
+      }
+    }
+
+    if (internalEdges.length > 0) {
+      sections.push('')
+      sections.push('Internal Connections:')
+      for (const edge of internalEdges) {
+        const srcName = nodeNames.get(edge.source) ?? edge.source
+        const tgtName = nodeNames.get(edge.target) ?? edge.target
+        const label = edge.label ? ` [${String(edge.label)}]` : ''
+        sections.push(`  - ${srcName} → ${tgtName} (${edge.type ?? 'sync'})${label}`)
+      }
+    } else {
+      sections.push('')
+      sections.push('Internal Connections: none')
+    }
+
+    if (externalEdges.length > 0) {
+      sections.push('')
+      sections.push('External Connections:')
+      for (const edge of externalEdges) {
+        const srcName = nodeNames.get(edge.source) ?? edge.source
+        const tgtName = nodeNames.get(edge.target) ?? edge.target
+        const label = edge.label ? ` [${String(edge.label)}]` : ''
+        const isOutgoing = childIds.has(edge.source)
+        const direction = isOutgoing ? 'outgoing to outside' : 'incoming from outside'
+        sections.push(
+          `  - ${srcName} → ${tgtName} (${edge.type ?? 'sync'})${label} [${direction}]`
+        )
+      }
+    }
+
+    return sections.join('\n')
   }
 
   const connectedEdges = edges.filter(
@@ -698,47 +766,27 @@ export function ChatPanel() {
       if (shouldAutoApply && actionBlocks.length > 0) {
         await applyCanvasActions(actionBlocks, assistantActionKey)
       }
-      // Auto-generate session title via AI summary
+      // Auto-generate session title via lightweight title endpoint
       const currentSession = useAppStore.getState().chatSessions.find((s) => s.id === activeChatSessionId)
       if (currentSession && !currentSession.title && activeChatSessionId) {
         const sid = activeChatSessionId
         const visibleText = extractVisibleChatText(fullAssistantText)
-        const titleInstruction = locale === 'zh'
-          ? `根据以下对话生成一个简短标题（最多20字），只输出标题。\n\n用户: ${trimmedMessage}\nAI: ${visibleText.slice(0, 500)}`
-          : `Generate a short title (max 20 chars) for this conversation. Output only the title.\n\nUser: ${trimmedMessage}\nAI: ${visibleText.slice(0, 500)}`
-        // Fire-and-forget: ask AI for a short title
-        fetch('/api/chat', {
+        // Fire-and-forget: call the dedicated lightweight title endpoint
+        fetch('/api/chat/title', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            message: titleInstruction,
-            history: [],
-            nodeContext: '',
-            architecture_yaml: '',
+            userMessage: trimmedMessage,
+            assistantMessage: visibleText.slice(0, 300),
+            locale,
             backend,
             model,
-            locale,
           }),
         }).then(async (res) => {
-          if (!res.ok || !res.body) return
-          const reader = res.body.getReader()
-          const dec = new TextDecoder()
-          let title = ''
-          while (true) {
-            const { done, value } = await reader.read()
-            if (done) break
-            for (const line of dec.decode(value, { stream: true }).split('\n')) {
-              if (line.startsWith('data:')) {
-                try {
-                  const evt = JSON.parse(line.slice(5).trim()) as { text?: string }
-                  if (evt.text) title += evt.text
-                } catch { /* skip */ }
-              }
-            }
-          }
-          const cleaned = title.replace(/^["'`]|["'`]$/g, '').trim()
-          if (cleaned) {
-            useAppStore.getState().renameChatSession(sid, cleaned.slice(0, 30))
+          if (!res.ok) return
+          const data = (await res.json()) as { title?: string }
+          if (data.title) {
+            useAppStore.getState().renameChatSession(sid, data.title)
           }
         }).catch(() => { /* title generation is best-effort */ })
       }

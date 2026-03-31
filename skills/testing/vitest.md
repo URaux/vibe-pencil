@@ -1,3 +1,13 @@
+---
+name: vitest
+description: Vitest testing patterns and conventions
+category: testing
+source: local
+tags: [testing, vitest, unit-tests]
+scope: [build]
+priority: 80
+---
+
 # Vitest Test Patterns
 
 - Name tests: "it should [behavior] when [condition]"

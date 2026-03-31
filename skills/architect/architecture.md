@@ -1,3 +1,13 @@
+---
+name: architecture
+description: System design principles and architectural patterns
+category: architect
+source: local
+tags: [architecture, system-design, patterns]
+scope: [global]
+priority: 90
+---
+
 # System Design Principles
 
 - Separation of concerns: each module has one clear responsibility
