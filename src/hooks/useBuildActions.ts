@@ -57,7 +57,13 @@ export function useBuildActions() {
         targetNodes.some((n) => n.id === e.target)
     )
 
-    const waves = topoSort(targetNodes, targetEdges)
+    let waves: string[][]
+    try {
+      waves = topoSort(targetNodes, targetEdges)
+    } catch {
+      // Cycle detected — fall back to single wave with all nodes (no dependency ordering)
+      waves = [targetNodes.map((n) => n.id)]
+    }
     const nodeNames = new Map(targetNodes.map((n) => [n.id, n.data.name || n.id]))
 
     return { waves, nodeNames, mode, targetNodes }
