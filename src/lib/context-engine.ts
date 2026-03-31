@@ -296,7 +296,7 @@ export function buildSystemContext(options: ContextOptions): string {
     buildSummaryContext,
   } = options
 
-  const resolvedSkill = skillContent ?? resolveSkillContent(agentType, task)
+  const resolvedSkill = skillContent ?? resolveSkillContent(agentType, task, taskParams.techStack)
 
   const layers: Array<string | null> = [
     layerLanguage(locale),                                                          // L0
@@ -315,18 +315,25 @@ export function buildSystemContext(options: ContextOptions): string {
 }
 
 /**
- * Placeholder for skill system integration (see SKILL-SYSTEM-PLAN.md).
- * When the skill system is implemented, this function will resolve
- * and merge skills based on agent type, task, and node context.
- *
- * For now, returns undefined (no skills injected).
+ * Resolve and merge skills for the given agent context.
+ * Maps agent type + task to scope, then delegates to skill-loader.
  */
 export function resolveSkillContent(
-  _agentType: AgentType,
-  _task?: TaskType,
-  _nodeId?: string
+  agentType: AgentType,
+  task?: TaskType,
+  techStack?: string
 ): string | undefined {
-  // TODO: Implement when skill system is built
-  // return mergeSkills(resolveSkills(agentType, task, nodeId))
-  return undefined
+  // Map task to scope: global (full architecture discussions) vs node (specific component)
+  const scope: 'global' | 'node' =
+    task === 'discuss' || task === 'import' || task === 'import-enhance' || task === 'analyze'
+      ? 'global'
+      : 'node'
+
+  // Import dynamically to avoid circular dependency at module load time
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { resolveSkillContent: resolve } = require('./skill-loader') as {
+    resolveSkillContent: (agentType: 'canvas' | 'build', scope: 'global' | 'node', techStack?: string) => string | undefined
+  }
+
+  return resolve(agentType, scope, techStack)
 }
