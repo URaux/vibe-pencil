@@ -39,6 +39,32 @@ function getLatestLine(text: string) {
 }
 
 export function useAgentStatus() {
+  // On mount, check server-side build progress to restore state after page refresh.
+  // If a build was in progress when the user refreshed, the SSE connection dropped
+  // but the server may still have the last-known state.
+  useEffect(() => {
+    void fetch('/api/agent/build-state')
+      .then((res) => res.json())
+      .then((data: { progress: import('@/lib/build-state').BuildProgress | null }) => {
+        if (!data.progress?.active) return
+        const store = useAppStore.getState()
+        // Only restore if the client doesn't already have an active build
+        if (!store.buildState.active) {
+          store.setBuildState({
+            active: true,
+            waves: data.progress.waves,
+            currentWave: data.progress.currentWave,
+            totalWaves: data.progress.waves.length,
+            targetNodeIds: data.progress.waves.flat(),
+            startedAt: data.progress.startedAt,
+          })
+        }
+      })
+      .catch(() => {
+        // Non-fatal — build state restoration is best-effort
+      })
+  }, [])
+
   useEffect(() => {
     const eventSource = new EventSource('/api/agent/stream')
 

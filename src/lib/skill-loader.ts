@@ -333,6 +333,24 @@ export function resolveSkillContent(
   return mergeResolvedSkills(skills)
 }
 
+/**
+ * Resolve a skill manifest (name + description only) for canvas agents.
+ * Saves tokens vs. full skill content — full body is not needed for chat/discuss.
+ * Build agents should still use resolveSkillContent() to get full instructions.
+ */
+export function resolveSkillManifest(
+  agentType: 'canvas' | 'build',
+  scope: 'global' | 'node',
+  techStack?: string
+): string | undefined {
+  const skills = resolveSkillsForTask(agentType, scope, techStack)
+  if (skills.length === 0) return undefined
+  // Manifest: just name + description, not full content
+  return skills
+    .map(s => `- **${s.metadata.name}** (${s.metadata.category}): ${s.metadata.description.slice(0, 150)}`)
+    .join('\n')
+}
+
 // ---------------------------------------------------------------------------
 // Legacy exports (kept for backward compatibility with existing callers)
 // ---------------------------------------------------------------------------

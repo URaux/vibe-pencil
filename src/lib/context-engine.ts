@@ -53,9 +53,31 @@ function layerIdentity(): string {
 // L2: Conversation history (canvas agent discuss tasks only)
 // ---------------------------------------------------------------------------
 
-function layerHistory(conversationHistory: string | undefined): string | null {
-  if (!conversationHistory) return null
-  return `# Conversation History\n\n${conversationHistory}`
+function layerHistory(history: string | undefined): string | null {
+  if (!history) return null
+
+  // Estimate tokens (~4 chars per token)
+  const estimatedTokens = Math.ceil(history.length / 4)
+
+  // If history is too long, keep only recent messages
+  if (estimatedTokens > 8000) {
+    const lines = history.split('\n')
+    // Keep first 10 lines (initial context) + last 80 lines (recent messages)
+    const firstMessages = lines.slice(0, 10).join('\n')
+    const recentMessages = lines.slice(-80).join('\n')
+    return [
+      '# Conversation History',
+      '',
+      '(Earlier messages summarized)',
+      firstMessages,
+      '',
+      '... (older messages omitted for brevity) ...',
+      '',
+      recentMessages,
+    ].join('\n')
+  }
+
+  return '# Conversation History\n\n' + history
 }
 
 // ---------------------------------------------------------------------------
@@ -167,9 +189,17 @@ function layerTask(task: TaskType, taskParams: Record<string, string> = {}): str
 // L5: Skills
 // ---------------------------------------------------------------------------
 
-function layerSkills(skillContent: string | undefined): string | null {
+function layerSkills(skillContent: string | undefined, agentType: AgentType): string | null {
   if (!skillContent) return null
-  return `# Skills\n\n${skillContent}`
+
+  if (agentType === 'build') {
+    // Build agents get full skill content (they need specific instructions)
+    return '# Skills\n\n' + skillContent
+  }
+
+  // Canvas agents get skill manifest only (names + descriptions)
+  // This saves tokens for chat — full content not needed for discussion
+  return '# Available Skills\n\n' + skillContent
 }
 
 // ---------------------------------------------------------------------------
@@ -306,7 +336,7 @@ export function buildSystemContext(options: ContextOptions): string {
       : null,
     layerCanvasState(canvasYaml, selectedNodeContext, buildSummaryContext, codeContext), // L3
     layerTask(task, taskParams),                                                    // L4
-    layerSkills(resolvedSkill),                                                     // L5
+    layerSkills(resolvedSkill, agentType),                                          // L5
     layerConstraints(agentType, taskParams),                                        // L6
     layerOutputFormat(agentType, task, locale),                                     // L7
   ]
@@ -338,6 +368,12 @@ export function resolveSkillContent(
     // eslint-disable-next-line no-eval
     const loader = eval("require('./skill-loader')") as {
       resolveSkillContent: (agentType: 'canvas' | 'build', scope: 'global' | 'node', techStack?: string) => string | undefined
+      resolveSkillManifest: (agentType: 'canvas' | 'build', scope: 'global' | 'node', techStack?: string) => string | undefined
+    }
+    // Canvas agents get a manifest (name+description only) to save tokens.
+    // Build agents get full skill content — they need detailed instructions.
+    if (agentType === 'canvas') {
+      return loader.resolveSkillManifest(agentType, scope, techStack)
     }
     return loader.resolveSkillContent(agentType, scope, techStack)
   } catch {

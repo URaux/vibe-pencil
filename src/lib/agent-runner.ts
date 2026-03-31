@@ -216,6 +216,12 @@ export class AgentRunner extends EventEmitter {
     maxParallel: number,
     model?: string
   ) {
+    // Concurrency model:
+    // - Nodes in the same wave have no mutual dependencies (topo sort guarantees this)
+    // - maxParallel limits total concurrent agents
+    // - Future: check techStack conflicts for finer-grained parallelism
+    //   (inspired by CC's isConcurrencySafe(input) per-tool pattern — nodes writing
+    //   to the same directory should serialize; nodes with distinct techStacks can run freely)
     const concurrency = clampMaxParallel(maxParallel)
 
     for (const [waveIndex, wave] of waves.entries()) {
