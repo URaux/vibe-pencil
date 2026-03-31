@@ -767,12 +767,11 @@ export function ChatPanel() {
       if (actionBlocks.length > 0) {
         await applyCanvasActions(actionBlocks, assistantActionKey)
       }
-      // Auto-generate session title via lightweight title endpoint
+      // Auto-generate session title + project name via lightweight title endpoint
       const currentSession = useAppStore.getState().chatSessions.find((s) => s.id === activeChatSessionId)
       if (currentSession && !currentSession.title && activeChatSessionId) {
         const sid = activeChatSessionId
         const visibleText = extractVisibleChatText(fullAssistantText)
-        // Fire-and-forget: call the dedicated lightweight title endpoint
         fetch('/api/chat/title', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -788,6 +787,12 @@ export function ChatPanel() {
           const data = (await res.json()) as { title?: string }
           if (data.title) {
             useAppStore.getState().renameChatSession(sid, data.title)
+            // Also set project name if still default
+            const store = useAppStore.getState()
+            const untitled = locale === 'zh' ? '未命名' : 'Untitled'
+            if (store.projectName === untitled && actionBlocks.length > 0) {
+              store.setProjectName(data.title)
+            }
           }
         }).catch(() => { /* title generation is best-effort */ })
       }

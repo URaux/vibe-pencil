@@ -87,7 +87,17 @@ export async function POST(request: Request) {
 
   const final = agentRunner.getStatus(agentId)
   const rawText = final ? extractAgentText(final.output) : ''
-  const title = rawText.replace(/^["'`]|["'`]$/g, '').trim().slice(0, 30)
+  let title = rawText.replace(/^["'`]|["'`]$/g, '').trim()
+  // Take first line only (agent may output extra text)
+  title = title.split('\n')[0].trim()
+  // Deduplicate if the same text is repeated (agent output parsing artifact)
+  if (title.length > 6) {
+    const half = Math.floor(title.length / 2)
+    if (title.slice(0, half) === title.slice(half)) {
+      title = title.slice(0, half)
+    }
+  }
+  title = title.slice(0, 20)
 
   return Response.json({ title })
 }
