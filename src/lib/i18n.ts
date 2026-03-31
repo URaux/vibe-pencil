@@ -139,6 +139,11 @@ export const translations = {
     skill_priority: '优先级',
     loading_skills: '加载技能...',
     node_skills: '节点技能',
+    import_skill: '导入技能',
+    import_source_placeholder: 'GitHub URL 或本地文件路径',
+    import_hint: '支持 .md 文件、文件夹批量导入、GitHub 链接',
+    importing_skill: '导入中...',
+    import_success: '导入成功',
   },
   en: {
     nodes: 'Nodes',
@@ -278,6 +283,11 @@ export const translations = {
     skill_priority: 'Priority',
     loading_skills: 'Loading skills...',
     node_skills: 'Node Skills',
+    import_skill: 'Import Skill',
+    import_source_placeholder: 'GitHub URL or local file path',
+    import_hint: 'Supports .md files, folder batch import, GitHub links',
+    importing_skill: 'Importing...',
+    import_success: 'Import successful',
   },
 } satisfies Record<Locale, Record<string, string>>
 
