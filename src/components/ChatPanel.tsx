@@ -650,7 +650,12 @@ export function ChatPanel() {
         }
       }
 
-      const arranged = await layoutArchitectureCanvas(workingNodes, workingEdges)
+      // Filter out invalid edges — both endpoints must exist and be block nodes
+      const blockIds = new Set(workingNodes.filter((n) => n.type === 'block').map((n) => n.id))
+      const validEdges = workingEdges.filter(
+        (e) => blockIds.has(e.source) && blockIds.has(e.target)
+      )
+      const arranged = await layoutArchitectureCanvas(workingNodes, validEdges)
       setCanvas(arranged.nodes, arranged.edges)
       // Save canvas snapshot to current chat session for session switching
       if (activeChatSessionId) {
