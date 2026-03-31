@@ -188,27 +188,44 @@ export async function POST(request: Request) {
       const stat = fs.statSync(normalizedPath)
 
       if (stat.isDirectory()) {
-        // Batch import: read all .md files up to depth 2
-        const collectMd = (dir: string, depth: number): string[] => {
-          if (depth > 2) return []
-          const files: string[] = []
+        // Smart directory import:
+        // 1. Look for SKILL.md files (Claude Code plugin format) — use parent dir name as skill name
+        // 2. Fall back to regular .md files (skip README, LICENSE, etc.)
+        const SKIP_NAMES = new Set([
+          'README.md', 'readme.md', 'LICENSE.md', 'license.md',
+          'CHANGELOG.md', 'changelog.md', 'CONTRIBUTING.md',
+          'CODE_OF_CONDUCT.md', 'SECURITY.md', 'HISTORY.md',
+        ])
+
+        interface SkillFile { path: string; name: string }
+        const skillFiles: SkillFile[] = []
+
+        const scanDir = (dir: string, depth: number) => {
+          if (depth > 3) return
           for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+            if (entry.name.startsWith('.') || entry.name === 'node_modules') continue
             const full = path.join(dir, entry.name)
-            if (entry.isFile() && entry.name.endsWith('.md')) {
-              files.push(full)
-            } else if (entry.isDirectory() && depth < 2) {
-              files.push(...collectMd(full, depth + 1))
+            if (entry.isDirectory()) {
+              // Check for SKILL.md inside subdirectory (CC plugin format)
+              const skillMd = path.join(full, 'SKILL.md')
+              if (fs.existsSync(skillMd)) {
+                skillFiles.push({ path: skillMd, name: entry.name })
+              } else {
+                scanDir(full, depth + 1)
+              }
+            } else if (entry.isFile() && entry.name.endsWith('.md') && !SKIP_NAMES.has(entry.name) && entry.name !== 'SKILL.md') {
+              skillFiles.push({ path: full, name: path.basename(entry.name, '.md') })
             }
           }
-          return files
         }
-        const mdFiles = collectMd(normalizedPath, 0)
-        if (mdFiles.length === 0) {
-          return Response.json({ error: 'No .md files found in directory' }, { status: 400 })
+        scanDir(normalizedPath, 0)
+
+        if (skillFiles.length === 0) {
+          return Response.json({ error: 'No skill files found (SKILL.md or .md)' }, { status: 400 })
         }
-        for (const fp of mdFiles) {
-          const content = fs.readFileSync(fp, 'utf-8')
-          imported.push(processContent(content, path.basename(fp), fp, 'local'))
+        for (const sf of skillFiles) {
+          const content = fs.readFileSync(sf.path, 'utf-8')
+          imported.push(processContent(content, sf.name + '.md', sf.path, 'local'))
         }
       } else {
         // Single file
