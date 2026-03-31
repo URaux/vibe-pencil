@@ -55,8 +55,8 @@ export async function POST(request: Request) {
     return Response.json({ error: 'workDir and files[] are required.' }, { status: 400 })
   }
 
-  // Resolve workDir — allow relative paths from cwd
-  const resolvedWorkDir = path.isAbsolute(workDir) ? workDir : path.join(process.cwd(), workDir)
+  // Resolve workDir — normalize to OS path separators
+  const resolvedWorkDir = path.resolve(path.isAbsolute(workDir) ? workDir : path.join(process.cwd(), workDir))
 
   if (!fs.existsSync(resolvedWorkDir)) {
     return Response.json({ content: '', warning: `workDir not found: ${resolvedWorkDir}` })
