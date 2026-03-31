@@ -181,7 +181,7 @@ export function ExportMenu() {
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full z-50 mt-2 w-72 rounded-2xl border border-slate-200 bg-white p-2 shadow-lg">
+        <div className="absolute right-0 bottom-full z-[9999] mb-2 w-72 max-h-[70vh] overflow-y-auto rounded-2xl border border-slate-200 bg-white p-2 shadow-lg">
 
           {/* Group: Canvas */}
           <GroupLabel>{t('export_group_canvas')}</GroupLabel>
