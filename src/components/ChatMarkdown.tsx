@@ -17,7 +17,7 @@ export const ChatMarkdown = memo(function ChatMarkdown({ content }: ChatMarkdown
       components={{
         pre({ children }) {
           return (
-            <pre className="my-2 overflow-x-auto rounded-lg bg-slate-900 p-3 text-sm text-slate-200">
+            <pre className="my-2 overflow-x-auto rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-800">
               {children}
             </pre>
           )
