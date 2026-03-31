@@ -793,12 +793,18 @@ export function ChatPanel() {
                 </span>
                 <button
                   type="button"
+                  disabled={isSending}
                   onClick={() => {
                     if (activeChatSessionId) {
                       setSessionPhase(activeChatSessionId, 'design')
+                      // Auto-send a message to trigger architecture generation
+                      const prompt = locale === 'zh'
+                        ? '方案确认，请根据讨论内容生成完整的系统架构图'
+                        : 'Design confirmed. Please generate the complete system architecture based on our discussion.'
+                      void handleOptionSelect(prompt)
                     }
                   }}
-                  className="rounded-full border border-orange-200 bg-orange-50 px-3 py-1.5 text-xs font-medium text-orange-700 hover:bg-orange-100 transition-colors"
+                  className="rounded-full border border-orange-200 bg-orange-50 px-3 py-1.5 text-xs font-medium text-orange-700 hover:bg-orange-100 transition-colors disabled:opacity-50"
                 >
                   {locale === 'zh' ? '确认方案，开始生成架构 →' : 'Start Designing →'}
                 </button>

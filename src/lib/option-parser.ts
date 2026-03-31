@@ -40,5 +40,13 @@ export function parseOptions(content: string): ParsedOptions | null {
   const textBefore = lines.slice(0, firstOptionIndex).join('\n').trim()
   const textAfter = lines.slice(lastOptionIndex + 1).join('\n').trim()
 
+  // Only render as cards if the text before looks like a question (asking user to choose)
+  // Not a statement listing components/modules
+  const isQuestion = /[？?]\s*$/.test(textBefore) ||
+    /哪[种个些]|选择|偏好|prefer|choose|which|what.*want/i.test(textBefore)
+  const isList = /包含|包括|如下|组成|涵盖|模块|组件|contain|include|consist|module|component/i.test(textBefore)
+
+  if (!isQuestion || isList) return null
+
   return { options, textBefore, textAfter }
 }
