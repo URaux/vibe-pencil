@@ -32,7 +32,12 @@ export function OptionCards({ options, onSelect, disabled }: OptionCardsProps) {
           <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-xs font-semibold text-slate-600">
             {opt.number}
           </span>
-          <span className="flex-1 text-slate-700">{opt.text}</span>
+          <span className="flex-1 text-slate-700" dangerouslySetInnerHTML={{
+            __html: opt.text
+              .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+              .replace(/\*(.+?)\*/g, '<em>$1</em>')
+              .replace(/`(.+?)`/g, '<code class="rounded bg-slate-100 px-1 text-xs">$1</code>')
+          }} />
           <span className="text-slate-300">→</span>
         </button>
       ))}
