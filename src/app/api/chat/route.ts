@@ -5,6 +5,7 @@ import { buildSystemContext } from '@/lib/context-engine'
 import type { Locale } from '@/lib/i18n'
 import type { SessionPhase } from '@/lib/store'
 import { streamChat } from '@/lib/llm-client'
+import { getPersistentAgent } from '@/lib/persistent-agent'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -261,6 +262,94 @@ async function handleCustomApiChat(request: Request, payload: ChatRequest) {
   })
 }
 
+async function handlePersistentChat(
+  request: Request,
+  payload: ChatRequest,
+  backend: 'claude-code' | 'codex' | 'gemini'
+) {
+  const prompt = buildPrompt(payload)
+  const agent = getPersistentAgent({ backend, workDir: process.cwd(), model: payload.model })
+
+  if (!agent.isAlive()) {
+    await agent.start()
+  }
+
+  const stream = new ReadableStream<Uint8Array>({
+    start(controller) {
+      let closed = false
+      let textAccumulated = ''
+
+      const close = () => {
+        if (closed) return
+        closed = true
+        agent.removeListener('event', onEvent)
+        agent.removeListener('response-done', onDone)
+        controller.close()
+      }
+
+      const push = (event: unknown) => {
+        if (closed) return
+        controller.enqueue(encodeEvent(event))
+      }
+
+      const onEvent = (event: Record<string, unknown>) => {
+        if (closed) return
+
+        // Claude stream-json: assistant messages carry content blocks with text
+        if (event['type'] === 'assistant') {
+          const message = event['message'] as Record<string, unknown> | undefined
+          const content = message?.['content']
+          if (Array.isArray(content)) {
+            for (const block of content as Array<Record<string, unknown>>) {
+              if (block['type'] === 'text' && typeof block['text'] === 'string') {
+                const fullText = block['text'] as string
+                if (fullText.length > textAccumulated.length) {
+                  push({ type: 'chunk', text: fullText.slice(textAccumulated.length) })
+                  textAccumulated = fullText
+                }
+              }
+            }
+          }
+        }
+      }
+
+      const onDone = () => {
+        push({ type: 'done' })
+        close()
+      }
+
+      agent.on('event', onEvent)
+      agent.on('response-done', onDone)
+
+      request.signal.addEventListener(
+        'abort',
+        () => {
+          close()
+        },
+        { once: true }
+      )
+
+      agent.sendMessage(prompt).catch((err: unknown) => {
+        const msg = err instanceof Error ? err.message : String(err)
+        push({ type: 'error', error: `Failed to send message: ${msg}` })
+        close()
+      })
+    },
+    cancel() {
+      agent.removeListener('event', () => undefined)
+      agent.removeListener('response-done', () => undefined)
+    },
+  })
+
+  return new Response(stream, {
+    headers: {
+      'Cache-Control': 'no-cache, no-transform',
+      Connection: 'keep-alive',
+      'Content-Type': 'text/event-stream',
+    },
+  })
+}
+
 export async function POST(request: Request) {
   const payload = (await request.json()) as ChatRequest
 
@@ -282,6 +371,13 @@ export async function POST(request: Request) {
     return handleCustomApiChat(request, payload)
   }
 
+  // Persistent agent path: keep claude/codex/gemini process alive between messages.
+  // First message pays the cold-start cost; subsequent messages are near-instant.
+  if (backend === 'claude-code') {
+    return handlePersistentChat(request, payload, backend)
+  }
+
+  // Fallback: one-shot spawn (used for codex/gemini and any unrecognized backend)
   const agentId = agentRunner.spawnAgent(
     'chat',
     buildPrompt(payload),
