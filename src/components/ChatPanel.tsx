@@ -463,7 +463,7 @@ export function ChatPanel() {
               // Also set project name if still default
               const store = useAppStore.getState()
               const untitled = t('untitled')
-              if (store.projectName === untitled && actionBlocks.length > 0) {
+              if (store.projectName === untitled) {
                 store.setProjectName(data.title)
               }
             }
