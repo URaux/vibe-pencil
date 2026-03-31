@@ -143,7 +143,20 @@ export async function POST(request: Request) {
           return Response.json({ error: `GitHub API error: ${apiRes.status}` }, { status: 400 })
         }
         const entries = (await apiRes.json()) as Array<{ name: string; download_url: string | null; type: string }>
-        const mdFiles = entries.filter((e) => e.type === 'file' && e.name.endsWith('.md') && e.download_url)
+        const SKIP_FILES = new Set([
+          'README.md', 'readme.md', 'LICENSE.md', 'license.md',
+          'CHANGELOG.md', 'changelog.md', 'CONTRIBUTING.md', 'contributing.md',
+          'CODE_OF_CONDUCT.md', 'code-of-conduct.md', 'SECURITY.md', 'security.md',
+          'RELEASE-NOTES.md', 'release-notes.md', 'HISTORY.md',
+          'SKILL.md',  // meta reference files, not actual skills
+        ])
+        const mdFiles = entries.filter((e) =>
+          e.type === 'file' &&
+          e.name.endsWith('.md') &&
+          e.download_url &&
+          !SKIP_FILES.has(e.name) &&
+          !e.name.startsWith('.')
+        )
         if (mdFiles.length === 0) {
           return Response.json({ error: 'No .md files found in this GitHub directory' }, { status: 400 })
         }
