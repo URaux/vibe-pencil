@@ -128,7 +128,7 @@ export async function layoutArchitectureCanvas(
     layoutOptions: {
       'elk.algorithm': 'layered',
       'elk.direction': 'DOWN',
-      'elk.edgeRouting': 'SPLINES',
+      'elk.edgeRouting': 'ORTHOGONAL',
       'elk.hierarchyHandling': 'INCLUDE_CHILDREN',
       'elk.spacing.nodeNode': '60',
       'elk.spacing.edgeNode': '40',
