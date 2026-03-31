@@ -404,6 +404,62 @@ export function exportProjectJson(
   }, null, 2)
 }
 
+export function canvasToMermaid(
+  nodes: CanvasNode[],
+  edges: CanvasEdge[],
+  projectName: string
+): string {
+  const containers = nodes.filter(
+    (node): node is Node<ContainerNodeData> => node.type === 'container'
+  )
+  const blocks = nodes.filter(
+    (node): node is Node<BlockNodeData> => node.type === 'block'
+  )
+
+  const lines: string[] = [`graph TB`]
+  lines.push(`    %% ${projectName}`)
+
+  // Build id-safe label map
+  const safeId = (id: string) => id.replace(/[^a-zA-Z0-9_]/g, '_')
+
+  for (const container of containers) {
+    const containerBlocks = blocks.filter((b) => b.parentId === container.id)
+    if (containerBlocks.length === 0) {
+      lines.push(`    ${safeId(container.id)}["${container.data.name}"]`)
+    } else {
+      lines.push(`    subgraph ${safeId(container.id)}["${container.data.name}"]`)
+      for (const block of containerBlocks) {
+        lines.push(`        ${safeId(block.id)}["${block.data.name}"]`)
+      }
+      lines.push(`    end`)
+    }
+  }
+
+  // Orphan blocks (no parent container)
+  const orphans = blocks.filter(
+    (b) => !b.parentId || !containers.some((c) => c.id === b.parentId)
+  )
+  for (const block of orphans) {
+    lines.push(`    ${safeId(block.id)}["${block.data.name}"]`)
+  }
+
+  // Edges
+  for (const edge of edges) {
+    const src = safeId(edge.source)
+    const tgt = safeId(edge.target)
+    const label = edge.label ? String(edge.label) : ''
+    if (edge.type === 'async') {
+      lines.push(label ? `    ${src} -.->|${label}| ${tgt}` : `    ${src} -.-> ${tgt}`)
+    } else if (edge.type === 'bidirectional') {
+      lines.push(label ? `    ${src} <-->|${label}| ${tgt}` : `    ${src} <--> ${tgt}`)
+    } else {
+      lines.push(label ? `    ${src} -->|${label}| ${tgt}` : `    ${src} --> ${tgt}`)
+    }
+  }
+
+  return lines.join('\n')
+}
+
 export async function yamlToCanvas(yamlStr: string) {
   const document = normalizeSchemaDocument(parse(yamlStr) as unknown)
   const nodes: CanvasNode[] = []
