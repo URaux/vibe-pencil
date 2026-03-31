@@ -515,32 +515,29 @@ export function ChatPanel() {
         type="button"
         aria-expanded={chatOpen}
         onClick={() => setChatOpen(!chatOpen)}
-        className={`flex items-center justify-between gap-3 rounded-[1.5rem] border border-slate-200 bg-white px-4 py-3 text-left shadow-sm ${
-          chatOpen ? '' : 'min-h-[4.5rem] xl:flex-1 xl:flex-col xl:justify-center'
+        className={`flex items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-left shadow-sm ${
+          chatOpen ? '' : 'min-h-[3rem] xl:flex-1 xl:flex-col xl:justify-center'
         }`}
       >
-        <div className={`${chatOpen ? '' : 'xl:flex xl:flex-col xl:items-center xl:gap-2'}`}>
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700">{t('ai_chat')}</h2>
-          {chatOpen ? (
-            <p className="mt-1 text-xs text-slate-500">
-              {selectedNode
-                ? t('node_mode', { name: selectedNode.data.name || selectedNode.id })
-                : t('global_mode')}
-            </p>
-          ) : (
-            <p className="mt-1 text-xs text-slate-500 xl:mt-0">{t('click_expand')}</p>
-          )}
-        </div>
-        <div className={`${chatOpen ? 'flex items-center gap-2' : 'xl:flex xl:flex-col xl:items-center'}`}>
-          {chatOpen && selectedNode ? (
-            <span className="rounded-full border border-orange-200 bg-orange-50 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-orange-700">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-semibold text-slate-700">
+            {getAgentDisplayName(backend, model)}
+          </span>
+          <span className="text-[10px] text-slate-400">·</span>
+          <span className="text-[10px] text-slate-400">
+            {selectedNode
+              ? selectedNode.data.name || selectedNode.id
+              : (locale === 'zh' ? '全局' : 'Global')}
+          </span>
+          {selectedNode ? (
+            <span className="rounded bg-orange-100 px-1.5 py-0.5 text-[9px] font-medium text-orange-600">
               {getNodeTypeLabel(selectedNode.type)}
             </span>
           ) : null}
-          <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-1 text-[10px] uppercase tracking-[0.2em] text-slate-500">
-            {chatOpen ? t('collapse') : t('expand')}
-          </span>
         </div>
+        <span className="text-[10px] text-slate-400">
+          {chatOpen ? '▼' : '▶'}
+        </span>
       </button>
 
       {chatOpen ? (
