@@ -40,7 +40,7 @@ export interface ChatSession {
   messages: ChatMessage[]
   createdAt: number
   updatedAt: number
-  canvasSnapshot?: { nodes: Node<CanvasNodeData>[]; edges: Edge[] }
+  canvasSnapshot?: { nodes: Node<CanvasNodeData>[]; edges: Edge[]; projectName?: string }
 }
 
 interface AppState {
@@ -383,38 +383,41 @@ export const useAppStore = create<AppState>((set, get) => ({
         ? crypto.randomUUID()
         : `session-${Date.now()}`
     const now = Date.now()
-    const { activeChatSessionId, chatSessions, nodes, edges } = get()
-    // Save current canvas to the session we're leaving
+    const { activeChatSessionId, chatSessions, nodes, edges, projectName, locale } = get()
+    // Save current canvas + project name to the session we're leaving
     const updatedSessions = chatSessions.map((s) =>
       s.id === activeChatSessionId
-        ? { ...s, canvasSnapshot: { nodes, edges } }
+        ? { ...s, canvasSnapshot: { nodes, edges, projectName } }
         : s
     )
     const session: ChatSession = { id, title: '', messages: [], createdAt: now, updatedAt: now }
+    const untitled = translate(locale, 'untitled')
     set({
       chatSessions: [session, ...updatedSessions],
       activeChatSessionId: id,
-      // New session starts with empty canvas
       nodes: [],
       edges: [],
+      projectName: untitled,
     })
     return id
   },
   switchChatSession: (id) => {
-    const { activeChatSessionId, chatSessions, nodes, edges } = get()
-    // Save current canvas to the session we're leaving
+    const { activeChatSessionId, chatSessions, nodes, edges, projectName, locale } = get()
+    // Save current canvas + project name to the session we're leaving
     const updated = chatSessions.map((s) =>
       s.id === activeChatSessionId
-        ? { ...s, canvasSnapshot: { nodes, edges } }
+        ? { ...s, canvasSnapshot: { nodes, edges, projectName } }
         : s
     )
-    // Restore canvas from the session we're switching to (empty if no snapshot)
+    // Restore canvas + project name from the session we're switching to
     const target = updated.find((s) => s.id === id)
+    const untitled = translate(locale, 'untitled')
     set({
       chatSessions: updated,
       activeChatSessionId: id,
       nodes: target?.canvasSnapshot?.nodes ?? [],
       edges: target?.canvasSnapshot?.edges ?? [],
+      projectName: target?.canvasSnapshot?.projectName ?? untitled,
     })
   },
   deleteChatSession: (id) => {
@@ -446,11 +449,8 @@ export const useAppStore = create<AppState>((set, get) => ({
       }
 
       const nextMessages = updater(session.messages)
-      // Keep existing title if manually set or already generated
-      // Only auto-set from first user message as fallback
+      // Keep existing title — AI title-gen will set it asynchronously
       const title = session.title
-        ? session.title
-        : (nextMessages.find((m) => m.role === 'user')?.content.slice(0, 30) ?? '')
 
       return { ...session, messages: nextMessages, title, updatedAt: now }
     })
