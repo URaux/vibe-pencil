@@ -768,33 +768,35 @@ export function ChatPanel() {
         await applyCanvasActions(actionBlocks, assistantActionKey)
       }
       // Auto-generate session title + project name via lightweight title endpoint
-      const currentSession = useAppStore.getState().chatSessions.find((s) => s.id === activeChatSessionId)
-      if (currentSession && !currentSession.title && activeChatSessionId) {
-        const sid = activeChatSessionId
+      const sid = sessionId
+      const existingTitle = useAppStore.getState().chatSessions.find((s) => s.id === sid)?.title
+      if (!existingTitle) {
         const visibleText = extractVisibleChatText(fullAssistantText)
-        fetch('/api/chat/title', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            userMessage: trimmedMessage,
-            assistantMessage: visibleText.slice(0, 300),
-            locale,
-            backend,
-            model,
-          }),
-        }).then(async (res) => {
-          if (!res.ok) return
-          const data = (await res.json()) as { title?: string }
-          if (data.title) {
-            useAppStore.getState().renameChatSession(sid, data.title)
-            // Also set project name if still default
-            const store = useAppStore.getState()
-            const untitled = locale === 'zh' ? '未命名' : 'Untitled'
-            if (store.projectName === untitled && actionBlocks.length > 0) {
-              store.setProjectName(data.title)
+        if (visibleText.trim()) {
+          fetch('/api/chat/title', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              userMessage: trimmedMessage,
+              assistantMessage: visibleText.slice(0, 300),
+              locale,
+              backend,
+              model,
+            }),
+          }).then(async (res) => {
+            if (!res.ok) return
+            const data = (await res.json()) as { title?: string }
+            if (data.title) {
+              useAppStore.getState().renameChatSession(sid, data.title)
+              // Also set project name if still default
+              const store = useAppStore.getState()
+              const untitled = locale === 'zh' ? '未命名' : 'Untitled'
+              if (store.projectName === untitled && actionBlocks.length > 0) {
+                store.setProjectName(data.title)
+              }
             }
-          }
-        }).catch(() => { /* title generation is best-effort */ })
+          }).catch(() => { /* title generation is best-effort */ })
+        }
       }
     } catch (sendError) {
       setError(sendError instanceof Error ? sendError.message : t('send_failed'))
