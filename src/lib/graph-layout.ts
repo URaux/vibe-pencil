@@ -170,10 +170,10 @@ export async function layoutArchitectureCanvas(
         position: { x: position.x, y: position.y },
         style: {
           ...node.style,
-          width: Math.max(CONTAINER_MIN_WIDTH, position.width ?? CONTAINER_MIN_WIDTH),
+          width: Math.max(CONTAINER_MIN_WIDTH, (position.width ?? CONTAINER_MIN_WIDTH) + 60),
           height: containerData.collapsed
             ? COLLAPSED_CONTAINER_HEIGHT
-            : Math.max(CONTAINER_MIN_HEIGHT, position.height ?? CONTAINER_MIN_HEIGHT),
+            : Math.max(CONTAINER_MIN_HEIGHT, (position.height ?? CONTAINER_MIN_HEIGHT) + 40),
         },
       }
     }
