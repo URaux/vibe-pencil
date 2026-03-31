@@ -91,7 +91,7 @@ export function ProgressWidget() {
   return (
     <div
       ref={panelRef}
-      className="fixed bottom-16 right-4 z-40"
+      className="fixed bottom-12 left-4 z-40"
     >
       {expanded ? (
         <div className="w-80 rounded-2xl border border-slate-200/80 bg-white shadow-lg">
