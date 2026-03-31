@@ -142,13 +142,22 @@ function SkillsPanel() {
                           </span>
                         ))}
                       </span>
-                      <span className="ml-2 text-[10px] font-medium text-orange-500">
-                        P{skill.priority}
+                      <span className="ml-2 text-[10px] font-medium text-slate-400" title={`优先级 ${skill.priority}`}>
+                        {skill.priority >= 100 ? '★★★' : skill.priority >= 80 ? '★★' : '★'}
                       </span>
                     </button>
-                    {isExpanded && skill.description && (
+                    {isExpanded && (
                       <div className="border-t border-slate-200 px-4 py-2.5 text-xs text-slate-500">
-                        {skill.description}
+                        {skill.description && <p className="mb-2">{skill.description}</p>}
+                        {skill.tags.length > 0 && (
+                          <div className="flex flex-wrap gap-1">
+                            {skill.tags.map((tag) => (
+                              <span key={tag} className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] text-blue-600">
+                                {tag}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>

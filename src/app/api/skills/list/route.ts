@@ -1,9 +1,11 @@
-import { loadSkillIndex } from '@/lib/skill-loader'
+import { loadSkillIndex, invalidateSkillIndex } from '@/lib/skill-loader'
 
 export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
 
 export async function POST() {
   try {
+    invalidateSkillIndex()  // Always reload fresh
     const index = loadSkillIndex()
 
     const skills = index.map((entry) => ({
