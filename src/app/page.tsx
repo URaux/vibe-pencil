@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react'
 import { ReactFlowProvider } from '@xyflow/react'
-import Link from 'next/link'
 import { BuildButton } from '@/components/BuildButton'
 import { BuildDrawer } from '@/components/BuildDrawer'
 import { Canvas } from '@/components/Canvas'
@@ -11,6 +10,7 @@ import { ChatSidebar } from '@/components/ChatSidebar'
 import { ExportMenu } from '@/components/ExportMenu'
 import { ImportDialog } from '@/components/ImportDialog'
 import { NodePalette } from '@/components/NodePalette'
+import { ProgressWidget } from '@/components/ProgressWidget'
 import { SettingsDialog } from '@/components/SettingsDialog'
 import { StatusBar } from '@/components/StatusBar'
 import { useAgentStatus } from '@/hooks/useAgentStatus'
@@ -72,13 +72,6 @@ export default function Home() {
             >
               {t('import_project')}
             </button>
-            <Link
-              href="/dashboard"
-              target="_blank"
-              className="vp-button-secondary rounded-full px-4 py-2 text-sm font-medium"
-            >
-              {t('dashboard')}
-            </Link>
             <ExportMenu />
             <BuildButton />
           </div>
@@ -115,6 +108,7 @@ export default function Home() {
         <ImportDialog open={importOpen} onClose={() => setImportOpen(false)} />
         <SettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} />
         <StatusBar onOpenSettings={() => setSettingsOpen(true)} />
+        <ProgressWidget />
         <BuildDrawer />
       </main>
     </ReactFlowProvider>
