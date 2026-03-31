@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vibe Pencil — Context Engineering</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', sans-serif;
+      background: #f8f9fa;
+      color: #1a1a2e;
+      display: flex;
+      justify-content: center;
+      padding: 40px 16px 56px;
+      min-height: 100vh;
+    }
+
+    .diagram { width: 900px; max-width: 100%; }
+
+    .header { text-align: center; margin-bottom: 32px; }
+    .header h1 { font-size: 22px; font-weight: 700; color: #1a1a2e; letter-spacing: .01em; }
+    .header p { font-size: 13px; color: #6b7280; margin-top: 6px; }
+
+    /* ── Two-column layout ── */
+    .columns { display: flex; gap: 20px; align-items: flex-start; }
+    .col-left  { flex: 1.15; }
+    .col-right { flex: 1; }
+
+    /* ── Section headers ── */
+    .sec-title {
+      font-size: 11px; font-weight: 700; letter-spacing: .08em;
+      text-transform: uppercase; color: #9ca3af; margin-bottom: 12px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .sec-title::after { content: ''; flex: 1; height: 1px; background: #e5e7eb; }
+
+    /* ── Layer stack ── */
+    .stack { display: flex; flex-direction: column; gap: 0; }
+
+    .layer-row {
+      display: flex; align-items: stretch;
+      border-radius: 0; overflow: hidden;
+      margin-bottom: 2px;
+      box-shadow: 0 1px 2px rgba(0,0,0,.04);
+      border-radius: 8px;
+    }
+
+    .layer-num {
+      flex-shrink: 0; width: 36px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 700; color: #fff; letter-spacing: .04em;
+      border-radius: 8px 0 0 8px;
+    }
+    .layer-body {
+      flex: 1; background: #fff; border: 1px solid #e5e7eb;
+      border-left: none; border-radius: 0 8px 8px 0;
+      padding: 9px 12px;
+    }
+    .layer-name { font-size: 12.5px; font-weight: 700; color: #1a1a2e; margin-bottom: 2px; }
+    .layer-desc { font-size: 11.5px; color: #6b7280; line-height: 1.5; }
+    .layer-desc span {
+      display: inline-block; background: #f3f4f6; border: 1px solid #e5e7eb;
+      border-radius: 4px; padding: 0 5px; font-size: 10.5px; color: #374151;
+      margin: 2px 1px 0; font-family: 'SFMono-Regular', Consolas, monospace;
+    }
+    .layer-desc .tag-blue { background: #eff6ff; border-color: #bfdbfe; color: #2563eb; }
+    .layer-desc .tag-green { background: #f0fdf4; border-color: #bbf7d0; color: #15803d; }
+    .layer-desc .tag-orange { background: #fff7ed; border-color: #fed7aa; color: #c2410c; }
+    .layer-desc .tag-purple { background: #f5f3ff; border-color: #ddd6fe; color: #6d28d9; }
+    .layer-desc .tag-red { background: #fef2f2; border-color: #fecaca; color: #b91c1c; }
+    .layer-desc .tag-teal { background: #f0fdfa; border-color: #99f6e4; color: #0d9488; }
+
+    /* layer colors */
+    .lc-0 { background: #9ca3af; }
+    .lc-1 { background: #6d28d9; }
+    .lc-2 { background: #2563eb; }
+    .lc-3 { background: #059669; }
+    .lc-4 { background: #c2410c; }
+    .lc-5 { background: #a21caf; }
+    .lc-6 { background: #b91c1c; }
+    .lc-7 { background: #0d9488; }
+
+    /* ── Phase transitions ── */
+    .phase-block {
+      margin-bottom: 16px; background: #fff; border: 1px solid #e5e7eb;
+      border-radius: 12px; overflow: hidden;
+      box-shadow: 0 1px 3px rgba(0,0,0,.05);
+    }
+    .phase-header {
+      padding: 10px 14px; background: #f9fafb;
+      border-bottom: 1px solid #e5e7eb;
+      font-size: 11.5px; font-weight: 700; color: #374151;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .phase-body { padding: 12px 14px; }
+
+    /* phase flow */
+    .phase-flow { display: flex; align-items: center; gap: 0; margin-bottom: 12px; }
+    .phase-node {
+      flex: 1; text-align: center; padding: 8px 4px;
+      border-radius: 8px; border: 1.5px solid;
+    }
+    .phase-node .pn-name { font-size: 12px; font-weight: 700; margin-bottom: 2px; }
+    .phase-node .pn-desc { font-size: 10px; color: #6b7280; line-height: 1.4; }
+    .ph-brainstorm { background: #fffbeb; border-color: #fde68a; }
+    .ph-brainstorm .pn-name { color: #d97706; }
+    .ph-design     { background: #eff6ff; border-color: #bfdbfe; }
+    .ph-design .pn-name     { color: #2563eb; }
+    .ph-iterate    { background: #f0fdf4; border-color: #bbf7d0; }
+    .ph-iterate .pn-name    { color: #059669; }
+
+    .phase-arrow {
+      flex-shrink: 0; width: 32px; display: flex;
+      align-items: center; justify-content: center;
+    }
+    .phase-arrow svg { display: block; }
+
+    /* HARD-GATE */
+    .hard-gate {
+      background: #fef2f2; border: 1.5px solid #fca5a5;
+      border-radius: 10px; padding: 12px 14px; margin-bottom: 12px;
+    }
+    .gate-title {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 12px; font-weight: 700; color: #b91c1c; margin-bottom: 8px;
+    }
+    .gate-badge {
+      background: #b91c1c; color: #fff; border-radius: 4px;
+      font-size: 10px; font-weight: 700; padding: 1px 6px; letter-spacing: .04em;
+    }
+    .gate-row { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+    .gate-chip {
+      font-size: 10.5px; padding: 2px 8px; border-radius: 4px; border: 1px solid;
+      font-weight: 500;
+    }
+    .gc-deny  { background: #fef2f2; border-color: #fca5a5; color: #b91c1c; }
+    .gc-allow { background: #f0fdf4; border-color: #86efac; color: #15803d; }
+    .gc-note  { background: #f3f4f6; border-color: #e5e7eb; color: #6b7280; }
+
+    /* context budget */
+    .budget-block {
+      background: #fff; border: 1px solid #e5e7eb; border-radius: 12px;
+      padding: 12px 14px; margin-bottom: 16px;
+      box-shadow: 0 1px 3px rgba(0,0,0,.05);
+    }
+    .budget-title { font-size: 11.5px; font-weight: 700; color: #374151; margin-bottom: 10px; }
+    .budget-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+    .budget-row:last-child { margin-bottom: 0; }
+    .budget-label { font-size: 11px; color: #6b7280; min-width: 110px; }
+    .budget-bar-wrap { flex: 1; height: 8px; background: #f3f4f6; border-radius: 4px; overflow: hidden; }
+    .budget-bar { height: 100%; border-radius: 4px; }
+    .budget-val { font-size: 10.5px; color: #9ca3af; min-width: 40px; text-align: right; }
+
+    /* agent diff */
+    .agent-diff {
+      background: #fff; border: 1px solid #e5e7eb; border-radius: 12px;
+      overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,.05);
+    }
+    .agent-diff-head {
+      display: flex; border-bottom: 1px solid #e5e7eb;
+    }
+    .agent-col {
+      flex: 1; padding: 10px 14px;
+      border-right: 1px solid #e5e7eb;
+    }
+    .agent-col:last-child { border-right: none; }
+    .agent-col-head {
+      font-size: 11px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .06em; margin-bottom: 4px;
+    }
+    .agent-col-sub { font-size: 10.5px; color: #9ca3af; }
+    .agent-body { display: flex; }
+    .agent-body-col { flex: 1; padding: 10px 14px; border-right: 1px solid #e5e7eb; }
+    .agent-body-col:last-child { border-right: none; }
+    .ab-row {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 11px; color: #6b7280; margin-bottom: 5px;
+    }
+    .ab-row:last-child { margin-bottom: 0; }
+    .ab-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+    .ab-check { width: 12px; height: 12px; flex-shrink: 0; }
+    .check-yes { color: #10b981; font-weight: 700; }
+    .check-no  { color: #9ca3af; }
+  </style>
+</head>
+<body>
+<div class="diagram">
+
+  <div class="header">
+    <h1>Vibe Pencil — Context Engineering</h1>
+    <p>7-Layer Context Stack · Brainstorm Hard-Gate · Session Phase Transitions · Canvas Agent vs Build Agent</p>
+  </div>
+
+  <div class="columns">
+
+    <!-- LEFT: Context Stack -->
+    <div class="col-left">
+      <div class="sec-title">7-Layer Context Stack</div>
+
+      <div class="stack">
+
+        <div class="layer-row">
+          <div class="layer-num lc-0">L0</div>
+          <div class="layer-body">
+            <div class="layer-name">Language</div>
+            <div class="layer-desc">
+              检测用户输入语言，固定响应语言<br>
+              <span>zh</span> <span>en</span> — injected as system directive
+            </div>
+          </div>
+        </div>
+
+        <div class="layer-row">
+          <div class="layer-num lc-1">L1</div>
+          <div class="layer-body">
+            <div class="layer-name">Identity</div>
+            <div class="layer-desc">
+              "You are Vibe Pencil's AI assistant"<br>
+              <span class="tag-purple">persona</span> <span class="tag-purple">role definition</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="layer-row">
+          <div class="layer-num lc-2">L2</div>
+          <div class="layer-body">
+            <div class="layer-name">Conversation History</div>
+            <div class="layer-desc">
+              完整对话历史，超 8k tokens 自动压缩<br>
+              <span class="tag-blue">raw if &lt;8k</span> <span class="tag-orange">compressed if &gt;8k</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="layer-row">
+          <div class="layer-num lc-3">L3</div>
+          <div class="layer-body">
+            <div class="layer-name">Canvas State</div>
+            <div class="layer-desc">
+              当前画布的完整快照<br>
+              <span>YAML schema</span> <span>selected node</span><br>
+              <span class="tag-green">BuildSummary</span> <span class="tag-blue">code context</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="layer-row">
+          <div class="layer-num lc-4">L4</div>
+          <div class="layer-body">
+            <div class="layer-name">Task Definition</div>
+            <div class="layer-desc">
+              当前任务类型，决定 Agent 行为模式<br>
+              <span>discuss</span> <span>import</span> <span>implement</span> <span>refactor</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="layer-row">
+          <div class="layer-num lc-5">L5</div>
+          <div class="layer-body">
+            <div class="layer-name">Skills</div>
+            <div class="layer-desc">
+              按 techStack 动态加载，懒加载策略<br>
+              <span class="tag-blue">manifest only → chat</span><br>
+              <span class="tag-green">full content → build</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="layer-row">
+          <div class="layer-num lc-6">L6</div>
+          <div class="layer-body">
+            <div class="layer-name">Constraints</div>
+            <div class="layer-desc">
+              Agent 操作权限边界<br>
+              <span class="tag-red">read-only → Canvas Agent</span><br>
+              <span class="tag-green">write enabled → Build Agent</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="layer-row">
+          <div class="layer-num lc-7">L7</div>
+          <div class="layer-body">
+            <div class="layer-name">Output Format</div>
+            <div class="layer-desc">
+              控制响应格式，随 phase 切换<br>
+              <span class="tag-orange">brainstorm → text-only</span><br>
+              <span class="tag-teal">design/iterate → canvas-action</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Context Budget -->
+      <div style="height: 16px;"></div>
+      <div class="sec-title">Context Token Budget (approx.)</div>
+      <div class="budget-block">
+        <div class="budget-row">
+          <span class="budget-label">L0–L1 Identity</span>
+          <div class="budget-bar-wrap"><div class="budget-bar" style="width:5%;background:#9ca3af;"></div></div>
+          <span class="budget-val">~200</span>
+        </div>
+        <div class="budget-row">
+          <span class="budget-label">L2 History</span>
+          <div class="budget-bar-wrap"><div class="budget-bar" style="width:40%;background:#2563eb;"></div></div>
+          <span class="budget-val">~4k</span>
+        </div>
+        <div class="budget-row">
+          <span class="budget-label">L3 Canvas State</span>
+          <div class="budget-bar-wrap"><div class="budget-bar" style="width:25%;background:#059669;"></div></div>
+          <span class="budget-val">~2k</span>
+        </div>
+        <div class="budget-row">
+          <span class="budget-label">L5 Skill (build)</span>
+          <div class="budget-bar-wrap"><div class="budget-bar" style="width:20%;background:#a21caf;"></div></div>
+          <span class="budget-val">~2k</span>
+        </div>
+        <div class="budget-row">
+          <span class="budget-label">L4,L6,L7 misc</span>
+          <div class="budget-bar-wrap"><div class="budget-bar" style="width:8%;background:#e5e7eb;"></div></div>
+          <span class="budget-val">~600</span>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- RIGHT: Phase transitions + Hard-Gate + Agent diff -->
+    <div class="col-right">
+
+      <div class="sec-title">Session Phase Transitions</div>
+
+      <div class="phase-block">
+        <div class="phase-header">
+          &#128260; Three-phase Session Workflow
+        </div>
+        <div class="phase-body">
+          <div class="phase-flow">
+            <div class="phase-node ph-brainstorm">
+              <div class="pn-name">brainstorm</div>
+              <div class="pn-desc">讨论需求<br>text-only</div>
+            </div>
+            <div class="phase-arrow">
+              <svg width="32" height="18" viewBox="0 0 32 18">
+                <line x1="2" y1="9" x2="26" y2="9" stroke="#d1d5db" stroke-width="1.5"/>
+                <polygon points="30,9 22,5 22,13" fill="#d1d5db"/>
+              </svg>
+            </div>
+            <div class="phase-node ph-design">
+              <div class="pn-name">design</div>
+              <div class="pn-desc">生成架构<br>canvas-action</div>
+            </div>
+            <div class="phase-arrow">
+              <svg width="32" height="18" viewBox="0 0 32 18">
+                <line x1="2" y1="9" x2="26" y2="9" stroke="#d1d5db" stroke-width="1.5"/>
+                <polygon points="30,9 22,5 22,13" fill="#d1d5db"/>
+              </svg>
+            </div>
+            <div class="phase-node ph-iterate">
+              <div class="pn-name">iterate</div>
+              <div class="pn-desc">迭代优化<br>canvas-action</div>
+            </div>
+          </div>
+          <div style="font-size: 11px; color: #9ca3af; line-height: 1.6;">
+            Phase 自动推进，Canvas Agent 根据当前 phase 切换 L7 Output Format。<br>
+            Design / Iterate 阶段解锁 <code style="background:#f3f4f6;padding:1px 4px;border-radius:3px;font-size:10.5px;">canvas-action</code> 响应格式。
+          </div>
+        </div>
+      </div>
+
+      <!-- HARD-GATE -->
+      <div class="sec-title">Brainstorm Skill Hard-Gate</div>
+
+      <div class="hard-gate">
+        <div class="gate-title">
+          <span class="gate-badge">HARD GATE</span>
+          brainstorm phase — canvas-action BLOCKED
+        </div>
+        <div style="font-size: 11.5px; color: #6b7280; line-height: 1.6; margin-bottom: 8px;">
+          在 brainstorm 阶段，即使 Skill 包含 canvas-action 指令，系统强制拦截，仅允许纯文本响应。防止 AI 在需求未确认时就修改画布。
+        </div>
+        <div class="gate-row">
+          <span class="gate-chip gc-deny">canvas-action blocked</span>
+          <span class="gate-chip gc-deny">node mutations blocked</span>
+          <span class="gate-chip gc-allow">text response allowed</span>
+          <span class="gate-chip gc-allow">discussion allowed</span>
+          <span class="gate-chip gc-note">unlocked at design phase</span>
+        </div>
+      </div>
+
+      <!-- Agent diff -->
+      <div style="height: 16px;"></div>
+      <div class="sec-title">Canvas Agent vs Build Agent</div>
+
+      <div class="agent-diff">
+        <div class="agent-diff-head">
+          <div class="agent-col">
+            <div class="agent-col-head" style="color:#2563eb;">Canvas Agent</div>
+            <div class="agent-col-sub">Chat sidebar — read-only</div>
+          </div>
+          <div class="agent-col">
+            <div class="agent-col-head" style="color:#15803d;">Build Agent</div>
+            <div class="agent-col-sub">Build pool — write enabled</div>
+          </div>
+        </div>
+        <div class="agent-body">
+          <div class="agent-body-col">
+            <div class="ab-row"><span class="ab-dot" style="background:#2563eb;"></span>Discuss / Import / Analyze</div>
+            <div class="ab-row"><span class="ab-dot" style="background:#2563eb;"></span>L5: manifest only</div>
+            <div class="ab-row"><span class="ab-dot" style="background:#2563eb;"></span>L6: read-only constraint</div>
+            <div class="ab-row"><span class="ab-dot" style="background:#2563eb;"></span>L7: text / canvas-action</div>
+            <div class="ab-row"><span class="ab-dot" style="background:#2563eb;"></span>Sees BuildSummary (L3)</div>
+            <div class="ab-row"><span class="ab-dot" style="background:#2563eb;"></span>Phase-gated by brainstorm</div>
+          </div>
+          <div class="agent-body-col">
+            <div class="ab-row"><span class="ab-dot" style="background:#15803d;"></span>Implement / Refactor</div>
+            <div class="ab-row"><span class="ab-dot" style="background:#15803d;"></span>L5: full skill content</div>
+            <div class="ab-row"><span class="ab-dot" style="background:#15803d;"></span>L6: write enabled</div>
+            <div class="ab-row"><span class="ab-dot" style="background:#15803d;"></span>L7: structured code output</div>
+            <div class="ab-row"><span class="ab-dot" style="background:#15803d;"></span>Scoped per node / workDir</div>
+            <div class="ab-row"><span class="ab-dot" style="background:#15803d;"></span>Post-build hooks + retry</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Vibe Pencil — 系统架构 System Architecture</title>
+  <title>Vibe Pencil — System Architecture</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -17,629 +17,402 @@
       min-height: 100vh;
     }
 
-    .diagram {
-      width: 900px;
-      max-width: 100%;
-    }
+    .diagram { width: 900px; max-width: 100%; }
 
-    /* ── Header ── */
-    .header {
-      text-align: center;
-      margin-bottom: 36px;
-    }
-    .header h1 {
-      font-size: 22px;
-      font-weight: 700;
-      color: #1a1a2e;
-      letter-spacing: 0.01em;
-    }
-    .header p {
-      font-size: 13px;
-      color: #6b7280;
-      margin-top: 6px;
-    }
+    .header { text-align: center; margin-bottom: 32px; }
+    .header h1 { font-size: 22px; font-weight: 700; color: #1a1a2e; letter-spacing: 0.01em; }
+    .header p { font-size: 13px; color: #6b7280; margin-top: 6px; }
 
-    /* ── Layer containers ── */
-    .layer {
-      border-radius: 14px;
-      padding: 20px 22px 22px;
-      margin-bottom: 10px;
-      position: relative;
-    }
-
-    .layer-frontend {
-      background: #f3f0ff;
-      border: 1.5px solid #d8ccff;
-      border-top: 4px solid #7c3aed;
-    }
-    .layer-backend {
-      background: #f0fdf4;
-      border: 1.5px solid #bbf7d0;
-      border-top: 4px solid #16a34a;
-    }
-    .layer-ai {
-      background: #eff6ff;
-      border: 1.5px solid #bfdbfe;
-      border-top: 4px solid #2563eb;
-    }
-
-    .layer-label {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      margin-bottom: 16px;
-    }
-    .layer-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
-      font-size: 11px;
-      font-weight: 600;
-      padding: 3px 10px;
-      border-radius: 20px;
-      letter-spacing: 0.04em;
-      text-transform: uppercase;
-    }
-    .badge-frontend {
-      background: #ede9fe;
-      color: #6d28d9;
-      border: 1px solid #c4b5fd;
-    }
-    .badge-backend {
-      background: #dcfce7;
-      color: #15803d;
-      border: 1px solid #86efac;
-    }
-    .badge-ai {
-      background: #dbeafe;
-      color: #1d4ed8;
-      border: 1px solid #93c5fd;
-    }
-
-    .layer-title {
-      font-size: 14px;
-      font-weight: 600;
-      color: #374151;
-    }
-    .layer-subtitle {
-      font-size: 12px;
-      color: #6b7280;
-      margin-left: 4px;
-    }
-
-    /* ── Cards grid ── */
-    .cards-row {
-      display: flex;
-      gap: 12px;
-      align-items: stretch;
-    }
-
-    .card {
-      flex: 1;
-      background: #ffffff;
-      border-radius: 10px;
-      padding: 14px 16px;
-      border: 1px solid #e5e7eb;
-      box-shadow: 0 1px 4px rgba(0,0,0,0.06), 0 0 0 0.5px rgba(0,0,0,0.04);
-      position: relative;
-      overflow: hidden;
-    }
-
-    .card::before {
-      content: '';
-      position: absolute;
-      left: 0; top: 0; bottom: 0;
-      width: 3px;
-      border-radius: 3px 0 0 3px;
-    }
-    .card-purple::before { background: #7c3aed; }
-    .card-green::before  { background: #16a34a; }
-    .card-blue::before   { background: #2563eb; }
-
-    .card-icon {
-      font-size: 18px;
-      margin-bottom: 8px;
-      display: block;
-    }
-    .card-name {
-      font-size: 13px;
-      font-weight: 700;
-      color: #111827;
-      margin-bottom: 5px;
-    }
-    .card-name-en {
-      font-size: 11px;
-      font-weight: 500;
-      color: #9ca3af;
-      margin-left: 5px;
-    }
-    .card-desc {
-      font-size: 11.5px;
-      color: #6b7280;
-      line-height: 1.6;
-    }
-    .card-desc span {
-      display: inline-block;
-      background: #f3f4f6;
-      border: 1px solid #e5e7eb;
-      border-radius: 4px;
-      padding: 0px 5px;
-      font-size: 10.5px;
-      color: #374151;
-      margin: 2px 1px 0;
-      font-family: 'SFMono-Regular', Consolas, monospace;
-    }
-
-    /* ── AI card (horizontal) ── */
-    .ai-row {
-      display: flex;
-      gap: 12px;
-    }
-    .ai-card {
-      flex: 1;
-      background: #ffffff;
-      border-radius: 10px;
-      padding: 13px 15px;
-      border: 1px solid #e5e7eb;
-      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
-      position: relative;
-      overflow: hidden;
-    }
-    .ai-card::before {
-      content: '';
-      position: absolute;
-      left: 0; top: 0; bottom: 0;
-      width: 3px;
-      border-radius: 3px 0 0 3px;
-      background: #2563eb;
-    }
-    .ai-header {
-      display: flex;
-      align-items: center;
-      gap: 7px;
-      margin-bottom: 6px;
-    }
-    .ai-dot {
-      width: 8px; height: 8px;
-      border-radius: 50%;
-      flex-shrink: 0;
-    }
-    .dot-orange  { background: #f59e0b; }
-    .dot-blue    { background: #3b82f6; }
-    .dot-teal    { background: #06b6d4; }
-
-    .ai-name {
-      font-size: 12.5px;
-      font-weight: 700;
-      color: #111827;
-    }
-    .ai-cmd {
-      font-size: 10.5px;
-      font-family: 'SFMono-Regular', Consolas, monospace;
-      color: #6b7280;
-      background: #f3f4f6;
-      border: 1px solid #e5e7eb;
-      border-radius: 4px;
-      padding: 1px 6px;
-      display: inline-block;
-      margin-top: 1px;
-    }
-    .ai-desc {
-      font-size: 11px;
-      color: #9ca3af;
-      margin-top: 5px;
-    }
-
-    /* ── Connector arrows ── */
-    .connector {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 0;
-      padding: 6px 0;
-      position: relative;
-    }
-
-    .flow-row {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 24px;
-      flex-wrap: wrap;
-    }
-
-    .flow-item {
-      display: flex;
-      align-items: center;
-      gap: 5px;
-      font-size: 11px;
-      color: #6b7280;
-    }
-    .flow-arrow {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 2px;
-    }
-    .arrow-line {
-      width: 2px;
-      background: #d1d5db;
-      border-radius: 1px;
-      position: relative;
-    }
-    .arrow-line::after {
-      content: '';
-      position: absolute;
-      bottom: -5px;
-      left: 50%;
-      transform: translateX(-50%);
-      border-left: 5px solid transparent;
-      border-right: 5px solid transparent;
-      border-top: 6px solid #9ca3af;
-    }
-
-    /* ── Inline arrows in connector row ── */
-    .conn-block {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 4px 0 8px;
-      gap: 0;
-    }
-
-    .conn-line-wrap {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 2px;
-    }
-
-    .h-arrow-group {
-      display: flex;
-      align-items: center;
-      justify-content: space-around;
-      padding: 5px 40px 8px;
-      gap: 0;
-    }
-
-    /* ── Arrow SVGs ── */
-    .arrows-svg {
-      display: block;
-      margin: 0 auto;
-      overflow: visible;
-    }
-
-    /* ── Legend ── */
+    /* legend */
     .legend {
-      display: flex;
-      justify-content: center;
-      gap: 20px;
-      flex-wrap: wrap;
-      margin: 0 0 28px;
+      display: flex; justify-content: center; gap: 20px; flex-wrap: wrap;
+      margin: 0 0 26px;
     }
-    .legend-item {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 11.5px;
-      color: #6b7280;
+    .legend-item { display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: #6b7280; }
+    .legend-line { width: 24px; height: 2px; border-radius: 1px; }
+    .legend-dashed { width: 24px; height: 0; border-top: 2px dashed #9ca3af; }
+
+    /* section band */
+    .section {
+      border-radius: 14px;
+      padding: 18px 20px 20px;
+      margin-bottom: 8px;
+      position: relative;
     }
-    .legend-line {
-      width: 24px;
-      height: 2px;
-      border-radius: 1px;
+    .section-orchestrator { background: #f5f3ff; border: 1.5px solid #ddd6fe; border-top: 4px solid #7c3aed; }
+    .section-canvas       { background: #eff6ff; border: 1.5px solid #bfdbfe; border-top: 4px solid #2563eb; }
+    .section-build        { background: #f0fdf4; border: 1.5px solid #bbf7d0; border-top: 4px solid #16a34a; }
+    .section-import       { background: #fff7ed; border: 1.5px solid #fed7aa; border-top: 4px solid #ea580c; }
+    .section-skills       { background: #fdf4ff; border: 1.5px solid #f0abfc; border-top: 4px solid #a21caf; }
+
+    .section-head {
+      display: flex; align-items: center; gap: 8px; margin-bottom: 14px;
     }
-    .legend-dashed {
-      width: 24px;
-      height: 0;
-      border-top: 2px dashed #9ca3af;
+    .sbadge {
+      display: inline-flex; align-items: center; gap: 5px;
+      font-size: 11px; font-weight: 600; padding: 3px 10px;
+      border-radius: 20px; letter-spacing: 0.04em; text-transform: uppercase;
+    }
+    .sb-orch  { background: #ede9fe; color: #6d28d9; border: 1px solid #c4b5fd; }
+    .sb-canvas{ background: #dbeafe; color: #1d4ed8; border: 1px solid #93c5fd; }
+    .sb-build { background: #dcfce7; color: #15803d; border: 1px solid #86efac; }
+    .sb-import{ background: #ffedd5; color: #c2410c; border: 1px solid #fed7aa; }
+    .sb-skills{ background: #fae8ff; color: #86198f; border: 1px solid #e879f9; }
+
+    .section-title { font-size: 14px; font-weight: 600; color: #374151; }
+    .section-sub   { font-size: 12px; color: #6b7280; margin-left: 4px; }
+
+    /* card grid */
+    .cards-row { display: flex; gap: 10px; align-items: stretch; }
+    .card {
+      flex: 1; background: #fff; border-radius: 10px; padding: 13px 14px;
+      border: 1px solid #e5e7eb;
+      box-shadow: 0 1px 4px rgba(0,0,0,.06), 0 0 0 0.5px rgba(0,0,0,.04);
+      position: relative; overflow: hidden;
+    }
+    .card::before {
+      content: ''; position: absolute; left: 0; top: 0; bottom: 0;
+      width: 3px; border-radius: 3px 0 0 3px;
+    }
+    .card-orch::before   { background: #7c3aed; }
+    .card-canvas::before { background: #2563eb; }
+    .card-build::before  { background: #16a34a; }
+    .card-import::before { background: #ea580c; }
+    .card-skills::before { background: #a21caf; }
+
+    .card-name  { font-size: 13px; font-weight: 700; color: #111827; margin-bottom: 5px; }
+    .card-name .en { font-size: 11px; font-weight: 500; color: #9ca3af; margin-left: 5px; }
+    .card-desc  { font-size: 11.5px; color: #6b7280; line-height: 1.6; }
+    .card-desc span {
+      display: inline-block; background: #f3f4f6; border: 1px solid #e5e7eb;
+      border-radius: 4px; padding: 0 5px; font-size: 10.5px; color: #374151;
+      margin: 2px 1px 0; font-family: 'SFMono-Regular', Consolas, monospace;
+    }
+    .card-desc .tag-orange {
+      background: #fff7ed; border-color: #fed7aa; color: #c2410c;
+    }
+    .card-desc .tag-blue {
+      background: #eff6ff; border-color: #bfdbfe; color: #1d4ed8;
+    }
+    .card-desc .tag-green {
+      background: #f0fdf4; border-color: #bbf7d0; color: #15803d;
     }
 
-    /* ── Tech bar ── */
+    /* context stack pill rows */
+    .stack-row {
+      display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px;
+    }
+    .stack-pill {
+      display: inline-flex; align-items: center; gap: 4px;
+      font-size: 10.5px; font-weight: 500; padding: 2px 8px;
+      border-radius: 4px; border: 1px solid;
+    }
+    .sp-l0 { background: #fafafa; border-color: #e5e7eb; color: #6b7280; }
+    .sp-l1 { background: #eff6ff; border-color: #bfdbfe; color: #1d4ed8; }
+    .sp-l2 { background: #f5f3ff; border-color: #ddd6fe; color: #6d28d9; }
+    .sp-l3 { background: #f0fdf4; border-color: #bbf7d0; color: #15803d; }
+    .sp-l4 { background: #fff7ed; border-color: #fed7aa; color: #c2410c; }
+    .sp-l5 { background: #fdf4ff; border-color: #f0abfc; color: #86198f; }
+    .sp-l6 { background: #fef2f2; border-color: #fecaca; color: #b91c1c; }
+    .sp-l7 { background: #f0fdfa; border-color: #99f6e4; color: #0d9488; }
+
+    /* arrows between sections */
+    .arrows-svg { display: block; margin: 0 auto; overflow: visible; }
+
+    /* phase badges in canvas agent */
+    .phase-row { display: flex; gap: 6px; margin-top: 8px; }
+    .phase-badge {
+      flex: 1; text-align: center; padding: 4px 0; border-radius: 6px;
+      font-size: 10.5px; font-weight: 600; letter-spacing: .03em;
+      border: 1px solid;
+    }
+    .ph-brainstorm { background: #fffbeb; border-color: #fde68a; color: #d97706; }
+    .ph-design     { background: #eff6ff; border-color: #bfdbfe; color: #2563eb; }
+    .ph-iterate    { background: #f0fdf4; border-color: #bbf7d0; color: #15803d; }
+
+    /* wave boxes inside build pool */
+    .wave-mini { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+    .wave-box {
+      flex: 1; min-width: 60px; background: #f0fdf4;
+      border: 1px solid #86efac; border-radius: 6px;
+      padding: 5px 8px; text-align: center;
+      font-size: 10.5px; color: #15803d; font-weight: 600;
+    }
+
+    /* skill pills */
+    .skill-row { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+    .skill-pill {
+      font-size: 10.5px; font-weight: 500; padding: 2px 8px;
+      border-radius: 12px; border: 1px solid;
+    }
+    .sk-local  { background: #f5f3ff; border-color: #ddd6fe; color: #6d28d9; }
+    .sk-github { background: #f0fdf4; border-color: #86efac; color: #15803d; }
+    .sk-import { background: #fff7ed; border-color: #fed7aa; color: #c2410c; }
+
+    /* tech bar */
     .tech-bar {
-      margin-top: 28px;
-      padding: 18px 22px;
-      background: #ffffff;
-      border: 1px solid #e5e7eb;
-      border-radius: 12px;
-      display: flex;
-      flex-wrap: wrap;
-      gap: 12px 0;
-      align-items: center;
+      margin-top: 24px; padding: 16px 20px; background: #fff;
+      border: 1px solid #e5e7eb; border-radius: 12px;
+      display: flex; flex-wrap: wrap; gap: 10px 0; align-items: center;
     }
     .tech-bar-label {
-      font-size: 11px;
-      font-weight: 600;
-      color: #9ca3af;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-      margin-right: 8px;
-      flex-shrink: 0;
+      font-size: 11px; font-weight: 600; color: #9ca3af;
+      text-transform: uppercase; letter-spacing: .06em;
+      margin-right: 8px; flex-shrink: 0;
     }
-    .pill-group {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-    }
+    .pill-group { display: flex; flex-wrap: wrap; gap: 6px; }
     .pill {
-      display: inline-block;
-      font-size: 11px;
-      font-weight: 500;
-      padding: 3px 10px;
-      border-radius: 20px;
-      border: 1px solid;
+      display: inline-block; font-size: 11px; font-weight: 500;
+      padding: 3px 10px; border-radius: 20px; border: 1px solid;
     }
     .pill-purple { background: #ede9fe; color: #6d28d9; border-color: #c4b5fd; }
     .pill-green  { background: #dcfce7; color: #15803d; border-color: #86efac; }
     .pill-blue   { background: #dbeafe; color: #1d4ed8; border-color: #93c5fd; }
     .pill-gray   { background: #f3f4f6; color: #374151; border-color: #d1d5db; }
-    .pill-sep {
-      width: 1px;
-      height: 16px;
-      background: #e5e7eb;
-      align-self: center;
-      margin: 0 4px;
-    }
+    .pill-orange { background: #ffedd5; color: #c2410c; border-color: #fed7aa; }
+    .pill-sep { width: 1px; height: 16px; background: #e5e7eb; align-self: center; margin: 0 4px; }
 
-    /* ── SSE badge ── */
     .sse-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 3px;
-      background: #fff7ed;
-      border: 1px solid #fed7aa;
-      color: #c2410c;
-      border-radius: 4px;
-      font-size: 10px;
-      font-weight: 600;
-      padding: 1px 6px;
-      letter-spacing: 0.03em;
-    }
-
-    /* ── Three-way selector badge ── */
-    .selector-label {
-      text-align: center;
-      font-size: 11px;
-      color: #9ca3af;
-      margin-bottom: 8px;
-      font-weight: 500;
-      letter-spacing: 0.03em;
-    }
-    .selector-label span {
-      background: #fef3c7;
-      border: 1px solid #fde68a;
-      color: #92400e;
-      border-radius: 4px;
-      padding: 1px 7px;
-      font-size: 10.5px;
-      font-weight: 600;
+      display: inline-flex; align-items: center; gap: 3px;
+      background: #fff7ed; border: 1px solid #fed7aa; color: #c2410c;
+      border-radius: 4px; font-size: 10px; font-weight: 600;
+      padding: 1px 6px; letter-spacing: .03em;
     }
   </style>
 </head>
 <body>
 <div class="diagram">
 
-  <!-- Header -->
   <div class="header">
-    <h1>Vibe Pencil — 系统架构</h1>
-    <p>Multi-Agent Canvas · LangGraph-inspired Wave Scheduling · SSE Streaming</p>
+    <h1>Vibe Pencil — 系统架构 System Architecture</h1>
+    <p>Orchestrator + 2-Agent Architecture · Context Engineering · Wave-based Build Pool · Two-phase Import</p>
   </div>
 
-  <!-- Legend -->
   <div class="legend">
-    <div class="legend-item">
-      <div class="legend-line" style="background:#7c3aed;"></div>
-      <span>Frontend</span>
-    </div>
-    <div class="legend-item">
-      <div class="legend-line" style="background:#16a34a;"></div>
-      <span>Backend</span>
-    </div>
-    <div class="legend-item">
-      <div class="legend-line" style="background:#2563eb;"></div>
-      <span>AI CLI</span>
-    </div>
-    <div class="legend-item">
-      <div class="legend-dashed"></div>
-      <span>SSE 流式</span>
-    </div>
-    <div class="legend-item">
-      <div class="legend-line" style="background:#d1d5db;"></div>
-      <span>数据流</span>
-    </div>
+    <div class="legend-item"><div class="legend-line" style="background:#7c3aed;"></div><span>Orchestrator</span></div>
+    <div class="legend-item"><div class="legend-line" style="background:#2563eb;"></div><span>Canvas Agent</span></div>
+    <div class="legend-item"><div class="legend-line" style="background:#16a34a;"></div><span>Build Agent Pool</span></div>
+    <div class="legend-item"><div class="legend-line" style="background:#ea580c;"></div><span>Import Pipeline</span></div>
+    <div class="legend-item"><div class="legend-line" style="background:#a21caf;"></div><span>Skill System</span></div>
+    <div class="legend-item"><div class="legend-dashed"></div><span>SSE 流式</span></div>
   </div>
 
-  <!-- ══ Layer 1: Frontend ══ -->
-  <div class="layer layer-frontend">
-    <div class="layer-label">
-      <span class="layer-badge badge-frontend">Frontend</span>
-      <span class="layer-title">Next.js 16 + React Flow</span>
+  <!-- ══ Orchestrator ══ -->
+  <div class="section section-orchestrator">
+    <div class="section-head">
+      <span class="sbadge sb-orch">Orchestrator</span>
+      <span class="section-title">Next.js Server</span>
+      <span class="section-sub">/ api routes + child_process.spawn</span>
     </div>
     <div class="cards-row">
 
-      <div class="card card-purple">
-        <span class="card-icon">🖼️</span>
-        <div class="card-name">画布 Canvas<span class="card-name-en">Canvas Layer</span></div>
+      <div class="card card-orch">
+        <div class="card-name">Context Engine <span class="en">7-Layer Stack</span></div>
         <div class="card-desc">
-          Container + Block 两层架构<br>
-          <span>react-flow</span> <span>节点拖拽</span> <span>连线</span>
+          构建并压缩每轮对话的上下文窗口
+          <div class="stack-row">
+            <span class="stack-pill sp-l0">L0 Language</span>
+            <span class="stack-pill sp-l1">L1 Identity</span>
+            <span class="stack-pill sp-l2">L2 History</span>
+            <span class="stack-pill sp-l3">L3 Canvas State</span>
+            <span class="stack-pill sp-l4">L4 Task</span>
+            <span class="stack-pill sp-l5">L5 Skills</span>
+            <span class="stack-pill sp-l6">L6 Constraints</span>
+            <span class="stack-pill sp-l7">L7 Output Format</span>
+          </div>
         </div>
       </div>
 
-      <div class="card card-purple">
-        <span class="card-icon">💬</span>
-        <div class="card-name">聊天面板<span class="card-name-en">Chat Panel</span></div>
+      <div class="card card-orch">
+        <div class="card-name">Skill Resolver</div>
         <div class="card-desc">
-          AI 对话 + Apply to Canvas<br>
-          <span>流式渲染</span> <span>Markdown</span> <span>指令解析</span>
+          按节点 techStack 自动匹配最优 Skill<br>
+          <span>techStack matching</span> <span>lazy loading</span><br>
+          <span class="tag-blue">manifest for chat</span> <span class="tag-green">full for build</span>
         </div>
       </div>
 
-      <div class="card card-purple">
-        <span class="card-icon">📋</span>
-        <div class="card-name">会话列表<span class="card-name-en">Session Sidebar</span></div>
+      <div class="card card-orch">
+        <div class="card-name">Build State Manager</div>
         <div class="card-desc">
-          Claude.ai 风格侧边栏<br>
-          <span>历史会话</span> <span>切换</span> <span>持久化</span>
+          持久化构建状态，断线自动恢复<br>
+          <span>wave progress</span> <span>node status</span><br>
+          <span class="tag-orange">SSE reconnect</span>
+          &nbsp;<span class="sse-badge">SSE</span>
         </div>
       </div>
 
     </div>
   </div>
 
-  <!-- Connector: Frontend → Backend -->
-  <svg class="arrows-svg" width="900" height="54" viewBox="0 0 900 54">
-    <!-- Canvas → SchemaEngine (left) -->
-    <line x1="150" y1="4" x2="150" y2="36" stroke="#a78bfa" stroke-width="1.5" stroke-dasharray="0"/>
-    <polygon points="150,42 145,32 155,32" fill="#a78bfa"/>
-    <text x="155" y="30" font-size="10" fill="#a78bfa" font-family="-apple-system,sans-serif">Canvas → SchemaEngine</text>
-
-    <!-- Chat → AgentRunner (center) -->
-    <line x1="450" y1="4" x2="450" y2="36" stroke="#a78bfa" stroke-width="1.5"/>
-    <polygon points="450,42 445,32 455,32" fill="#a78bfa"/>
-    <text x="355" y="30" font-size="10" fill="#a78bfa" font-family="-apple-system,sans-serif">Chat Panel → AgentRunner</text>
+  <!-- arrow down -->
+  <svg class="arrows-svg" width="900" height="42" viewBox="0 0 900 42">
+    <line x1="300" y1="4" x2="300" y2="32" stroke="#a78bfa" stroke-width="1.5"/>
+    <polygon points="300,38 295,28 305,28" fill="#a78bfa"/>
+    <text x="308" y="25" font-size="10" fill="#7c3aed" font-family="-apple-system,sans-serif">chat request</text>
+    <line x1="600" y1="4" x2="600" y2="32" stroke="#a78bfa" stroke-width="1.5"/>
+    <polygon points="600,38 595,28 605,28" fill="#a78bfa"/>
+    <text x="608" y="25" font-size="10" fill="#7c3aed" font-family="-apple-system,sans-serif">build trigger</text>
   </svg>
 
-  <!-- ══ Layer 2: Backend ══ -->
-  <div class="layer layer-backend">
-    <div class="layer-label">
-      <span class="layer-badge badge-backend">Backend</span>
-      <span class="layer-title">Node.js API Routes</span>
-    </div>
-    <div class="cards-row">
+  <!-- ══ Canvas Agent + Build Pool (side by side) ══ -->
+  <div class="cards-row" style="align-items: stretch; gap: 12px;">
 
-      <div class="card card-green">
-        <span class="card-icon">⚙️</span>
-        <div class="card-name">AgentRunner</div>
+    <!-- Canvas Agent -->
+    <div class="section section-canvas" style="flex: 1; margin-bottom: 0;">
+      <div class="section-head">
+        <span class="sbadge sb-canvas">Canvas Agent</span>
+        <span class="section-title">Read-only</span>
+      </div>
+      <div class="card card-canvas" style="margin-bottom: 10px;">
+        <div class="card-name">Tasks</div>
         <div class="card-desc">
-          子进程管理 + SSE 流式输出<br>
-          <span>child_process</span> <span>EventEmitter</span>
-          <span class="sse-badge">SSE</span>
+          <span>Discuss</span> <span>Import</span> <span>Analyze</span>
         </div>
       </div>
-
-      <div class="card card-green">
-        <span class="card-icon">🔄</span>
-        <div class="card-name">SchemaEngine</div>
+      <div class="card card-canvas" style="margin-bottom: 10px;">
+        <div class="card-name">Session Workflow</div>
         <div class="card-desc">
-          画布 ↔ YAML 双向序列化<br>
-          <span>serialize</span> <span>deserialize</span> <span>diffPatch</span>
+          三阶段渐进推进
+          <div class="phase-row">
+            <span class="phase-badge ph-brainstorm">brainstorm</span>
+            <span class="phase-badge ph-design">design</span>
+            <span class="phase-badge ph-iterate">iterate</span>
+          </div>
         </div>
       </div>
-
-      <div class="card card-green">
-        <span class="card-icon">📊</span>
-        <div class="card-name">拓扑排序 TopoSort</div>
+      <div class="card card-canvas">
+        <div class="card-name">Build Awareness</div>
         <div class="card-desc">
-          Kahn 算法 → 波次调度<br>
-          <span>DAG</span> <span>wave[]</span> <span>依赖图</span>
+          实时感知构建状态<br>
+          <span>BuildSummary feedback</span><br>
+          <span class="tag-blue">build events → chat</span>
         </div>
       </div>
-
     </div>
 
-    <!-- Internal backend flow: SchemaEngine → AgentRunner, AgentRunner ↔ TopoSort -->
-    <svg width="856" height="36" viewBox="0 0 856 36" style="display:block;margin:8px auto 0;">
-      <!-- SchemaEngine → AgentRunner -->
-      <line x1="170" y1="8" x2="80" y2="8" stroke="#86efac" stroke-width="1.5"/>
-      <polygon points="76,8 86,3 86,13" fill="#86efac"/>
-      <text x="90" y="7" font-size="10" fill="#6b7280" font-family="-apple-system,sans-serif">SchemaEngine → AgentRunner</text>
+    <!-- Build Agent Pool -->
+    <div class="section section-build" style="flex: 1; margin-bottom: 0;">
+      <div class="section-head">
+        <span class="sbadge sb-build">Build Agent Pool</span>
+        <span class="section-title">N instances</span>
+      </div>
+      <div class="card card-build" style="margin-bottom: 10px;">
+        <div class="card-name">Wave Execution</div>
+        <div class="card-desc">
+          拓扑排序 → 波次并行调度
+          <div class="wave-mini">
+            <div class="wave-box">Wave 0<br><span style="font-weight:400;font-size:10px;">parallel</span></div>
+            <div class="wave-box">Wave 1<br><span style="font-weight:400;font-size:10px;">parallel</span></div>
+            <div class="wave-box">Wave N<br><span style="font-weight:400;font-size:10px;">sequential</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="card card-build" style="margin-bottom: 10px;">
+        <div class="card-name">Post-build Hooks</div>
+        <div class="card-desc">
+          每个节点构建后自动触发<br>
+          <span>lint</span> <span>test</span> <span>custom cmd</span>
+        </div>
+      </div>
+      <div class="card card-build">
+        <div class="card-name">BuildSummary + Retry</div>
+        <div class="card-desc">
+          提取构建产物摘要 → 反馈 Chat<br>
+          <span>retry failed nodes</span>
+          &nbsp;<span class="sse-badge">SSE</span>
+        </div>
+      </div>
+    </div>
 
-      <!-- AgentRunner ↔ TopoSort -->
-      <line x1="580" y1="8" x2="670" y2="8" stroke="#86efac" stroke-width="1.5"/>
-      <polygon points="674,8 664,3 664,13" fill="#86efac"/>
-      <polygon points="576,8 586,3 586,13" fill="#86efac"/>
-      <text x="590" y="7" font-size="10" fill="#6b7280" font-family="-apple-system,sans-serif">AgentRunner ↔ TopoSort</text>
-    </svg>
   </div>
 
-  <!-- Connector: Backend → AI CLI -->
-  <svg class="arrows-svg" width="900" height="54" viewBox="0 0 900 54">
-    <!-- AgentRunner → AI backends (center arrow, fans out) -->
-    <line x1="450" y1="4" x2="450" y2="22" stroke="#6ee7b7" stroke-width="1.5"/>
-    <!-- fan left -->
-    <line x1="450" y1="22" x2="200" y2="44" stroke="#6ee7b7" stroke-width="1.5"/>
-    <polygon points="197,48 194,36 205,39" fill="#6ee7b7"/>
-    <!-- fan center -->
-    <line x1="450" y1="22" x2="450" y2="44" stroke="#6ee7b7" stroke-width="1.5"/>
-    <polygon points="450,50 445,40 455,40" fill="#6ee7b7"/>
-    <!-- fan right -->
-    <line x1="450" y1="22" x2="700" y2="44" stroke="#6ee7b7" stroke-width="1.5"/>
-    <polygon points="703,48 695,39 706,36" fill="#6ee7b7"/>
-
-    <!-- SSE return arrow -->
-    <line x1="770" y1="4" x2="770" y2="44" stroke="#fb923c" stroke-width="1.5" stroke-dasharray="4,3"/>
-    <polygon points="770,0 765,12 775,12" fill="#fb923c"/>
-    <text x="775" y="28" font-size="10" fill="#ea580c" font-family="-apple-system,sans-serif" font-weight="600">SSE → Canvas</text>
+  <!-- arrow down to Import + Skills -->
+  <svg class="arrows-svg" width="900" height="36" viewBox="0 0 900 36">
+    <line x1="220" y1="4" x2="220" y2="26" stroke="#fb923c" stroke-width="1.5"/>
+    <polygon points="220,32 215,22 225,22" fill="#fb923c"/>
+    <text x="228" y="20" font-size="10" fill="#c2410c" font-family="-apple-system,sans-serif">import flow</text>
+    <line x1="680" y1="4" x2="680" y2="26" stroke="#c026d3" stroke-width="1.5"/>
+    <polygon points="680,32 675,22 685,22" fill="#c026d3"/>
+    <text x="688" y="20" font-size="10" fill="#a21caf" font-family="-apple-system,sans-serif">skill resolution</text>
   </svg>
 
-  <!-- ══ Layer 3: AI CLI Backends ══ -->
-  <div class="layer layer-ai">
-    <div class="layer-label">
-      <span class="layer-badge badge-ai">AI CLI Backends</span>
-      <span class="layer-title">三选一 · Pluggable Adapters</span>
+  <!-- ══ Import + Skills row ══ -->
+  <div class="cards-row" style="align-items: stretch; gap: 12px;">
+
+    <!-- Two-phase Import -->
+    <div class="section section-import" style="flex: 1; margin-bottom: 0;">
+      <div class="section-head">
+        <span class="sbadge sb-import">Two-phase Import</span>
+      </div>
+      <div class="card card-import" style="margin-bottom: 8px;">
+        <div class="card-name">Phase 1 — Project Scanner</div>
+        <div class="card-desc">
+          即时骨架扫描（秒速）<br>
+          <span>file tree</span> <span>tech detection</span> <span>skeleton canvas</span>
+        </div>
+      </div>
+      <div class="card card-import">
+        <div class="card-name">Phase 2 — LLM Enhancement</div>
+        <div class="card-desc">
+          后台 AI 增强（异步）<br>
+          <span>descriptions</span> <span>relationships</span> <span>background</span>
+        </div>
+      </div>
     </div>
 
-    <div class="selector-label">AgentRunner 动态选择 <span>--backend</span> 参数</div>
-
-    <div class="ai-row">
-
-      <div class="ai-card">
-        <div class="ai-header">
-          <span class="ai-dot dot-orange"></span>
-          <span class="ai-name">Claude Code</span>
-        </div>
-        <div class="ai-cmd">stdin pipe + stream-json</div>
-        <div class="ai-desc">原生 JSON 流 · 工具调用 · 最高质量</div>
+    <!-- Skill System -->
+    <div class="section section-skills" style="flex: 1; margin-bottom: 0;">
+      <div class="section-head">
+        <span class="sbadge sb-skills">Skill System</span>
       </div>
-
-      <div class="ai-card">
-        <div class="ai-header">
-          <span class="ai-dot dot-blue"></span>
-          <span class="ai-name">Codex CLI</span>
+      <div class="card card-skills" style="margin-bottom: 8px;">
+        <div class="card-name">Sources</div>
+        <div class="card-desc">
+          <div class="skill-row">
+            <span class="skill-pill sk-local">Local (8)</span>
+            <span class="skill-pill sk-github">GitHub (7)</span>
+            <span class="skill-pill sk-import">Imported (14+)</span>
+          </div>
         </div>
-        <div class="ai-cmd">exec --full-auto</div>
-        <div class="ai-desc">全自动模式 · OpenAI o-series · 低延迟</div>
       </div>
-
-      <div class="ai-card">
-        <div class="ai-header">
-          <span class="ai-dot dot-teal"></span>
-          <span class="ai-name">Gemini CLI</span>
+      <div class="card card-skills">
+        <div class="card-name">Types</div>
+        <div class="card-desc">
+          <span>Prompt Skills</span> <span>Hook Skills</span><br>
+          <span class="tag-blue">manifest → chat</span>
+          <span class="tag-green">full → build</span>
         </div>
-        <div class="ai-cmd">gemini -p prompt</div>
-        <div class="ai-desc">Google Gemini · 长上下文 · 免费额度</div>
       </div>
-
     </div>
+
   </div>
 
-  <!-- Tech Bar -->
+  <!-- Tech bar -->
   <div class="tech-bar">
     <span class="tech-bar-label">Stack</span>
     <div class="pill-group">
       <span class="pill pill-purple">Next.js 16</span>
-      <span class="pill pill-purple">React Flow</span>
+      <span class="pill pill-purple">React 19</span>
+      <span class="pill pill-purple">React Flow v12</span>
       <span class="pill pill-purple">TypeScript</span>
     </div>
     <div class="pill-sep"></div>
     <div class="pill-group">
-      <span class="pill pill-green">Node.js API Routes</span>
+      <span class="pill pill-blue">Tailwind v4</span>
+      <span class="pill pill-blue">Zustand v5</span>
+    </div>
+    <div class="pill-sep"></div>
+    <div class="pill-group">
+      <span class="pill pill-green">elkjs</span>
       <span class="pill pill-green">SSE</span>
-      <span class="pill pill-green">child_process</span>
-      <span class="pill pill-green">Kahn TopoSort</span>
+      <span class="pill pill-green">YAML v2</span>
     </div>
     <div class="pill-sep"></div>
     <div class="pill-group">
-      <span class="pill pill-blue">Claude Code</span>
-      <span class="pill pill-blue">Codex CLI</span>
-      <span class="pill pill-blue">Gemini CLI</span>
-    </div>
-    <div class="pill-sep"></div>
-    <div class="pill-group">
-      <span class="pill pill-gray">YAML Schema</span>
-      <span class="pill pill-gray">DAG Waves</span>
-      <span class="pill pill-gray">stream-json</span>
+      <span class="pill pill-orange">Claude Code</span>
+      <span class="pill pill-orange">Codex</span>
+      <span class="pill pill-orange">Gemini CLI</span>
     </div>
   </div>
 

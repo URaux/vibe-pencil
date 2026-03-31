@@ -29,6 +29,10 @@
 
 ![构建流程](docs/arch-build-flow.png)
 
+## Context Engineering
+
+![Context Engineering](docs/arch-context.png)
+
 ## 画布模型
 
 ![画布模型](docs/arch-canvas-model.png)
