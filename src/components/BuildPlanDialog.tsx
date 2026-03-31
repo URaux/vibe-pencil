@@ -15,7 +15,7 @@ interface ResolvedSkillEntry {
 interface BuildPlanDialogProps {
   open: boolean
   onClose: () => void
-  onConfirm: () => void
+  onConfirm: (workDir?: string) => void
   waves: string[][]
   nodeNames: Map<string, string>
   nodeTechStacks: Map<string, string>
@@ -106,7 +106,22 @@ export function BuildPlanDialog({
   nodeTechStacks,
 }: BuildPlanDialogProps) {
   const config = useAppStore((state) => state.config)
+  const projectName = useAppStore((state) => state.projectName)
   useAppStore((state) => state.locale)
+
+  const projectSlug = projectName
+    .toLowerCase()
+    .replace(/[^a-z0-9\u4e00-\u9fff-]/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+    || 'untitled'
+  const defaultWorkDir = `${config.workDir}/${projectSlug}`
+  const [buildWorkDir, setBuildWorkDir] = useState(defaultWorkDir)
+
+  // Reset workDir when dialog opens with new project
+  useEffect(() => {
+    if (open) setBuildWorkDir(defaultWorkDir)
+  }, [open, defaultWorkDir])
 
   const totalNodes = waves.reduce((sum, wave) => sum + wave.length, 0)
   const allNodeIds = waves.flat()
@@ -205,7 +220,12 @@ export function BuildPlanDialog({
             </div>
             <div className="flex gap-2">
               <span className="w-28 shrink-0 text-slate-500">{t('work_directory')}</span>
-              <span className="truncate font-medium">{config.workDir}</span>
+              <input
+                type="text"
+                value={buildWorkDir}
+                onChange={(e) => setBuildWorkDir(e.target.value)}
+                className="flex-1 truncate rounded border border-slate-200 bg-white px-2 py-0.5 text-sm font-medium focus:border-blue-400 focus:outline-none"
+              />
             </div>
             <div className="flex gap-2">
               <span className="w-28 shrink-0 text-slate-500">{t('max_parallel')}</span>
@@ -252,7 +272,7 @@ export function BuildPlanDialog({
           </button>
           <button
             type="button"
-            onClick={onConfirm}
+            onClick={() => onConfirm(buildWorkDir)}
             className="vp-button-primary rounded-full px-5 py-2 text-sm"
           >
             {t('start_build')}
