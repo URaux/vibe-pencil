@@ -67,18 +67,24 @@ function getBackend(backend?: AgentBackend): AgentBackend {
   return (process.env.VIBE_CHAT_AGENT_BACKEND as AgentBackend) ?? 'claude-code'
 }
 
-function buildPrompt({
-  message,
-  history,
-  nodeContext,
-  selectedNodeId,
-  codeContext,
-  buildSummaryContext,
-  architecture_yaml,
-  locale,
-  phase,
-}: ChatRequest) {
-  const systemContext = buildSystemContext({
+/**
+ * Build separated system context and user message.
+ * System context goes into the system role; user message into user role.
+ */
+function buildSplitPrompt(payload: ChatRequest): { system: string; user: string } {
+  const {
+    message,
+    history,
+    nodeContext,
+    selectedNodeId,
+    codeContext,
+    buildSummaryContext,
+    architecture_yaml,
+    locale,
+    phase,
+  } = payload
+
+  const system = buildSystemContext({
     agentType: 'canvas',
     task: selectedNodeId ? 'discuss-node' : 'discuss',
     locale: locale ?? 'en',
@@ -90,12 +96,15 @@ function buildPrompt({
     sessionPhase: phase,
   })
 
-  return [
-    systemContext,
-    '',
-    'Latest user message:',
-    message,
-  ].join('\n')
+  console.log('[chat] phase:', phase, '| system length:', system.length, '| history entries:', payload.history?.length ?? 0)
+
+  return { system, user: message }
+}
+
+/** Legacy: single prompt string for CC CLI stdin fallback */
+function buildPrompt(payload: ChatRequest): string {
+  const { system, user } = buildSplitPrompt(payload)
+  return [system, '', 'Latest user message:', user].join('\n')
 }
 
 function stripAnsi(text: string): string {
@@ -112,7 +121,7 @@ async function handleDirectApiChat(
   payload: ChatRequest,
   directConfig: { apiBase: string; apiKey: string; model: string }
 ) {
-  const prompt = buildPrompt(payload)
+  const { system, user } = buildSplitPrompt(payload)
 
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
@@ -130,7 +139,7 @@ async function handleDirectApiChat(
       }
 
       try {
-        const gen = streamChat('', [{ role: 'user', content: prompt }], directConfig, request.signal)
+        const gen = streamChat(system, [{ role: 'user', content: user }], directConfig, request.signal)
         for await (const chunk of gen) {
           push({ type: 'chunk', text: chunk })
         }
@@ -158,7 +167,7 @@ async function handleCustomApiChat(request: Request, payload: ChatRequest) {
   const apiBase = (payload.customApiBase ?? '').replace(/\/$/, '')
   const apiKey = payload.customApiKey ?? ''
   const apiModel = payload.customApiModel || payload.model || 'gpt-4o'
-  const prompt = buildPrompt(payload)
+  const { system, user } = buildSplitPrompt(payload)
 
   if (!apiBase || !apiKey) {
     return Response.json({ error: 'Custom API base URL and key are required.' }, { status: 400 })
@@ -174,7 +183,10 @@ async function handleCustomApiChat(request: Request, payload: ChatRequest) {
       },
       body: JSON.stringify({
         model: apiModel,
-        messages: [{ role: 'user', content: prompt }],
+        messages: [
+          { role: 'system', content: system },
+          { role: 'user', content: user },
+        ],
         stream: true,
       }),
       signal: request.signal,
@@ -382,104 +394,69 @@ export async function POST(request: Request) {
   //   }
   // }
 
-  // Fallback: one-shot spawn (used for codex/gemini and any unrecognized backend)
-  // For claude-code and codex, pass ccSessionId to resume existing session (prompt cache benefit).
+  // Fallback: one-shot spawn (used for CC/codex/gemini)
+  // CC CLI: combined prompt via stdin (--system-prompt conflicts with CC's own system prompt).
+  // Context is embedded in the user message — CC treats it as user input and responds accordingly.
+  // When resuming a CC session (--resume), skip history in the prompt — CC already has it from the
+  // session cache. Sending it again would double-count and overflow context after ~3 rounds.
+  // Only use session resume for CLI backends. The ccSessionId is stored generically on the
+  // ChatSession — if the user switches backend mid-session, ignore the stale ID.
+  const supportsResume = backend === 'claude-code' || backend === 'codex' || backend === 'gemini'
+  const ccSessionId = supportsResume ? (payload.ccSessionId || undefined) : undefined
+  const prompt = ccSessionId
+    ? buildPrompt({ ...payload, history: [] })
+    : buildPrompt(payload)
   const agentId = agentRunner.spawnAgent(
     'chat',
-    buildPrompt(payload),
+    prompt,
     backend,
     process.cwd(),
     payload.model,
     undefined,
-    payload.ccSessionId
+    ccSessionId
   )
 
-  let cleanup = () => undefined
-
-  const stream = new ReadableStream<Uint8Array>({
-    start(controller) {
-      let sentLength = 0
-      let closed = false
-      let ccSessionEmitted = false
-
-      const close = () => {
-        if (closed) {
-          return
-        }
-
-        closed = true
-        cleanup()
-        controller.close()
-      }
-
-      const push = (event: unknown) => {
-        if (closed) {
-          return
-        }
-
-        controller.enqueue(encodeEvent(event))
-      }
-
-      // Extract CC session_id from the stream-json init event and emit it to the client once.
-      // CC init event looks like: {"type":"system","subtype":"init","session_id":"UUID",...}
-      const tryEmitCcSessionId = (output: string) => {
-        if (ccSessionEmitted) return
-        const match = output.match(/"session_id"\s*:\s*"([0-9a-f-]{36})"/)
-        if (match) {
-          ccSessionEmitted = true
-          push({ type: 'session', ccSessionId: match[1] })
-        }
-      }
-
-      const intervalId = setInterval(() => {
-        const status = agentRunner.getStatus(agentId)
-
-        if (!status) {
-          push({ type: 'error', error: 'Chat agent not found.' })
-          close()
-          return
-        }
-
-        tryEmitCcSessionId(status.output)
-
-        const visibleText = extractAgentText(status.output)
-
-        if (visibleText.length > sentLength) {
-          push({ type: 'chunk', text: visibleText.slice(sentLength) })
-          sentLength = visibleText.length
-        }
-
-        if (status.status === 'done') {
-          push({ type: 'done' })
-          close()
-          return
-        }
-
-        if (status.status === 'error') {
-          const errorMsg = status.errorMessage
-            ? `Backend error: ${stripAnsi(status.errorMessage).slice(0, 200)}`
-            : 'The AI backend encountered an error.'
-          push({ type: 'error', error: errorMsg })
-          close()
-        }
-      }, 125)
-
-      cleanup = () => {
+  // Wait for agent to complete, then return full response as JSON.
+  // Simple request-response — no SSE complexity for CLI spawn path.
+  const finalStatus = await new Promise<ReturnType<typeof agentRunner.getStatus>>((resolve) => {
+    const aborted = { value: false }
+    request.signal.addEventListener('abort', () => {
+      aborted.value = true
+      agentRunner.stopAgent(agentId)
+    }, { once: true })
+    const intervalId = setInterval(() => {
+      if (aborted.value) {
         clearInterval(intervalId)
+        resolve(null)
+        return
       }
-
-      request.signal.addEventListener('abort', close, { once: true })
-    },
-    cancel() {
-      cleanup()
-    },
+      const status = agentRunner.getStatus(agentId)
+      if (!status || status.status === 'done' || status.status === 'error') {
+        clearInterval(intervalId)
+        resolve(status)
+      }
+    }, 500)
   })
 
-  return new Response(stream, {
-    headers: {
-      'Cache-Control': 'no-cache, no-transform',
-      Connection: 'keep-alive',
-      'Content-Type': 'text/event-stream',
-    },
+  if (!finalStatus) {
+    return Response.json({ error: 'Chat agent not found or request aborted.' }, { status: 500 })
+  }
+
+  if (finalStatus.status === 'error') {
+    const rawErr = finalStatus.errorMessage ? stripAnsi(finalStatus.errorMessage) : ''
+    console.error('[chat] CC agent error:', rawErr.slice(0, 500))
+    console.error('[chat] CC agent output:', stripAnsi(finalStatus.output ?? '').slice(0, 500))
+    const errorMsg = rawErr
+      ? `Backend error: ${rawErr.slice(0, 200)}`
+      : 'The AI backend encountered an error.'
+    return Response.json({ error: errorMsg }, { status: 500 })
+  }
+
+  const fullText = extractAgentText(finalStatus.output)
+  const sessionMatch = finalStatus.output.match(/"session_id"\s*:\s*"([0-9a-f-]{36})"/)
+
+  return Response.json({
+    content: fullText,
+    ccSessionId: sessionMatch?.[1] ?? null,
   })
 }

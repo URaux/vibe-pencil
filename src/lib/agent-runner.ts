@@ -66,7 +66,7 @@ export interface CustomApiConfig {
   customApiModel?: string
 }
 
-function getCommand(backend: AgentBackend, prompt: string, model?: string, ccSessionId?: string) {
+function getCommand(backend: AgentBackend, prompt: string, model?: string, ccSessionId?: string, systemPrompt?: string) {
   if (backend === 'codex') {
     if (ccSessionId) {
       // Resume existing Codex session
@@ -119,18 +119,17 @@ export class AgentRunner extends EventEmitter {
     this.on('error', () => undefined)
   }
 
-  spawnAgent(nodeId: string, prompt: string, backend: AgentBackend, workDir: string, model?: string, customApiConfig?: CustomApiConfig, ccSessionId?: string) {
+  spawnAgent(nodeId: string, prompt: string, backend: AgentBackend, workDir: string, model?: string, customApiConfig?: CustomApiConfig, ccSessionId?: string, systemPrompt?: string) {
     const agentId = `${nodeId}-${Date.now()}-${this.nextId++}`
 
     if (backend === 'custom-api') {
       return this.spawnCustomApiAgent(agentId, nodeId, prompt, model, customApiConfig)
     }
 
-    const { command, args, pipeStdin, useShell } = getCommand(backend, prompt, model, ccSessionId)
+    const { command, args, pipeStdin, useShell } = getCommand(backend, prompt, model, ccSessionId, systemPrompt)
     const env = { ...process.env }
 
-    delete env.ANTHROPIC_API_KEY
-    env.ANTHROPIC_API_KEY = ''  // Force OAuth path; empty string overrides any inherited stale key
+    delete env.ANTHROPIC_API_KEY  // Remove any inherited key so CC uses OAuth
     delete env.GEMINI_API_KEY
 
     // Relay fallback: if USE_RELAY is set, pass relay credentials to spawned agents
@@ -334,6 +333,15 @@ export class AgentRunner extends EventEmitter {
     this.finishAgent(agentId, 'error', null, 'Stopped by user')
   }
 
+  stopAll() {
+    for (const [agentId, record] of this.agents) {
+      if (record.info.status === 'running') {
+        record.process.kill()
+        this.finishAgent(agentId, 'error', null, 'Stopped by user')
+      }
+    }
+  }
+
   async buildAll(
     waves: string[][],
     prompts: Map<string, string>,
@@ -374,7 +382,7 @@ export class AgentRunner extends EventEmitter {
   ) {
     const record = this.agents.get(agentId)
 
-    if (!record || record.info.status === 'done') {
+    if (!record || record.info.status !== 'running') {
       return
     }
 
@@ -389,14 +397,18 @@ export class AgentRunner extends EventEmitter {
 
     if (status === 'done') {
       this.emit('done', { agentId, nodeId: record.info.nodeId, output: record.info.output })
-      return
+    } else {
+      this.emit('error', {
+        agentId,
+        nodeId: record.info.nodeId,
+        error: record.info.errorMessage ?? 'Agent failed',
+      })
     }
 
-    this.emit('error', {
-      agentId,
-      nodeId: record.info.nodeId,
-      error: record.info.errorMessage ?? 'Agent failed',
-    })
+    // Auto-cleanup: remove terminal agent records after 60s to prevent memory leak
+    setTimeout(() => {
+      this.agents.delete(agentId)
+    }, 60_000)
   }
 
   private waitForAgent(agentId: string) {

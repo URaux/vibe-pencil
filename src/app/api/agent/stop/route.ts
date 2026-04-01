@@ -3,12 +3,23 @@ import { agentRunner } from '@/lib/agent-runner-instance'
 export const runtime = 'nodejs'
 
 interface StopAgentRequest {
-  agentId: string
+  agentId?: string
 }
 
 export async function POST(request: Request) {
-  const { agentId } = (await request.json()) as StopAgentRequest
-  agentRunner.stopAgent(agentId)
+  let agentId: string | undefined
+  try {
+    const body = (await request.json()) as StopAgentRequest
+    agentId = body.agentId
+  } catch {
+    // Empty or invalid body — treat as stop-all
+  }
+
+  if (agentId) {
+    agentRunner.stopAgent(agentId)
+  } else {
+    agentRunner.stopAll()
+  }
 
   return Response.json({ ok: true })
 }
