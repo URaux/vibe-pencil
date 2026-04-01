@@ -68,6 +68,12 @@ export interface CustomApiConfig {
 
 function getCommand(backend: AgentBackend, prompt: string, model?: string, ccSessionId?: string) {
   if (backend === 'codex') {
+    if (ccSessionId) {
+      // Resume existing Codex session
+      const args = ['resume', ccSessionId, prompt]
+      if (model) args.push('--config', `model=${model}`)
+      return { command: 'codex', args, pipeStdin: false, useShell: undefined }
+    }
     const args = ['exec', '--full-auto', '--json', '-']
     if (model) args.push('--model', model)
     return { command: 'codex', args, pipeStdin: true, useShell: undefined }

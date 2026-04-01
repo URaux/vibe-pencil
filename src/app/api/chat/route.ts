@@ -383,7 +383,7 @@ export async function POST(request: Request) {
   // }
 
   // Fallback: one-shot spawn (used for codex/gemini and any unrecognized backend)
-  // For claude-code, pass ccSessionId so CC resumes the existing session (prompt cache benefit).
+  // For claude-code and codex, pass ccSessionId to resume existing session (prompt cache benefit).
   const agentId = agentRunner.spawnAgent(
     'chat',
     buildPrompt(payload),
@@ -391,7 +391,7 @@ export async function POST(request: Request) {
     process.cwd(),
     payload.model,
     undefined,
-    backend === 'claude-code' ? payload.ccSessionId : undefined
+    (backend === 'claude-code' || backend === 'codex') ? payload.ccSessionId : undefined
   )
 
   let cleanup = () => undefined
@@ -423,7 +423,7 @@ export async function POST(request: Request) {
       // Extract CC session_id from the stream-json init event and emit it to the client once.
       // CC init event looks like: {"type":"system","subtype":"init","session_id":"UUID",...}
       const tryEmitCcSessionId = (output: string) => {
-        if (ccSessionEmitted || backend !== 'claude-code') return
+        if (ccSessionEmitted || (backend !== 'claude-code' && backend !== 'codex')) return
         const match = output.match(/"session_id"\s*:\s*"([0-9a-f-]{36})"/)
         if (match) {
           ccSessionEmitted = true
