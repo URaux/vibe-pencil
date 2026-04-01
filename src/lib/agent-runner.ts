@@ -85,12 +85,15 @@ function getCommand(backend: AgentBackend, prompt: string, model?: string, ccSes
     if (process.platform === 'win32') {
       const geminiScript = getGeminiWindowsScriptPath()
       const args = ['--no-warnings=DEP0040', geminiScript, '-p', prompt, '-m', targetModel]
+      if (ccSessionId) args.push('--resume', ccSessionId)
       return { command: process.execPath, args, pipeStdin: false, useShell: false }
     }
 
+    const args = ['-p', prompt, '-m', targetModel]
+    if (ccSessionId) args.push('--resume', ccSessionId)
     return {
       command: 'gemini',
-      args: ['-p', prompt, '-m', targetModel],
+      args,
       pipeStdin: false,
       useShell: undefined,
     }
