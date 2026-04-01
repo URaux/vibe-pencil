@@ -2,7 +2,7 @@
 
 ## Overview
 
-An embedded dashboard page (`/dashboard`) in Vibe Pencil for tracking development progress across canvas modules. Primary user: solo developer. Architecture keeps code clean for future team extension without premature abstractions.
+An embedded dashboard page (`/dashboard`) in ArchViber for tracking development progress across canvas modules. Primary user: solo developer. Architecture keeps code clean for future team extension without premature abstractions.
 
 ## Data Model
 
@@ -35,7 +35,7 @@ Modules are NOT stored in dashboard data. They are derived at runtime from canva
 
 ### Storage
 
-- File: `dashboard.json` in the same directory as `vibe-pencil.json`
+- File: `dashboard.json` in the same directory as `arch-viber.json`
 - Schema:
 
 ```json

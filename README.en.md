@@ -1,4 +1,4 @@
-# Vibe Pencil
+# ArchViber
 
 [中文](README.md) | **English**
 
@@ -146,8 +146,8 @@ The system uses a **2-Agent architecture**: a Canvas Agent (read-only, handles c
 **Prerequisites**: Node.js 20+
 
 ```bash
-git clone https://github.com/URaux/vibe-pencil.git
-cd vibe-pencil
+git clone https://github.com/URaux/arch-viber.git
+cd arch-viber
 npm install
 npm run dev        # http://localhost:3000
 ```

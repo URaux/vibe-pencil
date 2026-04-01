@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 })
 
 export const metadata: Metadata = {
-  title: 'Vibe Pencil',
+  title: 'ArchViber',
   description: '面向架构节点的拓扑感知构建工具。',
 }
 

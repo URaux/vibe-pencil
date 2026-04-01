@@ -137,7 +137,7 @@ export async function POST(request: Request) {
         const [, owner, repo, branch = 'main', dirPath = ''] = ghMatch
         const apiUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${dirPath}?ref=${branch}`
         const apiRes = await fetch(apiUrl, {
-          headers: { 'Accept': 'application/vnd.github.v3+json', 'User-Agent': 'VibePencil' },
+          headers: { 'Accept': 'application/vnd.github.v3+json', 'User-Agent': 'ArchViber' },
         })
         if (!apiRes.ok) {
           return Response.json({ error: `GitHub API error: ${apiRes.status}` }, { status: 400 })

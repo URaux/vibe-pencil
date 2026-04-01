@@ -2,7 +2,7 @@
 
 ## Overview
 
-Add a comprehensive Build All UX to Vibe Pencil that provides build plan preview, real-time progress tracking via a bottom drawer panel, rich node animations with whimsical loading messages, and a post-build result summary.
+Add a comprehensive Build All UX to ArchViber that provides build plan preview, real-time progress tracking via a bottom drawer panel, rich node animations with whimsical loading messages, and a post-build result summary.
 
 ## Context
 

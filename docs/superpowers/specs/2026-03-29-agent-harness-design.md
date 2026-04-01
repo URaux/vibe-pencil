@@ -2,7 +2,7 @@
 
 ## Overview
 
-Transform Vibe Pencil's agent execution from raw CLI spawning into a structured multi-level agent orchestration system with identity, skills, isolation, and run tracking.
+Transform ArchViber's agent execution from raw CLI spawning into a structured multi-level agent orchestration system with identity, skills, isolation, and run tracking.
 
 ## Agent Levels
 

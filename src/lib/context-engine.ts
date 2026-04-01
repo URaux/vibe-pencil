@@ -48,7 +48,7 @@ function layerLanguage(locale: Locale): string {
 // ---------------------------------------------------------------------------
 
 function layerIdentity(): string {
-  return 'You are the AI assistant for Vibe Pencil, a visual architecture editor. You help users design, analyze, and build software architectures represented as canvas graphs of containers and blocks.'
+  return 'You are the AI assistant for ArchViber, a visual architecture editor. You help users design, analyze, and build software architectures represented as canvas graphs of containers and blocks.'
 }
 
 // ---------------------------------------------------------------------------
