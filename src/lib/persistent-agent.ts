@@ -116,9 +116,12 @@ class PersistentAgent extends EventEmitter {
     if (!this.isAlive()) {
       await this.start()
     }
+    if (!this.process?.stdin?.writable) {
+      throw new Error('Persistent agent stdin not available')
+    }
     // Clear buffer before new message
     this.outputBuffer = ''
-    this.process!.stdin!.write(message + '\n')
+    this.process.stdin.write(message + '\n')
     this.resetIdleTimer()
   }
 

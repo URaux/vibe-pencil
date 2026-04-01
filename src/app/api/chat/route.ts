@@ -371,10 +371,15 @@ export async function POST(request: Request) {
     return handleCustomApiChat(request, payload)
   }
 
-  // Persistent agent path: keep claude/codex/gemini process alive between messages.
+  // Persistent agent path: keep claude process alive between messages.
   // First message pays the cold-start cost; subsequent messages are near-instant.
+  // Falls back to one-shot spawn if persistent agent fails.
   if (backend === 'claude-code') {
-    return handlePersistentChat(request, payload, backend)
+    try {
+      return await handlePersistentChat(request, payload, backend)
+    } catch {
+      // Persistent agent failed — fall through to one-shot spawn
+    }
   }
 
   // Fallback: one-shot spawn (used for codex/gemini and any unrecognized backend)
