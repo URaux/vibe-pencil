@@ -166,8 +166,8 @@
 <div class="diagram">
 
   <div class="header">
-    <h1>ArchViber — System Architecture</h1>
-    <p>Orchestrator + 2-Agent Architecture &middot; Context Engineering &middot; Wave-based Build Pool &middot; Two-phase Import</p>
+    <h1>系统架构 · System Architecture</h1>
+    <p>编排器 + 双 Agent 架构 · Context Engineering · 波次构建池 · 两阶段导入</p>
   </div>
 
   <div class="legend">
@@ -190,9 +190,9 @@
       </div>
       <div class="cards-row">
         <div class="card card-orch">
-          <div class="card-name">Context Engine <span class="en">7-Layer</span></div>
+          <div class="card-name">上下文引擎 <span class="en">Context Engine · 7-Layer</span></div>
           <div class="card-desc">
-            Build & compress context per turn
+            每轮构建并压缩上下文
             <div class="stack-row">
               <span class="stack-pill sp-l0">L0 Lang</span>
               <span class="stack-pill sp-l1">L1 Identity</span>
@@ -206,17 +206,17 @@
           </div>
         </div>
         <div class="card card-orch">
-          <div class="card-name">Skill Resolver</div>
+          <div class="card-name">Skill 解析器 <span class="en">Skill Resolver</span></div>
           <div class="card-desc">
-            Auto-match optimal skill by techStack<br>
+            按技术栈自动匹配最优 Skill<br>
             <span>techStack matching</span> <span>lazy loading</span>
             <span class="tag-blue">manifest→chat</span> <span class="tag-green">full→build</span>
           </div>
         </div>
         <div class="card card-orch">
-          <div class="card-name">Build State Mgr</div>
+          <div class="card-name">构建状态管理 <span class="en">Build State Mgr</span></div>
           <div class="card-desc">
-            Persistent build state + auto-reconnect<br>
+            持久化构建状态 + 自动重连<br>
             <span>wave progress</span> <span>node status</span>
             <span class="tag-orange">SSE reconnect</span>
             <span class="sse-badge">SSE</span>
@@ -229,16 +229,16 @@
     <div class="section section-canvas">
       <div class="section-head">
         <span class="sbadge sb-canvas">Canvas Agent</span>
-        <span class="section-title">Read-only</span>
+        <span class="section-title">只读 Read-only</span>
       </div>
       <div class="card card-canvas" style="margin-bottom: 6px;">
-        <div class="card-name">Tasks</div>
+        <div class="card-name">任务 <span class="en">Tasks</span></div>
         <div class="card-desc"><span>Discuss</span> <span>Import</span> <span>Analyze</span></div>
       </div>
       <div class="card card-canvas" style="margin-bottom: 6px;">
-        <div class="card-name">Session Workflow</div>
+        <div class="card-name">会话工作流 <span class="en">Session Workflow</span></div>
         <div class="card-desc">
-          Three-phase progression
+          三阶段渐进
           <div class="phase-row">
             <span class="phase-badge ph-brainstorm">brainstorm</span>
             <span class="phase-badge ph-design">design</span>
@@ -247,9 +247,9 @@
         </div>
       </div>
       <div class="card card-canvas">
-        <div class="card-name">Build Awareness</div>
+        <div class="card-name">构建感知 <span class="en">Build Awareness</span></div>
         <div class="card-desc">
-          <span>BuildSummary feedback</span>
+          <span>构建摘要反馈 BuildSummary</span>
           <span class="tag-blue">build events→chat</span>
         </div>
       </div>
@@ -259,12 +259,12 @@
     <div class="section section-build">
       <div class="section-head">
         <span class="sbadge sb-build">Build Agent Pool</span>
-        <span class="section-title">N instances</span>
+        <span class="section-title">N 个实例</span>
       </div>
       <div class="card card-build" style="margin-bottom: 6px;">
-        <div class="card-name">Wave Execution</div>
+        <div class="card-name">波次执行 <span class="en">Wave Execution</span></div>
         <div class="card-desc">
-          Topo sort &rarr; wave-parallel scheduling
+          拓扑排序 &rarr; 波次并行调度
           <div class="wave-mini">
             <div class="wave-box">Wave 0</div>
             <div class="wave-box">Wave 1</div>
@@ -273,15 +273,15 @@
         </div>
       </div>
       <div class="card card-build" style="margin-bottom: 6px;">
-        <div class="card-name">Post-build Hooks</div>
+        <div class="card-name">构建后钩子 <span class="en">Post-build Hooks</span></div>
         <div class="card-desc">
           <span>lint</span> <span>test</span> <span>custom cmd</span>
         </div>
       </div>
       <div class="card card-build">
-        <div class="card-name">BuildSummary + Retry</div>
+        <div class="card-name">构建摘要 + 重试 <span class="en">BuildSummary + Retry</span></div>
         <div class="card-desc">
-          Extract summary &rarr; feed back to Chat
+          提取摘要 &rarr; 回传对话
           <span class="sse-badge">SSE</span>
         </div>
       </div>
@@ -290,19 +290,19 @@
     <!-- Import — left -->
     <div class="section section-import">
       <div class="section-head">
-        <span class="sbadge sb-import">Two-phase Import</span>
+        <span class="sbadge sb-import">两阶段导入 Two-phase Import</span>
       </div>
       <div class="card card-import" style="margin-bottom: 4px;">
-        <div class="card-name">Phase 1 — Scanner</div>
+        <div class="card-name">阶段一 — 扫描器 <span class="en">Scanner</span></div>
         <div class="card-desc">
-          Instant skeleton scan<br>
+          即时骨架扫描<br>
           <span>file tree</span> <span>tech detection</span> <span>skeleton canvas</span>
         </div>
       </div>
       <div class="card card-import">
-        <div class="card-name">Phase 2 — LLM Enhancement</div>
+        <div class="card-name">阶段二 — LLM 增强 <span class="en">Enhancement</span></div>
         <div class="card-desc">
-          Background AI enrichment<br>
+          后台 AI 增强<br>
           <span>descriptions</span> <span>relationships</span>
         </div>
       </div>
@@ -314,7 +314,7 @@
         <span class="sbadge sb-skills">Skill System</span>
       </div>
       <div class="card card-skills" style="margin-bottom: 4px;">
-        <div class="card-name">Sources</div>
+        <div class="card-name">来源 <span class="en">Sources</span></div>
         <div class="card-desc">
           <div class="skill-row">
             <span class="skill-pill sk-local">Local (8)</span>
@@ -324,7 +324,7 @@
         </div>
       </div>
       <div class="card card-skills">
-        <div class="card-name">Types</div>
+        <div class="card-name">类型 <span class="en">Types</span></div>
         <div class="card-desc">
           <span>Prompt Skills</span> <span>Hook Skills</span>
           <span class="tag-blue">manifest→chat</span>

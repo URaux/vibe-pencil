@@ -177,77 +177,77 @@
 <div class="diagram">
 
   <div class="header">
-    <h1>Context Engineering</h1>
-    <p>7-Layer Context Stack &middot; Brainstorm Hard-Gate &middot; Session Phase Transitions &middot; Canvas Agent vs Build Agent</p>
+    <h1>上下文工程 · Context Engineering</h1>
+    <p>七层上下文栈 · Brainstorm 硬门禁 · 会话阶段转换 · Canvas Agent vs Build Agent</p>
   </div>
 
   <div class="columns">
 
     <!-- LEFT: Context Stack + Budget -->
     <div class="col-left">
-      <div class="sec-title">7-Layer Context Stack</div>
+      <div class="sec-title">七层上下文栈 7-Layer Context Stack</div>
 
       <div class="stack">
         <div class="layer-row">
           <div class="layer-num lc-0">L0</div>
           <div class="layer-body">
-            <div class="layer-name">Language</div>
-            <div class="layer-desc">Detect input lang, lock response lang. <span>zh</span> <span>en</span></div>
+            <div class="layer-name">语言 Language</div>
+            <div class="layer-desc">检测输入语言，锁定响应语言 <span>zh</span> <span>en</span></div>
           </div>
         </div>
         <div class="layer-row">
           <div class="layer-num lc-1">L1</div>
           <div class="layer-body">
-            <div class="layer-name">Identity</div>
+            <div class="layer-name">身份 Identity</div>
             <div class="layer-desc"><span class="tag-purple">persona</span> <span class="tag-purple">role definition</span></div>
           </div>
         </div>
         <div class="layer-row">
           <div class="layer-num lc-2">L2</div>
           <div class="layer-body">
-            <div class="layer-name">History</div>
-            <div class="layer-desc">Full history; auto-compress above 8k tokens. <span class="tag-blue">raw &lt;8k</span> <span class="tag-orange">compressed &gt;8k</span></div>
+            <div class="layer-name">历史 History</div>
+            <div class="layer-desc">完整历史；超过 8k token 自动压缩 <span class="tag-blue">raw &lt;8k</span> <span class="tag-orange">compressed &gt;8k</span></div>
           </div>
         </div>
         <div class="layer-row">
           <div class="layer-num lc-3">L3</div>
           <div class="layer-body">
-            <div class="layer-name">Canvas State</div>
+            <div class="layer-name">画布状态 Canvas State</div>
             <div class="layer-desc"><span>YAML schema</span> <span>selected node</span> <span class="tag-green">BuildSummary</span> <span class="tag-blue">code ctx</span></div>
           </div>
         </div>
         <div class="layer-row">
           <div class="layer-num lc-4">L4</div>
           <div class="layer-body">
-            <div class="layer-name">Task</div>
-            <div class="layer-desc">Current task type drives agent behavior. <span>discuss</span> <span>import</span> <span>implement</span> <span>refactor</span></div>
+            <div class="layer-name">任务 Task</div>
+            <div class="layer-desc">当前任务类型驱动 Agent 行为 <span>discuss</span> <span>import</span> <span>implement</span> <span>refactor</span></div>
           </div>
         </div>
         <div class="layer-row">
           <div class="layer-num lc-5">L5</div>
           <div class="layer-body">
-            <div class="layer-name">Skills</div>
-            <div class="layer-desc">Lazy-loaded by techStack. <span class="tag-blue">manifest&rarr;chat</span> <span class="tag-green">full&rarr;build</span></div>
+            <div class="layer-name">技能 Skills</div>
+            <div class="layer-desc">按 techStack 懒加载 <span class="tag-blue">manifest&rarr;chat</span> <span class="tag-green">full&rarr;build</span></div>
           </div>
         </div>
         <div class="layer-row">
           <div class="layer-num lc-6">L6</div>
           <div class="layer-body">
-            <div class="layer-name">Constraints</div>
+            <div class="layer-name">约束 Constraints</div>
             <div class="layer-desc"><span class="tag-red">read-only&rarr;Canvas</span> <span class="tag-green">write&rarr;Build</span></div>
           </div>
         </div>
         <div class="layer-row">
           <div class="layer-num lc-7">L7</div>
           <div class="layer-body">
-            <div class="layer-name">Output Format</div>
+            <div class="layer-name">输出格式 Output Format</div>
             <div class="layer-desc"><span class="tag-orange">brainstorm&rarr;text</span> <span class="tag-teal">design/iterate&rarr;canvas-action</span></div>
           </div>
         </div>
       </div>
 
       <div style="height: 8px;"></div>
-      <div class="sec-title">Context Token Budget</div>
+      <div class="sec-title">上下文 Token 预算 Context Token Budget</div>
       <div class="budget-block">
         <div class="budget-row">
           <span class="budget-label">L0-L1 Identity</span>
@@ -280,10 +280,10 @@
     <!-- RIGHT: Phase + Gate + Agent diff -->
     <div class="col-right">
 
-      <div class="sec-title">Session Phase Transitions</div>
+      <div class="sec-title">会话阶段转换 Session Phase Transitions</div>
 
       <div class="phase-block">
-        <div class="phase-header">Three-phase Session Workflow</div>
+        <div class="phase-header">三阶段会话工作流 Three-phase Session Workflow</div>
         <div class="phase-body">
           <div class="phase-flow">
             <div class="phase-node ph-brainstorm">
@@ -312,58 +312,58 @@
             </div>
           </div>
           <div style="font-size: 9px; color: #9ca3af; line-height: 1.5;">
-            Phase auto-advances. Canvas Agent switches L7 Output Format per phase.
+            阶段自动推进。Canvas Agent 按阶段切换 L7 输出格式。
           </div>
         </div>
       </div>
 
-      <div class="sec-title">Brainstorm Skill Hard-Gate</div>
+      <div class="sec-title">Brainstorm 技能硬门禁 Hard-Gate</div>
 
       <div class="hard-gate">
         <div class="gate-title">
           <span class="gate-badge">HARD GATE</span>
-          brainstorm &mdash; canvas-action BLOCKED
+          brainstorm — canvas-action 已阻断
         </div>
         <div style="font-size: 10px; color: #6b7280; line-height: 1.5; margin-bottom: 4px;">
-          During brainstorm, canvas mutations are force-blocked even if a Skill requests them. Text-only responses until design phase.
+          brainstorm 阶段强制阻断画布变更，即使 Skill 请求也不执行。进入 design 阶段后解锁。
         </div>
         <div class="gate-row">
-          <span class="gate-chip gc-deny">canvas-action blocked</span>
-          <span class="gate-chip gc-deny">mutations blocked</span>
-          <span class="gate-chip gc-allow">text allowed</span>
-          <span class="gate-chip gc-note">unlocked at design</span>
+          <span class="gate-chip gc-deny">canvas-action 阻断</span>
+          <span class="gate-chip gc-deny">变更阻断</span>
+          <span class="gate-chip gc-allow">仅文本</span>
+          <span class="gate-chip gc-note">design 阶段解锁</span>
         </div>
       </div>
 
-      <div class="sec-title">Canvas Agent vs Build Agent</div>
+      <div class="sec-title">Canvas Agent vs Build Agent 对比</div>
 
       <div class="agent-diff">
         <div class="agent-diff-head">
           <div class="agent-col">
             <div class="agent-col-head" style="color:#2563eb;">Canvas Agent</div>
-            <div class="agent-col-sub">Chat sidebar &mdash; read-only</div>
+            <div class="agent-col-sub">聊天侧栏 — 只读</div>
           </div>
           <div class="agent-col">
             <div class="agent-col-head" style="color:#15803d;">Build Agent</div>
-            <div class="agent-col-sub">Build pool &mdash; write enabled</div>
+            <div class="agent-col-sub">构建池 — 可写</div>
           </div>
         </div>
         <div class="agent-body">
           <div class="agent-body-col">
-            <div class="ab-row"><span class="ab-dot" style="background:#2563eb;"></span>Discuss / Import / Analyze</div>
-            <div class="ab-row"><span class="ab-dot" style="background:#2563eb;"></span>L5: manifest only</div>
-            <div class="ab-row"><span class="ab-dot" style="background:#2563eb;"></span>L6: read-only constraint</div>
-            <div class="ab-row"><span class="ab-dot" style="background:#2563eb;"></span>L7: text / canvas-action</div>
-            <div class="ab-row"><span class="ab-dot" style="background:#2563eb;"></span>Sees BuildSummary (L3)</div>
-            <div class="ab-row"><span class="ab-dot" style="background:#2563eb;"></span>Phase-gated by brainstorm</div>
+            <div class="ab-row"><span class="ab-dot" style="background:#2563eb;"></span>讨论 / 导入 / 分析</div>
+            <div class="ab-row"><span class="ab-dot" style="background:#2563eb;"></span>L5: 仅 manifest</div>
+            <div class="ab-row"><span class="ab-dot" style="background:#2563eb;"></span>L6: 只读约束</div>
+            <div class="ab-row"><span class="ab-dot" style="background:#2563eb;"></span>L7: 文本 / canvas-action</div>
+            <div class="ab-row"><span class="ab-dot" style="background:#2563eb;"></span>可见 BuildSummary (L3)</div>
+            <div class="ab-row"><span class="ab-dot" style="background:#2563eb;"></span>brainstorm 阶段门控</div>
           </div>
           <div class="agent-body-col">
-            <div class="ab-row"><span class="ab-dot" style="background:#15803d;"></span>Implement / Refactor</div>
-            <div class="ab-row"><span class="ab-dot" style="background:#15803d;"></span>L5: full skill content</div>
-            <div class="ab-row"><span class="ab-dot" style="background:#15803d;"></span>L6: write enabled</div>
-            <div class="ab-row"><span class="ab-dot" style="background:#15803d;"></span>L7: structured code output</div>
-            <div class="ab-row"><span class="ab-dot" style="background:#15803d;"></span>Scoped per node / workDir</div>
-            <div class="ab-row"><span class="ab-dot" style="background:#15803d;"></span>Post-build hooks + retry</div>
+            <div class="ab-row"><span class="ab-dot" style="background:#15803d;"></span>实现 / 重构</div>
+            <div class="ab-row"><span class="ab-dot" style="background:#15803d;"></span>L5: 完整 Skill 内容</div>
+            <div class="ab-row"><span class="ab-dot" style="background:#15803d;"></span>L6: 可写</div>
+            <div class="ab-row"><span class="ab-dot" style="background:#15803d;"></span>L7: 结构化代码输出</div>
+            <div class="ab-row"><span class="ab-dot" style="background:#15803d;"></span>按节点 / workDir 隔离</div>
+            <div class="ab-row"><span class="ab-dot" style="background:#15803d;"></span>构建后钩子 + 重试</div>
           </div>
         </div>
       </div>

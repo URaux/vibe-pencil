@@ -171,8 +171,8 @@
 <div class="diagram">
 
   <div class="header">
-    <h1>Build Flow</h1>
-    <p>Build All &rarr; Plan Preview &rarr; Topo Sort &rarr; Wave Execution &rarr; Post-build &rarr; Summary &rarr; Chat Integration</p>
+    <h1>构建流程 · Build Flow</h1>
+    <p>全量构建 &rarr; 计划预览 &rarr; 拓扑排序 &rarr; 波次执行 &rarr; 构建后钩子 &rarr; 构建摘要 &rarr; 对话集成</p>
   </div>
 
   <!-- Row 1: Build All → Plan Preview → Topo Sort → Wave Execution -->
@@ -183,8 +183,8 @@
         <span class="fc-num">01</span>
         <span class="fc-chip chip-amber">&#128100; User</span>
       </div>
-      <div class="fc-title">Build All</div>
-      <div class="fc-desc">Click Build All on canvas toolbar to trigger full build.</div>
+      <div class="fc-title">全量构建 Build All</div>
+      <div class="fc-desc">点击画布工具栏「Build All」触发全量构建</div>
     </div>
 
     <div class="flow-card fc-purple">
@@ -192,9 +192,9 @@
         <span class="fc-num">02</span>
         <span class="fc-chip chip-purple">&#127912; Canvas</span>
       </div>
-      <div class="fc-title">Plan Preview</div>
+      <div class="fc-title">计划预览 Plan Preview</div>
       <div class="fc-desc">
-        Show matched skills + editable workDir per node.
+        展示匹配的 Skill 及可编辑的 workDir
         <div class="plan-mini">
           <div class="plan-row"><span class="plan-node">Frontend</span> <span class="plan-skill">nextjs-app</span> <span class="plan-dir">./frontend</span></div>
           <div class="plan-row"><span class="plan-node">API</span> <span class="plan-skill">fastapi</span> <span class="plan-dir">./backend</span></div>
@@ -207,9 +207,9 @@
         <span class="fc-num">03</span>
         <span class="fc-chip chip-teal">&#128256; Topo</span>
       </div>
-      <div class="fc-title">Topo Sort &rarr; Waves</div>
+      <div class="fc-title">拓扑排序 &rarr; 波次</div>
       <div class="fc-desc">
-        Kahn's algorithm computes dependency graph &rarr; ordered batches.<br>
+        Kahn 算法计算依赖图 &rarr; 有序批次<br>
         <span class="tag-blue">Wave 0</span> no deps
         <span class="tag-blue">Wave 1</span> depends on 0
         <span class="tag-blue">Wave N</span> sequential
@@ -218,19 +218,19 @@
 
     <div class="wave-block">
       <div class="wave-label">
-        <span class="wave-badge">04 &middot; Wave Execution</span>
+        <span class="wave-badge">04 &middot; 波次执行 Wave Execution</span>
         <span class="wave-rule"></span>
       </div>
       <div class="parallel-row">
         <div class="parallel-card">
           <div class="p-title"><span class="node-chip">Agent 1</span> &rarr; AI CLI</div>
-          <div class="p-sub">Scoped context: YAML + Skill + workDir</div>
+          <div class="p-sub">作用域上下文: YAML + Skill + workDir</div>
           <div class="skill-preview">&#9654; nextjs-app-skill</div>
           <div class="sse-pulse">SSE<span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
         </div>
         <div class="parallel-card">
           <div class="p-title"><span class="node-chip">Agent 2</span> &rarr; AI CLI</div>
-          <div class="p-sub">Parallel execution, max throughput</div>
+          <div class="p-sub">并行执行，最大吞吐</div>
           <div class="skill-preview">&#9654; fastapi-skill</div>
           <div class="sse-pulse">SSE<span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
         </div>
@@ -256,9 +256,9 @@
         <span class="fc-num">05</span>
         <span class="fc-chip chip-rose">&#128308; SSE</span>
       </div>
-      <div class="fc-title">Real-time Progress</div>
+      <div class="fc-title">实时进度 Real-time Progress</div>
       <div class="fc-desc">
-        AgentRunner streams AI CLI output to canvas progress panel.<br>
+        AgentRunner 将 AI CLI 输出流式推送至画布进度面板<br>
         <span class="tag-orange">running</span>
         <span class="tag-orange">success</span>
         <span class="tag-orange">failed</span>
@@ -270,9 +270,9 @@
         <span class="fc-num">06</span>
         <span class="fc-chip chip-green">&#9881; Hooks</span>
       </div>
-      <div class="fc-title">Post-build Hooks</div>
+      <div class="fc-title">构建后钩子 Post-build Hooks</div>
       <div class="fc-desc">
-        Auto-run skill-defined commands per node.<br>
+        自动执行 Skill 定义的节点级命令<br>
         <span>lint</span> <span>test</span> <span>format</span> <span>custom</span>
       </div>
     </div>
@@ -282,9 +282,9 @@
         <span class="fc-num">07</span>
         <span class="fc-chip chip-blue">&#129302; Agent</span>
       </div>
-      <div class="fc-title">BuildSummary</div>
+      <div class="fc-title">构建摘要 BuildSummary</div>
       <div class="fc-desc">
-        Extract structured summary from AI output.<br>
+        从 AI 输出中提取结构化摘要<br>
         <span class="tag-blue">files created</span>
         <span class="tag-blue">commands</span>
         <span class="tag-blue">errors</span>
@@ -296,9 +296,9 @@
         <span class="fc-num">08</span>
         <span class="fc-chip chip-purple">&#127912; Chat</span>
       </div>
-      <div class="fc-title">Chat Integration</div>
+      <div class="fc-title">对话集成 Chat Integration</div>
       <div class="fc-desc">
-        BuildSummary injected into L3 Canvas State.<br>
+        BuildSummary 注入 L3 Canvas State<br>
         <span class="tag-purple">build events &rarr; L3</span>
         <span class="tag-purple">chat aware</span>
       </div>
@@ -309,13 +309,13 @@
   <div class="complete-badge">
     <div class="complete-icon">&#10003;</div>
     <div class="complete-text">
-      <strong>Build Complete</strong>
-      <span>All waves finished &middot; <span class="tag-green" style="font-size:9px;">N nodes built</span> <span class="tag-green" style="font-size:9px;">M files created</span> <span class="tag-orange" style="font-size:9px;">K failed (retry)</span></span>
+      <strong>构建完成 Build Complete</strong>
+      <span>全部波次完成 &middot; <span class="tag-green" style="font-size:9px;">N 节点已构建</span> <span class="tag-green" style="font-size:9px;">M 文件已创建</span> <span class="tag-orange" style="font-size:9px;">K 失败 (重试)</span></span>
     </div>
   </div>
 
   <div class="legend">
-    <span class="legend-title">Legend</span>
+    <span class="legend-title">图例 Legend</span>
     <div class="legend-item"><span class="legend-dot" style="background:#f59e0b"></span>User</div>
     <div class="legend-sep"></div>
     <div class="legend-item"><span class="legend-dot" style="background:#8b5cf6"></span>Canvas</div>
