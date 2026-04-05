@@ -6,9 +6,32 @@ import { t, type Locale } from '@/lib/i18n'
 import { useAppStore } from '@/lib/store'
 import type { AgentBackendType } from '@/lib/types'
 
+// --- Saved API Providers (localStorage) ---
+interface SavedProvider {
+  name: string
+  baseUrl: string
+  apiKey: string
+  model?: string
+}
+
+const PROVIDERS_STORAGE_KEY = 'archviber-api-providers'
+
+function loadProviders(): SavedProvider[] {
+  try {
+    const raw = localStorage.getItem(PROVIDERS_STORAGE_KEY)
+    return raw ? (JSON.parse(raw) as SavedProvider[]) : []
+  } catch {
+    return []
+  }
+}
+
+function saveProviders(providers: SavedProvider[]) {
+  localStorage.setItem(PROVIDERS_STORAGE_KEY, JSON.stringify(providers))
+}
+
 const BACKEND_OPTIONS: { value: AgentBackendType; label: string }[] = [
-  { value: 'claude-code', label: 'Claude Code' },
   { value: 'codex', label: 'Codex' },
+  { value: 'claude-code', label: 'Claude Code' },
   { value: 'gemini', label: 'Gemini' },
   { value: 'custom-api', label: 'Custom API' },
 ]
@@ -253,6 +276,13 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
   const [customApiBase, setCustomApiBase] = useState(config.customApiBase ?? '')
   const [customApiKey, setCustomApiKey] = useState(config.customApiKey ?? '')
   const [customApiModel, setCustomApiModel] = useState(config.customApiModel ?? '')
+  const [providers, setProviders] = useState<SavedProvider[]>([])
+  const [selectedProvider, setSelectedProvider] = useState('')
+
+  // Load saved providers on mount
+  useEffect(() => {
+    setProviders(loadProviders())
+  }, [])
 
   const fetchModels = useCallback(async (backend: AgentBackendType) => {
     setLoadingModels(true)
@@ -285,6 +315,23 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
     setCustomApiModel(config.customApiModel ?? '')
     void fetchModels(config.agent)
   }, [config.agent, config.model, config.maxParallel, config.workDir, config.customApiBase, config.customApiKey, config.customApiModel, locale, open, fetchModels])
+
+  const fetchCustomModels = useCallback(async (base: string, key: string) => {
+    if (!base.trim() || !key.trim()) return
+    setLoadingModels(true)
+    try {
+      const params = new URLSearchParams({ backend: 'custom-api', baseUrl: base.trim(), apiKey: key.trim() })
+      const response = await fetch(`/api/models?${params}`)
+      if (response.ok) {
+        const data = (await response.json()) as { models: string[] }
+        if (data.models.length > 0) setModels(data.models)
+      }
+    } catch {
+      // keep existing models
+    } finally {
+      setLoadingModels(false)
+    }
+  }, [])
 
   function handleBackendChange(backend: AgentBackendType) {
     setAgent(backend)
@@ -396,6 +443,48 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
             {agent === 'custom-api' && (
               <div className="space-y-3 rounded-2xl border border-blue-200 bg-blue-50 p-4">
                 <p className="text-[11px] text-blue-600">{t('custom_api_chat_only')}</p>
+
+                {/* Provider switcher */}
+                {providers.length > 0 && (
+                  <div className="flex gap-2">
+                    <select
+                      value={selectedProvider}
+                      onChange={(e) => {
+                        const name = e.target.value
+                        setSelectedProvider(name)
+                        const p = providers.find((x) => x.name === name)
+                        if (p) {
+                          setCustomApiBase(p.baseUrl)
+                          setCustomApiKey(p.apiKey)
+                          setCustomApiModel(p.model ?? '')
+                          void fetchCustomModels(p.baseUrl, p.apiKey)
+                        }
+                      }}
+                      className="vp-input flex-1 rounded-2xl px-3 py-2 text-sm"
+                    >
+                      <option value="">-- Saved Providers --</option>
+                      {providers.map((p) => (
+                        <option key={p.name} value={p.name}>{p.name}</option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!selectedProvider) return
+                        const next = providers.filter((p) => p.name !== selectedProvider)
+                        setProviders(next)
+                        saveProviders(next)
+                        setSelectedProvider('')
+                      }}
+                      disabled={!selectedProvider}
+                      className="shrink-0 rounded-2xl bg-rose-500 px-3 py-2 text-xs font-medium text-white transition hover:bg-rose-600 disabled:opacity-40"
+                      title="Delete provider"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                )}
+
                 <label className="block">
                   <span className="mb-1 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
                     {t('api_base_url')}
@@ -425,14 +514,60 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
                   <span className="mb-1 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
                     {t('api_model')}
                   </span>
-                  <input
-                    type="text"
-                    value={customApiModel}
-                    onChange={(e) => setCustomApiModel(e.target.value)}
-                    placeholder="deepseek-chat"
-                    className="vp-input rounded-2xl px-4 py-3 text-sm"
-                  />
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      list="custom-api-models"
+                      value={customApiModel}
+                      onChange={(e) => setCustomApiModel(e.target.value)}
+                      placeholder="deepseek-chat"
+                      className="vp-input flex-1 rounded-2xl px-4 py-3 text-sm"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => void fetchCustomModels(customApiBase, customApiKey)}
+                      disabled={!customApiBase.trim() || !customApiKey.trim() || loadingModels}
+                      className="shrink-0 rounded-2xl bg-blue-500 px-3 py-2 text-xs font-medium text-white transition hover:bg-blue-600 disabled:opacity-40"
+                      title="Fetch models"
+                    >
+                      {loadingModels ? '...' : '↻'}
+                    </button>
+                  </div>
+                  {models.length > 0 && (
+                    <datalist id="custom-api-models">
+                      {models.map((m) => <option key={m} value={m} />)}
+                    </datalist>
+                  )}
                 </label>
+
+                {/* Save provider button */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    const base = customApiBase.trim()
+                    const key = customApiKey.trim()
+                    if (!base || !key) return
+                    // Auto-generate name from URL host
+                    let name: string
+                    try { name = new URL(base).hostname.split('.').slice(-2, -1)[0] || base } catch { name = base }
+                    // Check for existing provider with same URL — update it
+                    const existing = providers.findIndex((p) => p.baseUrl === base)
+                    let next: SavedProvider[]
+                    if (existing >= 0) {
+                      next = [...providers]
+                      next[existing] = { name: providers[existing].name, baseUrl: base, apiKey: key, model: customApiModel.trim() || undefined }
+                    } else {
+                      next = [...providers, { name, baseUrl: base, apiKey: key, model: customApiModel.trim() || undefined }]
+                    }
+                    setProviders(next)
+                    saveProviders(next)
+                    setSelectedProvider(next[existing >= 0 ? existing : next.length - 1].name)
+                  }}
+                  disabled={!customApiBase.trim() || !customApiKey.trim()}
+                  className="w-full rounded-2xl bg-slate-700 px-4 py-2 text-xs font-medium text-white transition hover:bg-slate-800 disabled:opacity-40"
+                >
+                  {providers.some((p) => p.baseUrl === customApiBase.trim()) ? 'Update Provider' : 'Save Provider'}
+                </button>
               </div>
             )}
 

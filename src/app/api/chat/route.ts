@@ -64,7 +64,7 @@ function getBackend(backend?: AgentBackend): AgentBackend {
     return backend
   }
 
-  return (process.env.VIBE_CHAT_AGENT_BACKEND as AgentBackend) ?? 'claude-code'
+  return (process.env.VIBE_CHAT_AGENT_BACKEND as AgentBackend) ?? 'codex'
 }
 
 /**
@@ -164,7 +164,7 @@ async function handleDirectApiChat(
 }
 
 async function handleCustomApiChat(request: Request, payload: ChatRequest) {
-  const apiBase = (payload.customApiBase ?? '').replace(/\/$/, '')
+  const apiBase = (payload.customApiBase ?? '').replace(/\/+$/, '')
   const apiKey = payload.customApiKey ?? ''
   const apiModel = payload.customApiModel || payload.model || 'gpt-4o'
   const { system, user } = buildSplitPrompt(payload)
@@ -173,32 +173,54 @@ async function handleCustomApiChat(request: Request, payload: ChatRequest) {
     return Response.json({ error: 'Custom API base URL and key are required.' }, { status: 400 })
   }
 
-  let upstreamResponse: Response
-  try {
-    upstreamResponse = await fetch(`${apiBase}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: apiModel,
-        messages: [
-          { role: 'system', content: system },
-          { role: 'user', content: user },
-        ],
-        stream: true,
-      }),
-      signal: request.signal,
-    })
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
-    return Response.json({ error: `Custom API request failed: ${msg}` }, { status: 502 })
+  // Try multiple URL paths: some APIs use /chat/completions, others /v1/chat/completions
+  const candidates = apiBase.endsWith('/v1')
+    ? [`${apiBase}/chat/completions`]
+    : [`${apiBase}/v1/chat/completions`, `${apiBase}/chat/completions`]
+
+  const reqBody = JSON.stringify({
+    model: apiModel,
+    messages: [
+      { role: 'system', content: system },
+      { role: 'user', content: user },
+    ],
+    stream: true,
+  })
+  const reqHeaders = {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${apiKey}`,
   }
 
-  if (!upstreamResponse.ok) {
-    const errText = await upstreamResponse.text().catch(() => `HTTP ${upstreamResponse.status}`)
-    return Response.json({ error: `Custom API error: ${errText.slice(0, 300)}` }, { status: 502 })
+  let upstreamResponse: Response | null = null
+  let lastError = ''
+  for (const url of candidates) {
+    try {
+      console.log(`[custom-api] trying POST ${url}`)
+      const resp = await fetch(url, {
+        method: 'POST',
+        headers: reqHeaders,
+        body: reqBody,
+        signal: request.signal,
+      })
+      if (resp.ok) {
+        upstreamResponse = resp
+        break
+      }
+      // 404 = wrong path, try next; other errors = real failure
+      if (resp.status === 404 && candidates.length > 1) {
+        lastError = `${url}: HTTP ${resp.status}`
+        continue
+      }
+      const errText = await resp.text().catch(() => `HTTP ${resp.status}`)
+      return Response.json({ error: `Custom API error: ${errText.slice(0, 300)}` }, { status: 502 })
+    } catch (err) {
+      lastError = err instanceof Error ? err.message : String(err)
+      continue
+    }
+  }
+
+  if (!upstreamResponse) {
+    return Response.json({ error: `Custom API request failed: ${lastError}` }, { status: 502 })
   }
 
   const reader = upstreamResponse.body?.getReader()

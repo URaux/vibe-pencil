@@ -325,7 +325,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     }),
   projectName: translate(initialLocale, 'untitled'),
   setProjectName: (name) => set({ projectName: name }),
-  config: { agent: 'claude-code', model: 'claude-sonnet-4-6', workDir: './workspace', maxParallel: 3 },
+  config: { agent: 'codex', model: 'o3', workDir: './workspace', maxParallel: 3 },
   setConfig: (config) =>
     set({
       config: {

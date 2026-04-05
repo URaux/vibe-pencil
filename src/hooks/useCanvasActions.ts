@@ -26,10 +26,24 @@ function applyActionToSnapshot(
   if (action.action === 'add-node') {
     const node = action.node ?? {}
     const type = VALID_NODE_TYPES.has(node.type ?? 'block') ? (node.type ?? 'block') : 'block'
-    const id =
+
+    // Generate ID: prefer explicit id, then kebab-case from name, then UUID fallback
+    const rawName = (node.data as Record<string, unknown>)?.name ?? node.name
+    const kebabFromName = typeof rawName === 'string' && rawName
+      ? rawName.toLowerCase().replace(/[^a-z0-9\u4e00-\u9fff]+/g, '-').replace(/^-|-$/g, '')
+      : ''
+    let id =
       typeof node.id === 'string' && node.id
         ? node.id
-        : `${type}-${typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : Date.now()}`
+        : kebabFromName
+          ? kebabFromName
+          : `${type}-${typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : Date.now()}`
+    // Dedupe: if id already exists, append -2, -3 etc.
+    if (currentNodes.some((n) => n.id === id)) {
+      let suffix = 2
+      while (currentNodes.some((n) => n.id === `${id}-${suffix}`)) suffix++
+      id = `${id}-${suffix}`
+    }
 
     if (type === 'container') {
       const data = node.data as Partial<ContainerNodeData> | undefined
@@ -85,11 +99,24 @@ function applyActionToSnapshot(
     }
 
     const data = node.data as Partial<BlockNodeData> | undefined
-    const parentId =
-      typeof node.parentId === 'string' &&
-      currentNodes.some((entry) => entry.id === node.parentId && entry.type === 'container')
-        ? node.parentId
-        : undefined
+    // Resolve parentId: try exact match first, then fuzzy match by kebab-case name
+    let parentId: string | undefined
+    if (typeof node.parentId === 'string' && node.parentId) {
+      const exactMatch = currentNodes.find((entry) => entry.id === node.parentId && entry.type === 'container')
+      if (exactMatch) {
+        parentId = exactMatch.id
+      } else {
+        // Fuzzy: try matching parentId against container name (kebab-case)
+        const needle = node.parentId.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+        const fuzzyMatch = currentNodes.find((entry) => {
+          if (entry.type !== 'container') return false
+          const entryName = (entry.data as { name?: string }).name ?? ''
+          const entryKebab = entryName.toLowerCase().replace(/[^a-z0-9\u4e00-\u9fff]+/g, '-').replace(/^-|-$/g, '')
+          return entry.id === needle || entryKebab === needle || entryKebab.includes(needle) || needle.includes(entryKebab)
+        })
+        if (fuzzyMatch) parentId = fuzzyMatch.id
+      }
+    }
     const statusCandidate =
       typeof data?.status === 'string' ? data.status : typeof node.status === 'string' ? node.status : 'idle'
 
@@ -150,10 +177,25 @@ function applyActionToSnapshot(
   if (action.action === 'add-edge') {
     const edge = action.edge
 
-    if (
-      !currentNodes.some((n) => n.id === edge.source) ||
-      !currentNodes.some((n) => n.id === edge.target)
-    ) {
+    // Fuzzy resolve source and target node IDs
+    const resolveNodeId = (ref: string) => {
+      // Exact match first
+      const exact = currentNodes.find((n) => n.id === ref)
+      if (exact) return exact.id
+      // Kebab-case fuzzy match
+      const needle = ref.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+      const fuzzy = currentNodes.find((n) => {
+        const name = (n.data as { name?: string }).name ?? ''
+        const nameKebab = name.toLowerCase().replace(/[^a-z0-9\u4e00-\u9fff]+/g, '-').replace(/^-|-$/g, '')
+        return n.id === needle || nameKebab === needle || nameKebab.includes(needle) || needle.includes(nameKebab)
+      })
+      return fuzzy?.id ?? null
+    }
+
+    const resolvedSource = resolveNodeId(edge.source)
+    const resolvedTarget = resolveNodeId(edge.target)
+
+    if (!resolvedSource || !resolvedTarget) {
       // Skip edges referencing non-existent nodes instead of throwing
       return { nodes: currentNodes, edges: currentEdges }
     }
@@ -165,8 +207,8 @@ function applyActionToSnapshot(
         typeof edge.id === 'string' && edge.id
           ? edge.id
           : `edge-${typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : Date.now()}`,
-      source: edge.source,
-      target: edge.target,
+      source: resolvedSource,
+      target: resolvedTarget,
       type,
       ...(edge.label ? { label: edge.label } : {}),
     }

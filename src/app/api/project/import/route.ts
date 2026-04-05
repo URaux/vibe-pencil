@@ -20,7 +20,7 @@ function getBackend(backend?: 'claude-code' | 'codex' | 'gemini') {
   }
 
   const envBackend = process.env.VIBE_IMPORT_AGENT_BACKEND
-  return envBackend === 'codex' || envBackend === 'gemini' ? envBackend : 'claude-code'
+  return envBackend === 'codex' || envBackend === 'gemini' || envBackend === 'claude-code' ? envBackend : 'codex'
 }
 
 function buildPrompt(dir: string, locale: Locale = 'en') {

@@ -18,7 +18,7 @@ function getBackend(backend?: AgentBackend): AgentBackend {
     return backend
   }
 
-  return (process.env.VIBE_CHAT_AGENT_BACKEND as AgentBackend) ?? 'claude-code'
+  return (process.env.VIBE_CHAT_AGENT_BACKEND as AgentBackend) ?? 'codex'
 }
 
 function buildTitlePrompt(userMessage: string, assistantMessage: string, locale?: string): string {

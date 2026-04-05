@@ -242,13 +242,26 @@ function parseStreamEvents(buffer: string) {
 }
 
 function getAgentDisplayName(backend: string, model: string): string {
-  if (model.includes('claude')) return 'Claude'
-  if (model.includes('gpt')) return 'GPT'
-  if (model.includes('gemini')) return 'Gemini'
-  if (model.includes('deepseek')) return 'DeepSeek'
+  const m = model.toLowerCase()
+  // Claude family: claude-*, opus, sonnet, haiku
+  if (/claude|opus|sonnet|haiku/.test(m)) return 'Claude'
+  // OpenAI family: gpt-*, chatgpt-*, o1, o3, o4-mini
+  if (/gpt|chatgpt|^o[1-4]/.test(m)) return 'GPT'
+  // Gemini family
+  if (/gemini|gemma/.test(m)) return 'Gemini'
+  // DeepSeek
+  if (/deepseek/.test(m)) return 'DeepSeek'
+  // Qwen
+  if (/qwen/.test(m)) return 'Qwen'
+  // Llama / Meta
+  if (/llama|meta/.test(m)) return 'Llama'
+  // Mistral
+  if (/mistral|mixtral/.test(m)) return 'Mistral'
+  // Backend fallbacks
   if (backend === 'claude-code') return 'Claude'
   if (backend === 'codex') return 'Codex'
   if (backend === 'gemini') return 'Gemini'
+  if (backend === 'custom-api') return model || 'API'
   return 'AI'
 }
 
@@ -257,10 +270,11 @@ export function ChatPanel() {
   const edges = useAppStore((state) => state.edges)
   const projectName = useAppStore((state) => state.projectName)
   const backend = useAppStore((state) => state.config.agent)
-  const model = useAppStore((state) => state.config.model)
+  const rawModel = useAppStore((state) => state.config.model)
+  const customApiModel = useAppStore((state) => state.config.customApiModel)
+  const model = backend === 'custom-api' && customApiModel ? customApiModel : rawModel
   const customApiBase = useAppStore((state) => state.config.customApiBase)
   const customApiKey = useAppStore((state) => state.config.customApiKey)
-  const customApiModel = useAppStore((state) => state.config.customApiModel)
   const locale = useAppStore((state) => state.locale)
   const selectedNodeId = useAppStore((state) => state.selectedNodeId)
   const chatOpen = useAppStore((state) => state.chatOpen)
@@ -408,6 +422,17 @@ export function ChatPanel() {
     setIsSending(true)
     updateActiveChatMessages(() => [...nextHistory, { role: 'assistant', content: '' }])
 
+    // Auto-switch from brainstorm to design phase when user confirms design
+    const currentPhase = activeSession?.phase ?? 'brainstorm'
+    let effectivePhase = currentPhase
+    if (currentPhase === 'brainstorm') {
+      const confirmPatterns = /方案确认|确认方案|生成架构|开始设计|design confirm|start design|generate.*architect/i
+      if (confirmPatterns.test(trimmedMessage)) {
+        effectivePhase = 'design'
+        setSessionPhase(sessionId, 'design')
+      }
+    }
+
     try {
       const response = await fetch('/api/chat', {
         method: 'POST',
@@ -423,7 +448,7 @@ export function ChatPanel() {
           backend,
           model,
           locale,
-          phase: activeSession?.phase ?? 'brainstorm',
+          phase: effectivePhase,
           buildSummaryContext: formatBuildContext(
             useAppStore.getState().buildState,
             useAppStore.getState().nodes,
@@ -561,6 +586,17 @@ export function ChatPanel() {
     setIsSending(true)
     updateActiveChatMessages(() => [...nextHistory, { role: 'assistant', content: '' }])
 
+    // Auto-switch from brainstorm to design phase when user confirms design
+    const optionPhase = activeSession?.phase ?? 'brainstorm'
+    let effectiveOptionPhase = optionPhase
+    if (optionPhase === 'brainstorm') {
+      const confirmPatterns = /方案确认|确认方案|生成架构|开始设计|design confirm|start design|generate.*architect/i
+      if (confirmPatterns.test(trimmedMessage)) {
+        effectiveOptionPhase = 'design'
+        setSessionPhase(sessionId, 'design')
+      }
+    }
+
     try {
       const response = await fetch('/api/chat', {
         method: 'POST',
@@ -574,7 +610,7 @@ export function ChatPanel() {
           backend,
           model,
           locale,
-          phase: activeSession?.phase ?? 'brainstorm',
+          phase: effectiveOptionPhase,
           buildSummaryContext: formatBuildContext(
             useAppStore.getState().buildState,
             useAppStore.getState().nodes,
@@ -746,11 +782,14 @@ export function ChatPanel() {
               let userChoices = isAssistantWithContent
                 ? extractUserChoices(entry.content)
                 : []
+              let strippedContent: string | null = null
               if (userChoices.length === 0 && isAssistantWithContent) {
                 const visible = extractVisibleChatText(entry.content)
                 const parsed = parseOptions(visible)
                 if (parsed) {
                   userChoices = [{ question: '', options: parsed.options.map(o => o.text) }]
+                  // Strip the numbered list from rendered content to avoid duplication with OptionCards
+                  strippedContent = [parsed.textBefore, parsed.textAfter].filter(Boolean).join('\n\n')
                 }
               }
 
@@ -786,7 +825,7 @@ export function ChatPanel() {
                     <div className="break-words">
                       {entry.content ? (
                         <>
-                          <ChatMarkdown content={entry.content} />
+                          <ChatMarkdown content={strippedContent ?? entry.content} />
                           {userChoices.map((choice, ci) => {
                             // Find the user's reply after this message to highlight selected option
                             const nextUserMsg = activeMessages.slice(messageIndex + 1).find(m => m.role === 'user')

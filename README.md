@@ -8,7 +8,8 @@
 
 **这不是画图工具。** 这是一个 AI 架构搭档：从模糊想法到可运行代码，全程对话驱动。
 
-> **Demo 截图即将上线** — 下方架构图展示系统内部设计。
+[![Demo 视频](https://img.youtube.com/vi/RHmKlNrHbbE/maxresdefault.jpg)](https://youtu.be/RHmKlNrHbbE)
+> 点击观看完整演示：从提出需求 → 多轮选择题讨论 → 架构图自动生成
 
 ---
 

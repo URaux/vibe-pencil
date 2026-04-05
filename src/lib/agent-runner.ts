@@ -213,7 +213,7 @@ export class AgentRunner extends EventEmitter {
   }
 
   private spawnCustomApiAgent(agentId: string, nodeId: string, prompt: string, model?: string, cfg?: CustomApiConfig) {
-    const apiBase = cfg?.customApiBase?.replace(/\/$/, '') ?? ''
+    const apiBase = cfg?.customApiBase?.replace(/\/+$/, '') ?? ''
     const apiKey = cfg?.customApiKey ?? ''
     const apiModel = cfg?.customApiModel || model || 'gpt-4o'
 
@@ -239,23 +239,44 @@ export class AgentRunner extends EventEmitter {
 
     const doFetch = async () => {
       try {
-        const response = await fetch(`${apiBase}/chat/completions`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${apiKey}`,
-          },
-          body: JSON.stringify({
-            model: apiModel,
-            messages: [{ role: 'user', content: prompt }],
-            stream: true,
-          }),
-          signal: abortController.signal,
-        })
+        // Try multiple URL paths: /v1/chat/completions first, then /chat/completions
+        const candidates = apiBase.endsWith('/v1')
+          ? [`${apiBase}/chat/completions`]
+          : [`${apiBase}/v1/chat/completions`, `${apiBase}/chat/completions`]
 
-        if (!response.ok) {
-          const errText = await response.text().catch(() => `HTTP ${response.status}`)
-          this.finishAgent(agentId, 'error', null, errText.slice(0, 500))
+        const reqBody = JSON.stringify({
+          model: apiModel,
+          messages: [{ role: 'user', content: prompt }],
+          stream: true,
+        })
+        const reqHeaders = {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiKey}`,
+        }
+
+        let response: Response | null = null
+        for (const url of candidates) {
+          console.log(`[custom-api] trying POST ${url} model=${apiModel}`)
+          try {
+            const resp = await fetch(url, {
+              method: 'POST',
+              headers: reqHeaders,
+              body: reqBody,
+              signal: abortController.signal,
+            })
+            if (resp.ok) { response = resp; break }
+            if (resp.status === 404 && candidates.length > 1) continue
+            const errText = await resp.text().catch(() => `HTTP ${resp.status}`)
+            this.finishAgent(agentId, 'error', null, errText.slice(0, 500))
+            return
+          } catch (e) {
+            if (candidates.indexOf(url) < candidates.length - 1) continue
+            throw e
+          }
+        }
+
+        if (!response) {
+          this.finishAgent(agentId, 'error', null, 'All API URL candidates failed')
           return
         }
 

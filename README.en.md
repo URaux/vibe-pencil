@@ -8,7 +8,8 @@ Tell the AI "build me a cross-border e-commerce system with product sourcing, ad
 
 **This is not a diagramming tool.** It's an AI architecture partner: from fuzzy idea to runnable code, entirely conversation-driven.
 
-> **Screenshot/demo coming soon** — see architecture diagrams below for system design.
+[![Demo Video](https://img.youtube.com/vi/RHmKlNrHbbE/maxresdefault.jpg)](https://youtu.be/RHmKlNrHbbE)
+> Click to watch: from describing a requirement → guided brainstorm choices → architecture auto-generated on canvas
 
 ---
 

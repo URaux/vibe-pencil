@@ -28,16 +28,27 @@ const FALLBACK_MODELS: Record<AgentBackendType, string[]> = {
 }
 
 async function fetchOpenAIModels(baseUrl: string, apiKey: string): Promise<string[]> {
-  const url = `${baseUrl.replace(/\/+$/, '')}/v1/models`
-  const response = await fetch(url, {
-    headers: { Authorization: `Bearer ${apiKey}` },
-    signal: AbortSignal.timeout(8000),
-  })
+  const base = baseUrl.replace(/\/+$/, '')
+  const headers = { Authorization: `Bearer ${apiKey}` }
 
-  if (!response.ok) return []
+  // Try multiple paths: some APIs use /models, others /v1/models
+  const candidates = base.endsWith('/v1')
+    ? [`${base}/models`]
+    : [`${base}/models`, `${base}/v1/models`]
 
-  const data = (await response.json()) as { data?: { id: string }[] }
-  return (data.data ?? []).map((m) => m.id).sort()
+  for (const url of candidates) {
+    try {
+      const response = await fetch(url, { headers, signal: AbortSignal.timeout(6000) })
+      if (!response.ok) continue
+      const data = (await response.json()) as { data?: { id: string }[] }
+      const models = (data.data ?? []).map((m) => m.id).sort()
+      if (models.length > 0) return models
+    } catch {
+      continue
+    }
+  }
+
+  return []
 }
 
 async function fetchGeminiModels(): Promise<string[]> {

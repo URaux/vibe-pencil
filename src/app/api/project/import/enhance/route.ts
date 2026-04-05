@@ -47,7 +47,7 @@ export async function POST(request: Request) {
     },
   })
 
-  const resolvedBackend = backend ?? 'claude-code'
+  const resolvedBackend = backend ?? 'codex'
   const agentId = agentRunner.spawnAgent('project-enhance', prompt, resolvedBackend, dir)
 
   const encoder = new TextEncoder()
