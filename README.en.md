@@ -144,28 +144,55 @@ The system uses a **2-Agent architecture**: a Canvas Agent (read-only, handles c
 
 ## Quick Start
 
+### 1. Launch
+
 **Prerequisites**: Node.js 20+
 
 ```bash
 git clone https://github.com/URaux/arch-viber.git
 cd arch-viber
 npm install
-npm run dev        # http://localhost:3000
+npm run dev        # Dev mode → http://localhost:3000
 ```
 
-> Canvas and AI chat work out of the box. To use **Build All**, install at least one AI CLI tool below. Each tool uses its own auth (e.g., `claude login`) — no API keys need to be configured in this project.
+**Production deployment**:
+```bash
+npm run build      # Build for production
+npm start          # Start production server → http://localhost:3000
+```
+
+### 2. Configure AI Backend
+
+Open **Settings** (gear icon, top-right) and choose a backend:
+
+| Backend | Install required | Auth |
+|---------|-----------------|------|
+| **Custom API** (recommended) | None | Enter API URL + Key in Settings |
+| Claude Code | `npm i -g @anthropic-ai/claude-code` | `claude login` |
+| Codex | `npm i -g @openai/codex` | `OPENAI_API_KEY` env var |
+| Gemini CLI | `npm i -g @google/gemini-cli` | `gemini login` |
+
+> **Custom API** works with any OpenAI-compatible API (OpenAI, DeepSeek, Qwen, Mistral, local Ollama, etc.). No CLI tools needed — just enter URL and Key. Supports saving multiple providers for quick switching.
+
+### 3. Start Building
+
+1. Type your requirement, e.g. "Build me a food delivery system"
+2. AI brainstorms like a senior architect — asks clarifying questions
+3. Once confirmed, the architecture diagram auto-generates on canvas
+4. Click **Build All** to generate code for all modules
+
+### Environment Variables (optional)
+
+Copy `.env.example` to `.env.local` and configure as needed:
+
+```bash
+cp .env.example .env.local
+```
 
 **Tests**:
 ```bash
 npm test           # run all tests once
 npx vitest         # watch mode
-```
-
-**Install AI CLI tools** (choose one or more):
-```bash
-npm install -g @anthropic-ai/claude-code   # Claude Code
-npm install -g @openai/codex               # Codex
-npm install -g @google/gemini-cli          # Gemini CLI
 ```
 
 ---

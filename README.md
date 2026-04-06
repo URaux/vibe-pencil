@@ -143,28 +143,55 @@
 
 ## 快速开始
 
+### 1. 启动
+
 **前置条件**：Node.js 20+
 
 ```bash
 git clone https://github.com/URaux/arch-viber.git
 cd arch-viber
 npm install
-npm run dev        # http://localhost:3000
+npm run dev        # 开发模式 → http://localhost:3000
 ```
 
-> 画布和 AI 对话功能无需额外配置即可使用。要使用 **Build All** 构建功能，请安装下方至少一种 AI CLI 工具。AI CLI 工具使用各自的认证方式（如 `claude login`），无需在本项目中配置 API Key。
+**生产部署**：
+```bash
+npm run build      # 构建生产版本
+npm start          # 启动生产服务 → http://localhost:3000
+```
+
+### 2. 配置 AI 后端
+
+启动后打开 **Settings**（右上角齿轮），选择一种 AI 后端：
+
+| 后端 | 需要安装 | 认证方式 |
+|------|---------|---------|
+| **Custom API**（推荐） | 无需安装 | 在 Settings 填入 API URL + Key |
+| Claude Code | `npm i -g @anthropic-ai/claude-code` | `claude login` |
+| Codex | `npm i -g @openai/codex` | `OPENAI_API_KEY` 环境变量 |
+| Gemini CLI | `npm i -g @google/gemini-cli` | `gemini login` |
+
+> **Custom API** 兼容所有 OpenAI 格式的 API（OpenAI、DeepSeek、Qwen、Mistral、本地 Ollama 等），无需安装任何 CLI 工具。填入 URL 和 Key 即可使用，支持保存多个 Provider 快速切换。
+
+### 3. 开始使用
+
+1. 在对话框输入你的需求，例如 "帮我做一个外卖配送系统"
+2. AI 会以架构师身份追问细节（头脑风暴阶段）
+3. 确认方案后，架构图自动生成在画布上
+4. 点击 **Build All** 一键生成代码
+
+### 环境变量（可选）
+
+复制 `.env.example` 为 `.env.local` 按需配置：
+
+```bash
+cp .env.example .env.local
+```
 
 **测试**：
 ```bash
 npm test           # 运行全部测试
 npx vitest         # 监听模式
-```
-
-**安装 AI CLI 工具**（按需选择一种或多种）：
-```bash
-npm install -g @anthropic-ai/claude-code   # Claude Code
-npm install -g @openai/codex               # Codex
-npm install -g @google/gemini-cli          # Gemini CLI
 ```
 
 ---
