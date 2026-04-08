@@ -85,9 +85,10 @@ export function extractVisibleChatText(content: string) {
     }
   }
 
-  // Strip hidden title tags and user-choice blocks before returning
+  // Strip hidden title/progress tags and user-choice blocks before returning
   return dedupeRepeatedResponse(visible)
     .replace(/<!--\s*title:\s*.+?\s*-->/g, '')
+    .replace(/<!--\s*progress:\s*.+?\s*-->/g, '')
     .replace(/```json:user-choice[\s\S]*?```/gi, '')
     .trim()
 }

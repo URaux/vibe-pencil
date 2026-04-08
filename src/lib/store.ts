@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { loadSessions, saveSessions, flushSave } from './session-storage'
 import {
   type Edge,
   type Node,
@@ -106,8 +107,9 @@ interface AppState {
 
 const initialLocale = getLocale()
 const CHAT_SESSIONS_STORAGE_KEY = 'vp-chat-sessions'
-const CHAT_HISTORIES_LEGACY_KEY = 'vp-chat-histories'
 
+// loadChatSessions: synchronous fallback for SSR/initial render
+// Real loading happens async via session-storage.ts
 function loadChatSessions(): ChatSession[] {
   if (typeof window === 'undefined') {
     return []
@@ -118,50 +120,12 @@ function loadChatSessions(): ChatSession[] {
 
     if (stored) {
       const parsed = JSON.parse(stored) as ChatSession[]
-      // Backward compat: default missing phase to 'iterate' for existing sessions
       return parsed.map((s) => ({ ...s, phase: s.phase ?? 'iterate' }))
     }
 
-    // Migrate from legacy Map-based storage
-    const legacy = window.localStorage.getItem(CHAT_HISTORIES_LEGACY_KEY)
-
-    if (legacy) {
-      const entries = JSON.parse(legacy) as Array<[string, ChatMessage[]]>
-      const now = Date.now()
-      const migrated: ChatSession[] = entries
-        .filter(([, messages]) => messages.length > 0)
-        .map(([key, messages], index) => {
-          const firstUser = messages.find((m) => m.role === 'user')
-          const title = firstUser ? firstUser.content.slice(0, 30) : key
-          return {
-            id: `migrated-${index}-${now}`,
-            title,
-            messages,
-            createdAt: now - (entries.length - index) * 1000,
-            updatedAt: now - (entries.length - index) * 1000,
-            phase: 'iterate' as SessionPhase,
-          }
-        })
-
-      window.localStorage.removeItem(CHAT_HISTORIES_LEGACY_KEY)
-      return migrated
-    }
-
     return []
   } catch {
     return []
-  }
-}
-
-function saveChatSessions(sessions: ChatSession[]) {
-  if (typeof window === 'undefined') {
-    return
-  }
-
-  try {
-    window.localStorage.setItem(CHAT_SESSIONS_STORAGE_KEY, JSON.stringify(sessions))
-  } catch {
-    // Ignore storage failures like quota errors.
   }
 }
 
@@ -525,14 +489,36 @@ export const useAppStore = create<AppState>((set, get) => ({
 }))
 
 if (typeof window !== 'undefined') {
+  // Synchronous initial load from localStorage (fast, for first render)
   const sessions = loadChatSessions()
   useAppStore.setState({
     chatSessions: sessions,
     activeChatSessionId: sessions[0]?.id ?? null,
   })
+
+  // Async load from IndexedDB (may have more data, e.g. after LS quota trim)
+  loadSessions().then((idbSessions) => {
+    if (idbSessions.length > 0) {
+      const current = useAppStore.getState().chatSessions
+      // Only replace if IDB has more sessions (LS may have been trimmed)
+      if (idbSessions.length > current.length) {
+        useAppStore.setState({
+          chatSessions: idbSessions,
+          activeChatSessionId: idbSessions[0]?.id ?? null,
+        })
+      }
+    }
+  }).catch(() => {})
+
+  // Save to both IDB + LS on every change (debounced)
   useAppStore.subscribe((state, previousState) => {
     if (state.chatSessions !== previousState.chatSessions) {
-      saveChatSessions(state.chatSessions)
+      saveSessions(state.chatSessions)
     }
+  })
+
+  // Flush pending saves on page unload
+  window.addEventListener('beforeunload', () => {
+    flushSave(useAppStore.getState().chatSessions)
   })
 }

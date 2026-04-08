@@ -347,7 +347,7 @@ function buildBlocksForContainer(
 
 // ---- Edge generation ----
 
-function buildEdges(
+function buildTemplateEdges(
   containers: ContainerSpec[],
   blocks: BlockSpec[]
 ): Edge[] {
@@ -418,6 +418,147 @@ function buildEdges(
   return edges
 }
 
+
+function buildEdgesFromImports(
+  scan: ProjectScan,
+  containers: ContainerSpec[],
+  blocks: BlockSpec[]
+): Edge[] {
+  const importEdges = scan.importGraph?.edges
+  if (!importEdges || importEdges.length === 0) return []
+
+  // Build a mapping: file path -> block id
+  const fileToBlock = new Map<string, string>()
+
+  for (const container of containers) {
+    const containerBlocks = blocks.filter(b => b.containerId === container.id)
+    for (const sourcePath of container.sourcePaths) {
+      for (const edge of importEdges) {
+        for (const filePath of [edge.sourceFile, edge.targetFile]) {
+          if (filePath.startsWith(sourcePath + '/') || filePath === sourcePath) {
+            let matched = false
+            for (const block of containerBlocks) {
+              const blockNameLower = block.name.toLowerCase().replace(/\s+/g, '-')
+              const pathParts = filePath.toLowerCase().split('/')
+              if (pathParts.some(part => part === blockNameLower || part === block.name.toLowerCase())) {
+                fileToBlock.set(filePath, block.id)
+                matched = true
+                break
+              }
+            }
+            if (!matched && containerBlocks.length > 0) {
+              fileToBlock.set(filePath, containerBlocks[0].id)
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // Aggregate file-level imports into block-level edges
+  const blockPairMap = new Map<string, {
+    sourceId: string
+    targetId: string
+    count: number
+    hasDynamic: boolean
+    hasWebSocket: boolean
+  }>()
+
+  for (const edge of importEdges) {
+    const sourceBlock = fileToBlock.get(edge.sourceFile)
+    const targetBlock = fileToBlock.get(edge.targetFile)
+    if (!sourceBlock || !targetBlock) continue
+    if (sourceBlock === targetBlock) continue
+
+    const key = sourceBlock + '::' + targetBlock
+    const existing = blockPairMap.get(key)
+
+    if (existing) {
+      existing.count++
+      if (edge.importType === 'dynamic') existing.hasDynamic = true
+    } else {
+      const hasWs = edge.symbols?.some(s =>
+        s.toLowerCase().includes('websocket') || s.toLowerCase() === 'ws'
+      ) ?? false
+
+      blockPairMap.set(key, {
+        sourceId: sourceBlock,
+        targetId: targetBlock,
+        count: 1,
+        hasDynamic: edge.importType === 'dynamic',
+        hasWebSocket: hasWs,
+      })
+    }
+  }
+
+  // Check file contents for WebSocket patterns
+  const wsFiles = new Set<string>()
+  if (scan.keyFileContents) {
+    for (const [filePath, fileContent] of Object.entries(scan.keyFileContents)) {
+      if (fileContent.includes('WebSocket') || fileContent.includes('from ' + String.fromCharCode(39) + 'ws' + String.fromCharCode(39)) || fileContent.includes('from ' + String.fromCharCode(34) + 'ws' + String.fromCharCode(34))) {
+        wsFiles.add(filePath)
+      }
+    }
+  }
+
+  for (const edge of importEdges) {
+    if (wsFiles.has(edge.sourceFile) || wsFiles.has(edge.targetFile)) {
+      const sourceBlock = fileToBlock.get(edge.sourceFile)
+      const targetBlock = fileToBlock.get(edge.targetFile)
+      if (sourceBlock && targetBlock && sourceBlock !== targetBlock) {
+        const key = sourceBlock + '::' + targetBlock
+        const pair = blockPairMap.get(key)
+        if (pair) pair.hasWebSocket = true
+      }
+    }
+  }
+
+  // Convert to edges, sort by count, cap at 15
+  const sortedPairs = [...blockPairMap.values()].sort((a, b) => b.count - a.count)
+  const MAX_EDGES = 15
+  const edges: Edge[] = []
+  let edgeIdx = 1
+
+  for (const pair of sortedPairs.slice(0, MAX_EDGES)) {
+    let edgeType: 'sync' | 'async' | 'bidirectional' = 'sync'
+    let label: string | undefined
+
+    if (pair.hasWebSocket) {
+      edgeType = 'async'
+      label = 'WebSocket'
+    } else if (pair.hasDynamic) {
+      edgeType = 'sync'
+      label = pair.count > 1 ? pair.count + ' imports (dynamic)' : 'dynamic import'
+    }
+
+    if (!label && pair.count > 1) {
+      label = pair.count + ' imports'
+    }
+
+    edges.push({
+      id: 'edge-import-' + edgeIdx++,
+      source: pair.sourceId,
+      target: pair.targetId,
+      type: edgeType,
+      ...(label ? { label } : {}),
+    })
+  }
+
+  return edges
+}
+
+function buildEdges(
+  scan: ProjectScan,
+  containers: ContainerSpec[],
+  blocks: BlockSpec[]
+): Edge[] {
+  if (scan.importGraph && scan.importGraph.edges.length > 0) {
+    const importEdges = buildEdgesFromImports(scan, containers, blocks)
+    if (importEdges.length > 0) return importEdges
+  }
+  return buildTemplateEdges(containers, blocks)
+}
+
 // ---- Main export ----
 
 export function generateSkeleton(scan: ProjectScan): {
@@ -471,7 +612,7 @@ export function generateSkeleton(scan: ProjectScan): {
     })
   }
 
-  const edges = buildEdges(containers, allBlocks)
+  const edges = buildEdges(scan, containers, allBlocks)
 
   return { nodes, edges }
 }

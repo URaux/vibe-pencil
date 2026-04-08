@@ -72,6 +72,15 @@ export interface ProjectScan {
   totalLines: number
   keyFileContents: Record<string, string>
   truncated?: boolean
+  importGraph?: {
+    edges: Array<{
+      sourceFile: string
+      targetFile: string
+      importType: 'static' | 'dynamic' | 'reexport'
+      symbols?: string[]
+    }>
+    parseTimeMs: number
+  }
 }
 
 // ---- Constants ----
@@ -603,6 +612,165 @@ function estimateLines(keyFiles: Record<string, string>, totalFiles: number): nu
   return Math.round(avgPerFile * totalFiles)
 }
 
+// ---- Import graph extraction ----
+
+const IMPORT_FILE_EXTENSIONS = ['.ts', '.tsx', '.js', '.jsx']
+const MAX_IMPORT_SCAN_FILES = 200
+
+interface ImportEdge {
+  sourceFile: string
+  targetFile: string
+  importType: 'static' | 'dynamic' | 'reexport'
+  symbols?: string[]
+}
+
+// Regex patterns for import extraction
+const STATIC_IMPORT_RE = /import\s+(?:(?:\{[^}]*\}|\*\s+as\s+\w+|\w+)\s*,?\s*)*\s*from\s*['"]([^'"]+)['"]/g
+const REQUIRE_RE = /require\s*\(\s*['"]([^'"]+)['"]\s*\)/g
+const REEXPORT_RE = /export\s+(?:\{[^}]*\}|\*)\s+from\s*['"]([^'"]+)['"]/g
+const DYNAMIC_IMPORT_RE = /import\s*\(\s*['"]([^'"]+)['"]\s*\)/g
+
+function resolveImportPath(
+  sourceFile: string,
+  importSpecifier: string,
+  absDir: string,
+  allFilePaths: Set<string>
+): string | null {
+  // Skip node_modules / bare specifiers
+  if (!importSpecifier.startsWith('.') && !importSpecifier.startsWith('/')) return null
+
+  const sourceDir = path.dirname(sourceFile).replace(/\\/g, '/')
+  const joined = sourceDir ? sourceDir + '/' + importSpecifier : importSpecifier
+  const resolved = path.posix.normalize(joined)
+
+  // Try exact match first, then with extensions, then as index
+  if (allFilePaths.has(resolved)) return resolved
+
+  for (const ext of IMPORT_FILE_EXTENSIONS) {
+    if (allFilePaths.has(resolved + ext)) return resolved + ext
+  }
+
+  // Try as directory with index file
+  for (const ext of IMPORT_FILE_EXTENSIONS) {
+    const indexPath = resolved + '/index' + ext
+    if (allFilePaths.has(indexPath)) return indexPath
+  }
+
+  return null
+}
+
+function extractSymbols(importLine: string): string[] {
+  const match = importLine.match(/import\s+\{([^}]*)\}/)
+  if (!match) return []
+  return match[1].split(',').map(s => s.trim().split(/\s+as\s+/)[0].trim()).filter(Boolean)
+}
+
+function extractImportGraph(
+  absDir: string,
+  keyFileContents: Record<string, string>,
+  fileTree: FileTreeNode[]
+): ProjectScan['importGraph'] {
+  const startTime = Date.now()
+  const edges: ImportEdge[] = []
+
+  // Collect all file paths from tree for resolution
+  const allFiles = flattenTree(fileTree).filter(n => n.type === 'file')
+  const allFilePaths = new Set(allFiles.map(n => n.path))
+
+  // Collect files to parse: keyFileContents + src/ files
+  const filesToParse: Record<string, string> = { ...keyFileContents }
+
+  // Add source files not already in keyFileContents (up to limit)
+  let extraCount = Object.keys(filesToParse).length
+  if (extraCount < MAX_IMPORT_SCAN_FILES) {
+    const srcFiles = allFiles.filter(n => {
+      const ext = path.extname(n.name).toLowerCase()
+      return IMPORT_FILE_EXTENSIONS.includes(ext) &&
+        !filesToParse[n.path] &&
+        !n.path.includes('node_modules')
+    })
+
+    for (const f of srcFiles) {
+      if (extraCount >= MAX_IMPORT_SCAN_FILES) break
+      try {
+        const content = fs.readFileSync(path.join(absDir, f.path), 'utf-8')
+        filesToParse[f.path] = content
+        extraCount++
+      } catch {
+        // skip unreadable files
+      }
+    }
+  }
+
+  // Parse each file for imports
+  for (const [filePath, content] of Object.entries(filesToParse)) {
+    const ext = path.extname(filePath).toLowerCase()
+    if (!IMPORT_FILE_EXTENSIONS.includes(ext)) continue
+
+    // Static imports
+    let match: RegExpExecArray | null
+    const staticRe = new RegExp(STATIC_IMPORT_RE.source, 'g')
+    while ((match = staticRe.exec(content)) !== null) {
+      const specifier = match[1]
+      const targetFile = resolveImportPath(filePath, specifier, absDir, allFilePaths)
+      if (targetFile) {
+        const symbols = extractSymbols(match[0])
+        edges.push({
+          sourceFile: filePath,
+          targetFile,
+          importType: 'static',
+          ...(symbols.length > 0 ? { symbols } : {}),
+        })
+      }
+    }
+
+    // require() calls
+    const requireRe = new RegExp(REQUIRE_RE.source, 'g')
+    while ((match = requireRe.exec(content)) !== null) {
+      const specifier = match[1]
+      const targetFile = resolveImportPath(filePath, specifier, absDir, allFilePaths)
+      if (targetFile) {
+        edges.push({
+          sourceFile: filePath,
+          targetFile,
+          importType: 'static',
+        })
+      }
+    }
+
+    // Dynamic imports
+    const dynamicRe = new RegExp(DYNAMIC_IMPORT_RE.source, 'g')
+    while ((match = dynamicRe.exec(content)) !== null) {
+      const specifier = match[1]
+      const targetFile = resolveImportPath(filePath, specifier, absDir, allFilePaths)
+      if (targetFile) {
+        edges.push({
+          sourceFile: filePath,
+          targetFile,
+          importType: 'dynamic',
+        })
+      }
+    }
+
+    // Re-exports
+    const reexportRe = new RegExp(REEXPORT_RE.source, 'g')
+    while ((match = reexportRe.exec(content)) !== null) {
+      const specifier = match[1]
+      const targetFile = resolveImportPath(filePath, specifier, absDir, allFilePaths)
+      if (targetFile) {
+        edges.push({
+          sourceFile: filePath,
+          targetFile,
+          importType: 'reexport',
+        })
+      }
+    }
+  }
+
+  const parseTimeMs = Date.now() - startTime
+  return edges.length > 0 ? { edges, parseTimeMs } : undefined
+}
+
 // ---- Main export ----
 
 export async function scanProject(dir: string): Promise<ProjectScan> {
@@ -624,6 +792,8 @@ export async function scanProject(dir: string): Promise<ProjectScan> {
   const keyFileContents = collectKeyFiles(absDir, fileTree)
   const totalLines = estimateLines(keyFileContents, fileCount.value)
 
+  const importGraph = extractImportGraph(absDir, keyFileContents, fileTree)
+
   return {
     name: path.basename(absDir),
     framework,
@@ -636,5 +806,6 @@ export async function scanProject(dir: string): Promise<ProjectScan> {
     totalLines,
     keyFileContents,
     ...(truncated.value ? { truncated: true } : {}),
+    ...(importGraph ? { importGraph } : {}),
   }
 }

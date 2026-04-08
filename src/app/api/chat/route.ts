@@ -94,6 +94,9 @@ function buildSplitPrompt(payload: ChatRequest): { system: string; user: string 
     codeContext,
     buildSummaryContext,
     sessionPhase: phase,
+    brainstormRound: phase === 'brainstorm'
+      ? (history ?? []).filter(m => m.role === 'assistant').length + 1
+      : undefined,
   })
 
   console.log('[chat] phase:', phase, '| system length:', system.length, '| history entries:', payload.history?.length ?? 0)

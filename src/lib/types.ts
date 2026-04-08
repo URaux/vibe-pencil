@@ -37,6 +37,44 @@ export interface BuildAttempt {
   filesCreated?: string[]
 }
 
+export interface ColumnConstraints {
+  primary?: boolean
+  unique?: boolean
+  notNull?: boolean
+  default?: string
+  foreign?: { table: string; column: string }
+}
+
+export interface SchemaColumn {
+  name: string
+  type: string
+  constraints?: ColumnConstraints
+}
+
+export interface SchemaIndex {
+  name: string
+  columns: string[]
+  unique?: boolean
+}
+
+export interface SchemaTable {
+  name: string
+  columns: SchemaColumn[]
+  indexes?: SchemaIndex[]
+}
+
+export interface BlockSchema {
+  tables: SchemaTable[]
+}
+
+export interface FKEdgeData {
+  edgeType: 'fk'
+  sourceTable: string
+  sourceColumn: string
+  targetTable: string
+  targetColumn: string
+}
+
 export interface BlockNodeData extends Record<string, unknown> {
   name: string
   description: string
@@ -44,6 +82,7 @@ export interface BlockNodeData extends Record<string, unknown> {
   summary?: string
   errorMessage?: string
   techStack?: string
+  schema?: BlockSchema
   buildSummary?: BuildSummary
   buildHistory?: BuildAttempt[]
 }

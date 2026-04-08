@@ -2,6 +2,7 @@ import type { Edge, Node } from '@xyflow/react'
 import { parse, stringify } from 'yaml'
 import { layoutArchitectureCanvas } from '@/lib/graph-layout'
 import type {
+  BlockSchema,
   BlockNodeData,
   CanvasNodeData,
   ContainerColor,
@@ -17,6 +18,7 @@ interface SerializedBlock {
   name: string
   description: string
   status: string
+  schema?: BlockSchema
   techStack?: string
   summary?: string
   errorMessage?: string
@@ -142,6 +144,7 @@ function toSerializedBlock(node: Node<BlockNodeData>): SerializedBlock {
     name: node.data.name,
     description: node.data.description,
     status: node.data.status,
+    ...(node.data.schema ? { schema: node.data.schema } : {}),
     ...(node.data.techStack ? { techStack: node.data.techStack } : {}),
     ...(node.data.summary ? { summary: node.data.summary } : {}),
     ...(node.data.errorMessage ? { errorMessage: node.data.errorMessage } : {}),
@@ -199,6 +202,7 @@ function buildBlockNode(
         block.status === 'error'
           ? block.status
           : 'idle',
+      ...(block.schema ? { schema: block.schema } : {}),
       ...(block.techStack ? { techStack: block.techStack } : {}),
       ...(block.summary ? { summary: block.summary } : {}),
       ...(block.errorMessage ? { errorMessage: block.errorMessage } : {}),
@@ -299,6 +303,7 @@ function normalizeSchemaDocument(input: unknown): SchemaDocument {
                   description:
                     typeof block.description === 'string' ? block.description : '',
                   status: typeof block.status === 'string' ? block.status : 'idle',
+                  ...(isObject(block.schema) ? { schema: block.schema as BlockSchema } : {}),
                   ...(typeof block.techStack === 'string'
                     ? { techStack: block.techStack }
                     : {}),

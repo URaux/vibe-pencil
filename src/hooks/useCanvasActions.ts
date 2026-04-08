@@ -151,6 +151,7 @@ function applyActionToSnapshot(
           : typeof node.techStack === 'string'
             ? { techStack: node.techStack }
             : {}),
+        ...(node.data?.schema ? { schema: node.data.schema } : (node as Record<string, unknown>).schema ? { schema: (node as Record<string, unknown>).schema as BlockNodeData['schema'] } : {}),
       } as CanvasNodeData,
     }
     return { nodes: [...currentNodes, newNode], edges: currentEdges }

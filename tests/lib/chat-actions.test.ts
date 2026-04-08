@@ -60,4 +60,13 @@ describe('chat-actions', () => {
 
     expect(extractVisibleChatText(content)).toBe('First answer.')
   })
+
+  it('strips hidden progress comments while keeping visible text', () => {
+    const content = 'Hello world <!-- progress: dimensions_covered=3/6 round=4/8 --> more text'
+    const visible = extractVisibleChatText(content)
+
+    expect(visible).not.toContain('progress:')
+    expect(visible).toContain('Hello world')
+    expect(visible).toContain('more text')
+  })
 })

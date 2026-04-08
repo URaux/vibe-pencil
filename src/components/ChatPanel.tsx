@@ -297,6 +297,24 @@ export function ChatPanel() {
 
   const activeSession = chatSessions.find((s) => s.id === activeChatSessionId)
   const activeMessages = activeSession?.messages ?? []
+
+  // Memoized brainstorm progress from last real assistant message
+  const brainstormProgress = useMemo(() => {
+    if (activeSession?.phase !== 'brainstorm') return null
+    const lastAssistant = [...activeMessages].reverse().find(m =>
+      m.role === 'assistant' && !m.content.startsWith('[构建]') && !m.content.startsWith('[系统]')
+    )
+    if (!lastAssistant?.content) return null
+    // Match the last occurrence of progress comment (not first, to avoid quoted copies)
+    const matches = [...lastAssistant.content.matchAll(/<!--\s*progress:\s*dimensions_covered=(\d+)\/(\d+)\s*round=(\d+)\/(\d+)\s*-->/g)]
+    const match = matches.length > 0 ? matches[matches.length - 1] : null
+    if (!match) return null
+    // Clamp to valid ranges
+    const dims = Math.min(parseInt(match[1], 10), 6)
+    const round = Math.min(Math.max(parseInt(match[3], 10), 1), 8)
+    return { dims: String(dims), totalDims: '6', round: String(round), totalRounds: '8' }
+  }, [activeSession?.phase, activeMessages])
+
   const selectedNode = nodes.find((node) => node.id === selectedNodeId) ?? null
 
   // Auto-restore canvas when switching to a session without saved snapshot
@@ -523,6 +541,42 @@ export function ChatPanel() {
         // Auto-transition from design to iterate after first successful apply
         if (currentPhase === 'design') {
           useAppStore.getState().setSessionPhase(sessionId, 'iterate')
+
+          // Post-generation completeness check: missing edges or schemas
+          const { nodes: postNodes, edges: postEdges } = useAppStore.getState()
+          const blocks = postNodes.filter(n => n.type === 'block')
+          const dataBlocks = blocks.filter(n => {
+            const parentId = n.parentId
+            if (!parentId) return false
+            const parent = postNodes.find(p => p.id === parentId)
+            const parentName = (parent?.data as { name?: string })?.name ?? ''
+            return /data|数据|database|db/i.test(parentName)
+          })
+          const missingSchema = dataBlocks.filter(n => !(n.data as Record<string, unknown>).schema)
+          const hasEdges = postEdges.length > 0
+          const needsFollowUp: string[] = []
+
+          if (!hasEdges && blocks.length > 1) {
+            needsFollowUp.push(
+              locale === 'zh'
+                ? '架构图中缺少连接边（edge）。请为所有有通信关系的 block 之间添加 add-edge，标注协议类型（HTTPS/gRPC/SQL 等）。'
+                : 'The architecture is missing edges between blocks. Please add add-edge actions for all communicating blocks with protocol labels (HTTPS/gRPC/SQL etc).'
+            )
+          }
+          if (missingSchema.length > 0) {
+            const names = missingSchema.map(n => (n.data as { name?: string }).name ?? n.id).join(', ')
+            needsFollowUp.push(
+              locale === 'zh'
+                ? `以下数据层 block 缺少 schema 定义：${names}。请用 update-node 为它们补充完整的 schema（tables/columns/indexes/constraints）。`
+                : `These data layer blocks are missing schema definitions: ${names}. Please use update-node to add complete schema (tables/columns/indexes/constraints).`
+            )
+          }
+
+          if (needsFollowUp.length > 0) {
+            // Auto-send follow-up request
+            const followUpMsg = needsFollowUp.join('\n\n')
+            setTimeout(() => { void handleOptionSelect(followUpMsg) }, 500)
+          }
         }
       }
       // Auto-generate session title + project name from AI response
@@ -681,6 +735,41 @@ export function ChatPanel() {
         await applyCanvasActions(actionBlocks, messageIndex)
         if (currentPhase === 'design') {
           useAppStore.getState().setSessionPhase(sessionId, 'iterate')
+
+          // Post-generation completeness check (same as main submit path)
+          const { nodes: postNodes, edges: postEdges } = useAppStore.getState()
+          const blocks = postNodes.filter(n => n.type === 'block')
+          const dataBlocks = blocks.filter(n => {
+            const parentId = n.parentId
+            if (!parentId) return false
+            const parent = postNodes.find(p => p.id === parentId)
+            const parentName = (parent?.data as { name?: string })?.name ?? ''
+            return /data|数据|database|db/i.test(parentName)
+          })
+          const missingSchema = dataBlocks.filter(n => !(n.data as Record<string, unknown>).schema)
+          const hasEdges = postEdges.length > 0
+          const needsFollowUp: string[] = []
+
+          if (!hasEdges && blocks.length > 1) {
+            needsFollowUp.push(
+              locale === 'zh'
+                ? '架构图中缺少连接边（edge）。请为所有有通信关系的 block 之间添加 add-edge，标注协议类型（HTTPS/gRPC/SQL 等）。'
+                : 'The architecture is missing edges between blocks. Please add add-edge actions for all communicating blocks with protocol labels (HTTPS/gRPC/SQL etc).'
+            )
+          }
+          if (missingSchema.length > 0) {
+            const names = missingSchema.map(n => (n.data as { name?: string }).name ?? n.id).join(', ')
+            needsFollowUp.push(
+              locale === 'zh'
+                ? `以下数据层 block 缺少 schema 定义：${names}。请用 update-node 为它们补充完整的 schema（tables/columns/indexes/constraints）。`
+                : `These data layer blocks are missing schema definitions: ${names}. Please use update-node to add complete schema (tables/columns/indexes/constraints).`
+            )
+          }
+
+          if (needsFollowUp.length > 0) {
+            const followUpMsg = needsFollowUp.join('\n\n')
+            setTimeout(() => { void handleOptionSelect(followUpMsg) }, 500)
+          }
         }
       }
     } catch (sendError) {
@@ -898,7 +987,12 @@ export function ChatPanel() {
             {activeSession?.phase === 'brainstorm' ? (
               <div className="mb-3 flex items-center justify-between">
                 <span className="text-xs text-slate-500">
-                  {locale === 'zh' ? '需求讨论中' : 'Brainstorming'}
+                  {brainstormProgress
+                    ? locale === 'zh'
+                      ? `需求讨论中 · ${brainstormProgress.dims}/${brainstormProgress.totalDims} 维度 · 第 ${brainstormProgress.round}/${brainstormProgress.totalRounds} 轮`
+                      : `Brainstorming · ${brainstormProgress.dims}/${brainstormProgress.totalDims} dims · round ${brainstormProgress.round}/${brainstormProgress.totalRounds}`
+                    : locale === 'zh' ? '需求讨论中' : 'Brainstorming'
+                  }
                 </span>
                 <button
                   type="button"

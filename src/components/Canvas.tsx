@@ -13,6 +13,7 @@ import {
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { ContextMenu } from '@/components/ContextMenu'
+import SchemaEditor from '@/components/SchemaEditor'
 import { edgeTypes } from '@/components/edges/edgeTypes'
 import { nodeTypes } from '@/components/nodes/nodeTypes'
 import {
@@ -31,6 +32,7 @@ import {
   getNodeTypeLabel,
 } from '@/lib/ui-text'
 import type {
+  BlockSchema,
   BlockNodeData,
   CanvasNodeData,
   ContainerColor,
@@ -154,6 +156,7 @@ export function Canvas({ onOpenImportDialog }: CanvasProps) {
   const [draftName, setDraftName] = useState('')
   const [draftDescription, setDraftDescription] = useState('')
   const [draftTechStack, setDraftTechStack] = useState('')
+  const [draftSchema, setDraftSchema] = useState<BlockSchema | undefined>(undefined)
   const [draftColor, setDraftColor] = useState<ContainerColor>('blue')
 
   const toggleContainerCollapse = useCallback(
@@ -346,6 +349,7 @@ export function Canvas({ onOpenImportDialog }: CanvasProps) {
 
       setContextMenu(null)
       setEditingNodeId(null)
+      setDraftSchema(undefined)
     }
 
     window.addEventListener('keydown', handleEscape)
@@ -390,10 +394,12 @@ export function Canvas({ onOpenImportDialog }: CanvasProps) {
       setDraftColor(containerData.color)
       setDraftDescription('')
       setDraftTechStack('')
+      setDraftSchema(undefined)
     } else {
       const blockData = node.data as BlockNodeData
       setDraftDescription(blockData.description)
       setDraftTechStack(blockData.techStack ?? '')
+      setDraftSchema(blockData.schema)
       setDraftColor('blue')
     }
 
@@ -405,6 +411,7 @@ export function Canvas({ onOpenImportDialog }: CanvasProps) {
     setDraftName('')
     setDraftDescription('')
     setDraftTechStack('')
+    setDraftSchema(undefined)
     setDraftColor('blue')
   }
 
@@ -431,6 +438,7 @@ export function Canvas({ onOpenImportDialog }: CanvasProps) {
         name: draftName.trim(),
         description: draftDescription.trim(),
         techStack: draftTechStack.trim(),
+        schema: draftSchema,
       })
     }
 
@@ -595,7 +603,7 @@ export function Canvas({ onOpenImportDialog }: CanvasProps) {
       ) : null}
       {editingNode ? (
         <div className="vp-dialog-backdrop fixed inset-0 z-50 flex items-center justify-center p-6">
-          <div className="vp-dialog-card w-full max-w-lg rounded-[2rem] p-6">
+          <div className="vp-dialog-card max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-[2rem] p-6">
             <div className="mb-5 flex items-start justify-between gap-4">
               <div>
                 <h2 className="text-lg font-semibold text-slate-900">{t('edit_node')}</h2>
@@ -670,6 +678,8 @@ export function Canvas({ onOpenImportDialog }: CanvasProps) {
                       className="vp-input rounded-2xl px-4 py-3 text-sm"
                     />
                   </label>
+
+                  <SchemaEditor schema={draftSchema} onChange={setDraftSchema} />
                 </>
               )}
 

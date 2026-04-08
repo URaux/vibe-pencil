@@ -24,6 +24,7 @@ export interface ContextOptions {
   codeContext?: string
   buildSummaryContext?: string
   sessionPhase?: SessionPhase
+  brainstormRound?: number
 }
 
 // ---------------------------------------------------------------------------
@@ -218,6 +219,7 @@ function layerConstraints(agentType: AgentType, taskParams: Record<string, strin
     '',
     `Only modify files within: ${workDir}`,
     'Do not read or write files outside this directory.',
+    'If the architecture YAML contains schema definitions for Data Layer blocks, you MUST generate database models (ORM entities, migrations) that exactly match the specified tables, columns, types, and constraints. Do not add, remove, or rename any columns.',
     'Do not modify the canvas YAML directly — your output is files on disk.',
   ].join('\n')
 }
@@ -270,6 +272,10 @@ const CANVAS_ACTION_INSTRUCTIONS = [
   '```',
   '',
   '```json:canvas-action',
+  '{"action":"add-node","node":{"type":"block","parentId":"data-layer","data":{"name":"Users DB","description":"User accounts and auth","status":"idle","techStack":"PostgreSQL","schema":{"tables":[{"name":"users","columns":[{"name":"id","type":"bigint","constraints":{"primary":true,"notNull":true}},{"name":"email","type":"varchar(255)","constraints":{"unique":true,"notNull":true}},{"name":"password_hash","type":"varchar(255)","constraints":{"notNull":true}},{"name":"created_at","type":"timestamptz","constraints":{"notNull":true,"default":"now()"}},{"name":"updated_at","type":"timestamptz","constraints":{"notNull":true,"default":"now()"}},{"name":"deleted_at","type":"timestamptz"}],"indexes":[{"name":"idx_users_email","columns":["email"],"unique":true}]}]}}}}',
+  '```',
+  '',
+  '```json:canvas-action',
   '{"action":"add-edge","edge":{"source":"react-app","target":"api-server","type":"sync","label":"HTTPS"}}',
   '```',
   '',
@@ -287,6 +293,60 @@ const CANVAS_ACTION_INSTRUCTIONS = [
   '- update-node: `{"action":"update-node","target_id":"<node-id>","data":{"name":"..."}}`',
   '- remove-node: `{"action":"remove-node","target_id":"<node-id>"}`',
   '- add-edge: `{"action":"add-edge","edge":{"source":"<block-id>","target":"<block-id>","type":"sync|async|bidirectional","label":"..."}}`',
+  '- add-edge (FK): `{"action":"add-edge","edge":{"source":"<source-block-id>","target":"<target-block-id>","type":"sync","label":"FK: orders.user_id → users.id","data":{"edgeType":"fk","sourceTable":"orders","sourceColumn":"user_id","targetTable":"users","targetColumn":"id"}}}`',
+  'When a schema column has a foreign key referencing a table in a DIFFERENT block, ALWAYS create an FK edge connecting the two blocks.',
+  '',
+  'When adding blocks to a Data Layer container, ALWAYS include a schema field with table definitions.',
+  '',
+  '## Schema Design Guidelines',
+  '',
+  '### Naming',
+  '- Tables: snake_case plural (users, order_items)',
+  '- Columns: snake_case singular (user_id, created_at)',
+  '- Indexes: idx_{table}_{column} (idx_users_email)',
+  '- Foreign keys: column named {target_table_singular}_id (user_id → users.id)',
+  '',
+  '### Required columns (every table)',
+  '- id: bigint PK (auto-increment or snowflake)',
+  '- created_at: timestamptz NOT NULL DEFAULT now()',
+  '- updated_at: timestamptz NOT NULL DEFAULT now()',
+  '- deleted_at: timestamptz nullable (soft-delete, optional but recommended)',
+  '',
+  '### Type selection (strict rules)',
+  '- Money/price → decimal(19,4), NEVER float',
+  '- Time → timestamptz, NEVER varchar for dates',
+  '- Status/type/category → enum or reference table, NEVER bare string',
+  '- Boolean → boolean, NOT 0/1 integer',
+  '- Long text → text; short fixed → varchar(N)',
+  '- UUID → uuid type, NOT varchar(36)',
+  '',
+  '### Constraints (explicit is default)',
+  '- Every table MUST have a PK',
+  '- FK MUST reference an existing table.column in the schema',
+  '- NOT NULL is the default stance — only nullable when truly optional',
+  '- UNIQUE on natural keys (email, slug, phone)',
+  '- DEFAULT values when a sensible default exists',
+  '',
+  '### Indexes',
+  '- ALL FK columns MUST be indexed',
+  '- High-frequency query columns: status, type, user_id',
+  '- Composite indexes: respect left-prefix principle',
+  '- Do NOT index low-cardinality columns alone (e.g., gender with 3 values)',
+  '',
+  '### Anti-patterns to avoid',
+  '- All columns are string/text → lazy schema, use proper types',
+  '- No PK → broken fundamentals',
+  '- Float for money → precision loss',
+  '- VARCHAR for timestamps → unsortable, uncomparable',
+  '- Bare string status with no constraint → dirty data source',
+  '- Table missing created_at/updated_at → untraceable',
+  '- FK column without index → full table scan on joins',
+  '- Storing JSON blobs for structured relational data → use proper tables',
+  '',
+  '### Cross-service data (microservice blocks)',
+  '- No physical FK across blocks (cross-DB not supported)',
+  '- Use logical FK: same column type + naming, add comment noting reference',
+  '- Use Edge layer to express cross-block data dependencies',
   '',
   'Node IDs are auto-generated from name as kebab-case (e.g., "React App" → "react-app", "Data Layer" → "data-layer").',
   '',
@@ -299,7 +359,7 @@ const CANVAS_ACTION_INSTRUCTIONS = [
   '- Do NOT skip canvas-action blocks. If the user describes a system, ALWAYS generate them.',
 ].join('\n')
 
-function layerOutputFormat(agentType: AgentType, task: TaskType, locale: Locale, sessionPhase?: SessionPhase): string {
+function layerOutputFormat(agentType: AgentType, task: TaskType, locale: Locale, sessionPhase?: SessionPhase, brainstormRound?: number): string {
   if (task === 'import' || task === 'import-enhance') {
     const exampleContainerName = locale === 'zh' ? '客户端层' : 'Client Layer'
     const exampleBlockName = locale === 'zh' ? 'Web 应用' : 'Web App'
@@ -347,18 +407,80 @@ function layerOutputFormat(agentType: AgentType, task: TaskType, locale: Locale,
     return '# Output Format\n\nWrite files directly to the filesystem. Do not output file contents to stdout unless asked.'
   }
 
-  // canvas agent in brainstorm phase: suppress canvas-action, guide Q&A style
+  // canvas agent in brainstorm phase: structured dimensions + convergence
   if (sessionPhase === 'brainstorm') {
+    // Round number passed from server (counted from structured history array)
+    const currentRound = brainstormRound ?? 1
+    const maxRounds = 8
+
+    const dimensionsZh = [
+      '1. 项目类型和核心目标 — 这个系统要解决什么问题？',
+      '2. 目标用户和规模 — 谁在用？预期多大量级？',
+      '3. 核心功能模块 — 最重要的 3-5 个功能是什么？',
+      '4. 技术栈偏好 — 有没有必须用或不能用的技术？',
+      '5. 数据模型/关键实体 — 核心数据长什么样？主要的表/实体有哪些？',
+      '6. 集成和约束条件 — 要对接哪些外部系统？有什么硬性限制？',
+    ].join('\n')
+
+    const dimensionsEn = [
+      '1. Project type & core goal — What problem does this system solve?',
+      '2. Target users & scale — Who uses it? Expected scale?',
+      '3. Core features / modules — Top 3-5 features?',
+      '4. Tech stack preferences — Any must-use or must-avoid technologies?',
+      '5. Data model / key entities — What does the core data look like?',
+      '6. Integrations & constraints — External systems? Hard limitations?',
+    ].join('\n')
+
+    const convergenceZh = currentRound <= 6
+      ? `当前是第 ${currentRound} 轮（共最多 ${maxRounds} 轮）。按维度顺序推进，每次只问 1 个问题。如果用户的回答已覆盖某个维度，直接跳到下一个。`
+      : currentRound < maxRounds
+        ? `当前是第 ${currentRound} 轮（共最多 ${maxRounds} 轮）。时间紧迫，总结你已了解的内容，只针对关键缺失信息追问。`
+        : `已达第 ${maxRounds} 轮。不要再提问。立刻输出完整的架构方案总结，并建议用户点击"确认方案"进入设计阶段。`
+
+    const convergenceEn = currentRound <= 6
+      ? `This is round ${currentRound} of ${maxRounds}. Progress through dimensions in order, 1 question per turn. If user's answer already covers a dimension, skip to the next.`
+      : currentRound < maxRounds
+        ? `This is round ${currentRound} of ${maxRounds}. Time is short — summarize what you know, only ask about CRITICAL gaps.`
+        : `Round ${maxRounds} reached. Do NOT ask any more questions. Output a full architecture proposal summary NOW and suggest the user click "Start Designing".`
+
     return [
       '# Output Format',
       '',
       'Respond in Markdown only. Do NOT generate any ```json:canvas-action blocks.',
-      'Focus on understanding requirements, clarifying questions, and proposing design approaches.',
-      'When you have enough information, summarize the proposed architecture in text.',
-      'When the user is ready, they will click the "确认方案" button or type "方案确认" to transition to design mode. Do NOT tell them to switch modes manually or mention keyboard shortcuts — the system handles this automatically.',
+      '',
+      locale === 'zh' ? '# 需求讨论阶段' : '# Brainstorm Phase',
+      '',
       locale === 'zh'
-        ? '当前处于需求讨论阶段。请通过提问和讨论来理解用户需求，不要直接生成架构。\n严格每次只问 1 个问题，不要同时问多个问题。等用户回答后再问下一个。如果有明确选项，用编号列出 2-4 个选项供用户选择（例如"1. 方案A 2. 方案B 3. 自定义"）。选项中不要混入问题。\n\n在你的第一次回复末尾，用 <!-- title: 项目标题 --> 格式输出标题（不超过15字，对用户不可见）。'
-        : 'STRICTLY ask only 1 question per response. Do NOT ask multiple questions at once. Wait for the user\'s answer, then ask the next question. When there are clear options, list 2-4 numbered choices (e.g., "1. Option A  2. Option B  3. Custom input"). Do NOT mix questions into option lists.\n\nAt the end of your first response, output a title in <!-- title: Project Title --> format (max 15 chars, invisible to user).',
+        ? '你需要覆盖以下 6 个维度来理解项目需求：'
+        : 'You must cover these 6 dimensions to understand the project:',
+      '',
+      locale === 'zh' ? dimensionsZh : dimensionsEn,
+      '',
+      locale === 'zh' ? '## 进度与收敛规则' : '## Progress & Convergence Rules',
+      '',
+      locale === 'zh' ? convergenceZh : convergenceEn,
+      '',
+      locale === 'zh'
+        ? [
+            '严格每次只问 1 个问题。如果有明确选项，用编号列出 2-4 个选项供用户选择。选项中不要混入问题。',
+            '',
+            '在每次回复末尾，用 HTML 注释标记进度（对用户不可见）：',
+            '<!-- progress: dimensions_covered=N/6 round=N/8 -->',
+            '',
+            '在你的第一次回复末尾，额外输出标题：<!-- title: 项目标题 -->（不超过15字）。',
+            '',
+            '当所有维度覆盖完毕或轮次用尽时，输出完整的架构方案总结，并建议用户点击"确认方案"按钮。',
+          ].join('\n')
+        : [
+            'STRICTLY ask only 1 question per response. When there are clear options, list 2-4 numbered choices. Do NOT mix questions into option lists.',
+            '',
+            'At the end of every response, add an invisible HTML comment tracking progress:',
+            '<!-- progress: dimensions_covered=N/6 round=N/8 -->',
+            '',
+            'At the end of your first response, also output: <!-- title: Project Title --> (max 15 chars).',
+            '',
+            'When all dimensions are covered or rounds are exhausted, output a complete architecture proposal and suggest clicking "Start Designing".',
+          ].join('\n'),
     ].filter(Boolean).join('\n')
   }
 
@@ -383,6 +505,7 @@ export function buildSystemContext(options: ContextOptions): string {
     codeContext,
     buildSummaryContext,
     sessionPhase,
+    brainstormRound,
   } = options
 
   // Canvas agent: no skills. Skills are a build agent feature.
@@ -404,7 +527,7 @@ export function buildSystemContext(options: ContextOptions): string {
     layerTask(task, taskParams),                                                    // L4
     layerSkills(resolvedSkill),                                                       // L5
     layerConstraints(agentType, taskParams),                                        // L6
-    layerOutputFormat(agentType, task, locale, sessionPhase),                       // L7
+    layerOutputFormat(agentType, task, locale, sessionPhase, brainstormRound),                       // L7
   ]
 
   return layers.filter(Boolean).join('\n\n')

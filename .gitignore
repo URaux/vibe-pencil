@@ -46,3 +46,9 @@ next-env.d.ts
 design/
 _pf_parts/
 promptfolio_payload.json
+
+# Generated files
+.graphify_*
+graphify-out/
+src/graphify-out/
+test-results/
