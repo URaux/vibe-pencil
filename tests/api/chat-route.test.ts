@@ -17,6 +17,11 @@ vi.mock('@/lib/llm-client', () => ({
   streamChat: streamChatMock,
 }))
 
+// Prevent real fs.readFile calls from blocking timer-driven tests.
+vi.mock('@/lib/ir/persist', () => ({
+  readIrFile: vi.fn().mockResolvedValue(null),
+}))
+
 import { POST } from '@/app/api/chat/route'
 
 function buildRequest(payload: Record<string, unknown>) {

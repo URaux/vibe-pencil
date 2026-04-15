@@ -1,11 +1,15 @@
 import type { AgentBackend, CustomApiConfig } from '@/lib/agent-runner'
 import { agentRunner } from '@/lib/agent-runner-instance'
+import { ensureCanvasChatScaffold } from '@/lib/cc-native-scaffold'
 import { extractAgentText } from '@/lib/agent-output'
 import { buildSystemContext } from '@/lib/context-engine'
 import type { Locale } from '@/lib/i18n'
 import type { SessionPhase } from '@/lib/store'
 import { streamChat } from '@/lib/llm-client'
 import { getPersistentAgent } from '@/lib/persistent-agent'
+import { compressHistory } from '@/lib/history-compressor'
+import { readIrFile } from '@/lib/ir/persist'
+import type { Ir } from '@/lib/ir'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -33,14 +37,30 @@ interface ChatRequest {
   ccSessionId?: string  // CC session ID for resume — eliminates prompt cache cold start on follow-up turns
 }
 
-function formatHistory(history: ChatMessage[] | undefined) {
-  if (!history?.length) {
-    return 'No prior conversation.'
+/**
+ * Compress-aware history formatter.
+ *
+ * Delegates to `compressHistory` which:
+ *   - Leaves short histories untouched.
+ *   - For long histories, uses a cheap LLM (direct API config) to summarize
+ *     older messages and keeps the last N turns verbatim.
+ *   - Falls back to a deterministic head-tail slice if no LLM config is set.
+ */
+async function formatHistory(history: ChatMessage[] | undefined, signal?: AbortSignal) {
+  const result = await compressHistory(history, {
+    llmConfig: getDirectApiConfig() ?? undefined,
+    signal,
+  })
+  if (result.compressed) {
+    console.log(
+      '[chat] history compressed:',
+      result.originalTokens,
+      '→',
+      result.compressedTokens,
+      'tokens (≈' + Math.round((1 - result.compressedTokens / result.originalTokens) * 100) + '% reduction)',
+    )
   }
-
-  return history
-    .map((entry) => `<${entry.role}>\n${entry.content}\n</${entry.role}>`)
-    .join('\n\n')
+  return result.formatted
 }
 
 /**
@@ -68,10 +88,31 @@ function getBackend(backend?: AgentBackend): AgentBackend {
 }
 
 /**
+ * Attempt to load IR from disk. Returns null on any failure (missing file,
+ * validation error, unexpected I/O) so the caller can fall back silently.
+ */
+async function tryLoadIr(): Promise<Ir | null> {
+  try {
+    return await readIrFile(process.cwd())
+  } catch (err) {
+    console.warn('[chat] IR load failed, falling back to in-memory canvas yaml:', err)
+    return null
+  }
+}
+
+/**
  * Build separated system context and user message.
  * System context goes into the system role; user message into user role.
+ *
+ * @param ir - Optional canonical IR from disk. When provided, replaces in-memory
+ *             canvasYaml as the architecture source-of-truth inside buildSystemContext.
+ *             Callers should load this via tryLoadIr() before invoking this function.
  */
-function buildSplitPrompt(payload: ChatRequest): { system: string; user: string } {
+async function buildSplitPrompt(
+  payload: ChatRequest,
+  signal?: AbortSignal,
+  ir?: Ir | null,
+): Promise<{ system: string; user: string }> {
   const {
     message,
     history,
@@ -84,19 +125,23 @@ function buildSplitPrompt(payload: ChatRequest): { system: string; user: string 
     phase,
   } = payload
 
+  const conversationHistory = await formatHistory(history, signal)
+
   const system = buildSystemContext({
     agentType: 'canvas',
     task: selectedNodeId ? 'discuss-node' : 'discuss',
     locale: locale ?? 'en',
     canvasYaml: architecture_yaml,
     selectedNodeContext: nodeContext ?? (selectedNodeId ? undefined : 'Global chat mode. No node is selected.'),
-    conversationHistory: formatHistory(history),
+    conversationHistory,
     codeContext,
     buildSummaryContext,
     sessionPhase: phase,
     brainstormRound: phase === 'brainstorm'
       ? (history ?? []).filter(m => m.role === 'assistant').length + 1
       : undefined,
+    backend: payload.backend,
+    ir,
   })
 
   console.log('[chat] phase:', phase, '| system length:', system.length, '| history entries:', payload.history?.length ?? 0)
@@ -105,8 +150,8 @@ function buildSplitPrompt(payload: ChatRequest): { system: string; user: string 
 }
 
 /** Legacy: single prompt string for CC CLI stdin fallback */
-function buildPrompt(payload: ChatRequest): string {
-  const { system, user } = buildSplitPrompt(payload)
+async function buildPrompt(payload: ChatRequest, signal?: AbortSignal, ir?: Ir | null): Promise<string> {
+  const { system, user } = await buildSplitPrompt(payload, signal, ir)
   return [system, '', 'Latest user message:', user].join('\n')
 }
 
@@ -122,9 +167,10 @@ function encodeEvent(payload: unknown) {
 async function handleDirectApiChat(
   request: Request,
   payload: ChatRequest,
-  directConfig: { apiBase: string; apiKey: string; model: string }
+  directConfig: { apiBase: string; apiKey: string; model: string },
+  ir?: Ir | null,
 ) {
-  const { system, user } = buildSplitPrompt(payload)
+  const { system, user } = await buildSplitPrompt(payload, request.signal, ir)
 
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
@@ -166,11 +212,11 @@ async function handleDirectApiChat(
   })
 }
 
-async function handleCustomApiChat(request: Request, payload: ChatRequest) {
+async function handleCustomApiChat(request: Request, payload: ChatRequest, ir?: Ir | null) {
   const apiBase = (payload.customApiBase ?? '').replace(/\/+$/, '')
   const apiKey = payload.customApiKey ?? ''
   const apiModel = payload.customApiModel || payload.model || 'gpt-4o'
-  const { system, user } = buildSplitPrompt(payload)
+  const { system, user } = await buildSplitPrompt(payload, request.signal, ir)
 
   if (!apiBase || !apiKey) {
     return Response.json({ error: 'Custom API base URL and key are required.' }, { status: 400 })
@@ -303,10 +349,25 @@ async function handleCustomApiChat(request: Request, payload: ChatRequest) {
 async function handlePersistentChat(
   request: Request,
   payload: ChatRequest,
-  backend: 'claude-code' | 'codex' | 'gemini'
+  backend: 'claude-code' | 'codex' | 'gemini',
+  ir?: Ir | null,
 ) {
-  const prompt = buildPrompt(payload)
-  const agent = getPersistentAgent({ backend, workDir: process.cwd(), model: payload.model })
+  // For Claude Code, spawn inside a scratch dir that contains a CLAUDE.md +
+  // archviber-canvas skill. CC loads them natively (no injected system
+  // prompt), and the skill supplies the canvas-action contract only when
+  // the user actually asks to edit the diagram.
+  const workDir = backend === 'claude-code'
+    ? await ensureCanvasChatScaffold()
+    : process.cwd()
+  const agent = getPersistentAgent({
+    backend,
+    workDir,
+    model: payload.model,
+    resumeSessionId: payload.ccSessionId || undefined,
+  })
+  const prompt = agent.hasConversation()
+    ? await buildPrompt({ ...payload, history: [] }, request.signal, ir)
+    : await buildPrompt(payload, request.signal, ir)
 
   if (!agent.isAlive()) {
     await agent.start()
@@ -316,6 +377,7 @@ async function handlePersistentChat(
     start(controller) {
       let closed = false
       let textAccumulated = ''
+      let sentSessionId = false
 
       const close = () => {
         if (closed) return
@@ -332,6 +394,11 @@ async function handlePersistentChat(
 
       const onEvent = (event: Record<string, unknown>) => {
         if (closed) return
+
+        if (!sentSessionId && typeof event['session_id'] === 'string') {
+          push({ type: 'session', ccSessionId: event['session_id'] })
+          sentSessionId = true
+        }
 
         // Claude stream-json: assistant messages carry content blocks with text
         if (event['type'] === 'assistant') {
@@ -397,27 +464,27 @@ export async function POST(request: Request) {
 
   const backend = getBackend(payload.backend)
 
+  // Load canonical IR from disk once per request. Non-blocking: null on any failure.
+  const ir = await tryLoadIr()
+
   // Fast path: if VIBE_LLM_* env vars are set, use direct HTTP (no CLI subprocess, no cold start).
   // This takes priority over CLI backends but NOT over an explicitly chosen custom-api backend
   // (which may have its own base URL / key from the UI).
   const directConfig = backend !== 'custom-api' ? getDirectApiConfig() : null
   if (directConfig) {
-    return handleDirectApiChat(request, payload, directConfig)
+    return handleDirectApiChat(request, payload, directConfig, ir)
   }
 
   if (backend === 'custom-api') {
-    return handleCustomApiChat(request, payload)
+    return handleCustomApiChat(request, payload, ir)
   }
-
-  // Persistent agent path: DISABLED for now — CC interactive mode stdin issues on Windows.
-  // TODO: debug and re-enable. See persistent-agent.ts.
-  // if (backend === 'claude-code') {
-  //   try {
-  //     return await handlePersistentChat(request, payload, backend)
-  //   } catch {
-  //     // Persistent agent failed — fall through to one-shot spawn
-  //   }
-  // }
+  if (backend === 'claude-code') {
+    try {
+      return await handlePersistentChat(request, payload, backend, ir)
+    } catch (err) {
+      console.error('[chat] persistent Claude path failed, falling back to one-shot:', err)
+    }
+  }
 
   // Fallback: one-shot spawn (used for CC/codex/gemini)
   // CC CLI: combined prompt via stdin (--system-prompt conflicts with CC's own system prompt).
@@ -429,13 +496,16 @@ export async function POST(request: Request) {
   const supportsResume = backend === 'claude-code' || backend === 'codex' || backend === 'gemini'
   const ccSessionId = supportsResume ? (payload.ccSessionId || undefined) : undefined
   const prompt = ccSessionId
-    ? buildPrompt({ ...payload, history: [] })
-    : buildPrompt(payload)
+    ? await buildPrompt({ ...payload, history: [] }, request.signal, ir)
+    : await buildPrompt(payload, request.signal, ir)
+  const spawnWorkDir = backend === 'claude-code'
+    ? await ensureCanvasChatScaffold()
+    : process.cwd()
   const agentId = agentRunner.spawnAgent(
     'chat',
     prompt,
     backend,
-    process.cwd(),
+    spawnWorkDir,
     payload.model,
     undefined,
     ccSessionId
