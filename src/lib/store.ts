@@ -36,6 +36,13 @@ export interface ChatMessage {
   actions?: string[]
   canvasBefore?: { nodes: Node<CanvasNodeData>[]; edges: Edge[] }
   canvasAfter?: { nodes: Node<CanvasNodeData>[]; edges: Edge[] }
+  /**
+   * Per-OptionCards trace: when a multi-select OptionCards block was answered
+   * via a structured form-submission (no user chat turn), record the
+   * selections here keyed by the card index inside this assistant message.
+   * Lets the UI re-render the cards in collapsed "trace" form on revisit.
+   */
+  choiceSelections?: Record<number, { selections: string[]; ordered: boolean }>
 }
 
 export type SessionPhase = 'brainstorm' | 'design' | 'iterate'

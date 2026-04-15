@@ -767,6 +767,162 @@ export function ChatPanel() {
     }
   }
 
+  /**
+   * Multi-select form submission from an OptionCards block.
+   *
+   * Unlike handleOptionSelect, this does NOT push a visible user message into
+   * the chat transcript. Instead:
+   *   1. The structured selections are persisted on the *assistant* message
+   *      (via choiceSelections[choiceIndex]) so the OptionCards re-render in
+   *      "trace" mode on revisit.
+   *   2. The selections are serialized into a synthetic [form-submission]
+   *      block that is appended to the history payload sent to the API, AND
+   *      passed structurally via the `formSubmission` field on the request
+   *      body (for the server to materialize into the latest user turn).
+   *   3. The next assistant turn streams normally.
+   */
+  async function handleFormSubmission(
+    assistantMessageIndex: number,
+    choiceIndex: number,
+    payload: { selections: string[]; ordered: boolean }
+  ) {
+    if (isSending || sendLockRef.current) return
+    sendLockRef.current = true
+
+    const sessionId = activeChatSessionId ?? createChatSession()
+
+    // 1. Persist trace on the assistant message so a future re-render shows
+    //    selections as highlighted (disabled state).
+    updateActiveChatMessages((current) => {
+      const next = [...current]
+      const target = next[assistantMessageIndex]
+      if (!target || target.role !== 'assistant') return current
+      const existing = target.choiceSelections ?? {}
+      next[assistantMessageIndex] = {
+        ...target,
+        choiceSelections: { ...existing, [choiceIndex]: payload },
+      }
+      return next
+    })
+
+    const syntheticUserText =
+      `[form-submission${payload.ordered ? ' (ordered)' : ''}] ` +
+      `selections: ${JSON.stringify(payload.selections)}`
+
+    // History sent to API: include the synthetic user turn so the model has
+    // full context. The frontend transcript itself does NOT show this.
+    const historyForApi = [
+      ...activeMessages,
+      { role: 'user' as const, content: syntheticUserText },
+    ]
+
+    setError(null)
+    setIsSending(true)
+    // Append a placeholder assistant message for the streaming reply, but
+    // skip the visible user bubble entirely.
+    updateActiveChatMessages((current) => [...current, { role: 'assistant', content: '' }])
+
+    remediationAppliedRef.current = new Set()
+    const chatBody = {
+      message: syntheticUserText,
+      formSubmission: {
+        selections: payload.selections,
+        ordered: payload.ordered,
+      },
+      history: historyForApi,
+      nodeContext,
+      codeContext: codeContext ?? undefined,
+      architecture_yaml: canvasToYaml(nodes, edges, projectName),
+      backend,
+      model,
+      locale,
+      phase: activeSession?.phase ?? 'brainstorm',
+      buildSummaryContext: formatBuildContext(
+        useAppStore.getState().buildState,
+        useAppStore.getState().nodes,
+        useAppStore.getState().buildOutputLog
+      ) ?? undefined,
+      customApiBase,
+      customApiKey,
+      customApiModel,
+      ccSessionId: activeSession?.ccSessionId,
+    } as Record<string, unknown>
+
+    try {
+      const response = await fetchChatWithRetry(
+        '/api/chat',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(chatBody),
+        },
+        {
+          remediate: buildRemediate(chatBody),
+          onRemediate: (_err, note) => onRemediateMessage(note),
+        },
+      )
+
+      let fullAssistantText = ''
+      const contentType = response.headers.get('content-type') ?? ''
+      if (contentType.includes('application/json')) {
+        const data = await response.json() as { content?: string; ccSessionId?: string; error?: string }
+        if (data.error) throw new Error(data.error)
+        fullAssistantText = data.content ?? ''
+        if (data.ccSessionId) {
+          updateChatSession(sessionId, { ccSessionId: data.ccSessionId })
+        }
+      } else {
+        if (!response.body) throw new Error(t('chat_start_failed'))
+        const reader = response.body.getReader()
+        const decoder = new TextDecoder()
+        let buffer = ''
+        let visibleAssistantText = ''
+        while (true) {
+          const { value, done } = await reader.read()
+          if (done) break
+          buffer += decoder.decode(value, { stream: true })
+          const { events, rest } = parseStreamEvents(buffer)
+          buffer = rest
+          for (const streamEvent of events) {
+            if (streamEvent.type === 'session' && streamEvent.ccSessionId) {
+              updateChatSession(sessionId, { ccSessionId: streamEvent.ccSessionId })
+              continue
+            }
+            if (streamEvent.type === 'chunk' && streamEvent.text) {
+              fullAssistantText += streamEvent.text
+              const nextVisibleText = extractVisibleChatText(fullAssistantText)
+              if (nextVisibleText !== visibleAssistantText) {
+                visibleAssistantText = nextVisibleText
+                updateAssistantMessage(visibleAssistantText)
+              }
+              continue
+            }
+            if (streamEvent.type === 'error') {
+              throw new Error(streamEvent.error ?? t('chat_failed'))
+            }
+          }
+        }
+      }
+
+      const actionBlocks = extractActionBlocks(fullAssistantText)
+      updateAssistantMessage(extractVisibleChatText(fullAssistantText), actionBlocks)
+    } catch (sendError) {
+      const cfe = sendError as Partial<ChatFetchError>
+      const message = cfe.kind
+        ? describeChatFetchError(sendError as ChatFetchError, locale === 'zh' ? 'zh' : 'en')
+        : sendError instanceof Error ? sendError.message : t('send_failed')
+      setError(message)
+      updateActiveChatMessages((current) => {
+        const last = current.at(-1)
+        if (!last || last.role !== 'assistant' || last.content.trim()) return current
+        return current.slice(0, -1)
+      })
+    } finally {
+      setIsSending(false)
+      sendLockRef.current = false
+    }
+  }
+
   async function handleOptionSelect(text: string) {
     if (isSending || sendLockRef.current) return
     sendLockRef.current = true
@@ -1128,16 +1284,28 @@ export function ChatPanel() {
                         <>
                           <ChatMarkdown content={strippedContent ?? entry.content} />
                           {userChoices.map((choice, ci) => {
-                            // Find the user's reply after this message to highlight selected option
+                            // Single-mode trace: next user message text
                             const nextUserMsg = activeMessages.slice(messageIndex + 1).find(m => m.role === 'user')
                             const selectedText = !isLastAssistant && nextUserMsg ? nextUserMsg.content : undefined
+
+                            // Multi-mode trace: persisted on the assistant message itself
+                            const persistedTrace = entry.choiceSelections?.[ci]
+                            const isAnswered = !!persistedTrace
                             return (
                               <OptionCards
                                 key={ci}
                                 options={choice.options.map((opt, oi) => ({ number: String(oi + 1), text: opt }))}
-                                disabled={isSending || !isLastAssistant}
+                                disabled={isSending || !isLastAssistant || isAnswered}
                                 selectedText={selectedText}
+                                selectedTexts={persistedTrace?.selections}
+                                multi={choice.multi}
+                                ordered={choice.ordered ?? persistedTrace?.ordered}
+                                min={choice.min}
+                                max={choice.max}
+                                allowCustom={choice.allowCustom}
+                                allowIndifferent={choice.allowIndifferent}
                                 onSelect={(text) => { void handleOptionSelect(text) }}
+                                onSubmitMulti={(payload) => { void handleFormSubmission(messageIndex, ci, payload) }}
                               />
                             )
                           })}
