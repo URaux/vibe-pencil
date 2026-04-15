@@ -14,6 +14,11 @@ export const ChatMarkdown = memo(function ChatMarkdown({ content }: ChatMarkdown
     <ReactMarkdown
       remarkPlugins={[remarkGfm]}
       rehypePlugins={[rehypeHighlight]}
+      urlTransform={(url) => {
+        const trimmed = url.trim()
+        if (/^(https?:|mailto:|#|\/)/i.test(trimmed)) return trimmed
+        return ''
+      }}
       components={{
         pre({ children }) {
           return (

@@ -475,7 +475,7 @@ export function applyAssistantControl(
     next = {
       ...next,
       currentBatch: control.progress.batch ?? next.currentBatch,
-      roundCount: control.progress.round ?? next.roundCount,
+      roundCount: Math.max(next.roundCount, control.progress.round ?? 0),
       mode: control.progress.mode ?? next.mode,
     }
   }
