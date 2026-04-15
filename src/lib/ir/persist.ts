@@ -80,9 +80,6 @@ function appendAuditEntry(ir: Ir, commit: string | undefined): Ir {
 }
 
 export async function writeIrFile(projectRoot: string, ir: Ir): Promise<string> {
-  // Validate input before any side effects.
-  irSchema.parse(ir)
-
   await ensureArchviberDir(projectRoot)
 
   const commit = await getGitHeadSha(projectRoot)

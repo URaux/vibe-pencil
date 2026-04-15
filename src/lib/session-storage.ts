@@ -44,6 +44,10 @@ async function idbSaveSessions(sessions: ChatSession[]): Promise<void> {
   return new Promise((resolve, reject) => {
     tx.oncomplete = () => { db.close(); resolve() }
     tx.onerror = () => { db.close(); reject(tx.error) }
+    tx.onabort = () => {
+      db.close()
+      reject(tx.error ?? new Error('aborted'))
+    }
   })
 }
 
@@ -275,17 +279,15 @@ async function _doSave(sessions: ChatSession[]): Promise<void> {
   } else if (!idbOk && !lsOk) {
     lastSaveError =
       'Browser cache write failed; server file is fine. Sessions persist on disk.'
-    // Don't warn too loudly — the file is the source of truth.
-    lastSaveError = null
   } else {
     lastSaveError = null
   }
 }
 
 /** Immediately flush any pending debounced save */
-export function flushSave(sessions: ChatSession[]): void {
+export function flushSave(sessions: ChatSession[]): Promise<void> {
   if (saveTimer) clearTimeout(saveTimer)
-  _doSave(sessions)
+  return _doSave(sessions)
 }
 
 /** Get last save error (null if OK) */
