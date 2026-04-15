@@ -71,6 +71,37 @@ async function idbLoadSessions(): Promise<ChatSession[] | null> {
 }
 
 // ---------------------------------------------------------------------------
+// Server file helpers (authoritative — survives browser cache clears)
+// ---------------------------------------------------------------------------
+
+const SERVER_ENDPOINT = '/api/sessions'
+
+async function serverLoadSessions(): Promise<ChatSession[] | null> {
+  try {
+    const res = await fetch(SERVER_ENDPOINT, { cache: 'no-store' })
+    if (!res.ok) return null
+    const data = (await res.json()) as { sessions?: ChatSession[] }
+    return Array.isArray(data.sessions) ? data.sessions : null
+  } catch {
+    return null
+  }
+}
+
+async function serverSaveSessions(sessions: ChatSession[]): Promise<boolean> {
+  try {
+    const res = await fetch(SERVER_ENDPOINT, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ sessions }),
+      keepalive: true, // allow save during tab unload
+    })
+    return res.ok
+  } catch {
+    return false
+  }
+}
+
+// ---------------------------------------------------------------------------
 // localStorage helpers (fallback)
 // ---------------------------------------------------------------------------
 
@@ -130,47 +161,63 @@ function migrateLegacy(): ChatSession[] | null {
 // ---------------------------------------------------------------------------
 
 /**
- * Load sessions from best available source:
- * 1. IndexedDB (primary, ~50MB+ capacity)
- * 2. localStorage (fallback, ~5MB)
- * 3. Legacy migration
+ * Load sessions from best available source, in priority order:
+ * 1. Server file (authoritative — lives in ArchViber/data/sessions.json, survives browser clears)
+ * 2. IndexedDB (local cache)
+ * 3. localStorage (sync fallback)
+ * 4. Legacy migration
  *
- * Also syncs across backends: if IDB is empty but LS has data, migrate up.
+ * Auto-syncs missing layers: if server has data but IDB is empty, IDB is seeded.
+ * If server is empty but IDB/LS has data (first run after migration), that data
+ * is promoted up to the server so it survives future browser clears.
  */
 export async function loadSessions(): Promise<ChatSession[]> {
   if (typeof window === 'undefined') return []
 
-  try {
-    // Try IndexedDB first
-    const idbSessions = await idbLoadSessions()
-    if (idbSessions && idbSessions.length > 0) {
-      // Apply backward compat
-      return idbSessions.map((s) => ({ ...s, phase: s.phase ?? ('iterate' as SessionPhase) }))
-    }
+  const withPhaseDefault = (arr: ChatSession[]): ChatSession[] =>
+    arr.map((s) => ({ ...s, phase: s.phase ?? ('iterate' as SessionPhase) }))
 
-    // Fallback to localStorage
-    const lsSessions = lsLoadSessions()
-    if (lsSessions && lsSessions.length > 0) {
-      const sessions = lsSessions.map((s) => ({ ...s, phase: s.phase ?? ('iterate' as SessionPhase) }))
-      // Migrate up to IndexedDB
+  try {
+    // 1. Server file — the authoritative source.
+    const serverSessions = await serverLoadSessions()
+    if (serverSessions && serverSessions.length > 0) {
+      const sessions = withPhaseDefault(serverSessions)
+      // Seed IDB so subsequent tab loads have a fast local cache.
       idbSaveSessions(sessions).catch(() => {})
       return sessions
     }
 
-    // Try legacy migration
+    // 2. IDB — local cache. If server returned nothing (or was unreachable),
+    // fall back to whatever we have locally and PROMOTE it to the server so
+    // existing data isn't left stranded in the browser on first upgrade.
+    const idbSessions = await idbLoadSessions()
+    if (idbSessions && idbSessions.length > 0) {
+      const sessions = withPhaseDefault(idbSessions)
+      serverSaveSessions(sessions).catch(() => {})
+      return sessions
+    }
+
+    // 3. LS fallback — same promotion treatment.
+    const lsSessions = lsLoadSessions()
+    if (lsSessions && lsSessions.length > 0) {
+      const sessions = withPhaseDefault(lsSessions)
+      idbSaveSessions(sessions).catch(() => {})
+      serverSaveSessions(sessions).catch(() => {})
+      return sessions
+    }
+
+    // 4. Legacy migration — same promotion.
     const migrated = migrateLegacy()
     if (migrated && migrated.length > 0) {
       idbSaveSessions(migrated).catch(() => {})
+      serverSaveSessions(migrated).catch(() => {})
       return migrated
     }
 
     return []
   } catch {
-    // Last resort: try LS synchronously
     const lsSessions = lsLoadSessions()
-    return lsSessions
-      ? lsSessions.map((s) => ({ ...s, phase: s.phase ?? ('iterate' as SessionPhase) }))
-      : []
+    return lsSessions ? withPhaseDefault(lsSessions) : []
   }
 }
 
@@ -193,35 +240,43 @@ export function saveSessions(sessions: ChatSession[]): void {
 }
 
 async function _doSave(sessions: ChatSession[]): Promise<void> {
-  let idbOk = false
-  let lsOk = false
+  // Server file is authoritative (survives browser cache clears); IDB and LS
+  // are fast local mirrors. We fire all three in parallel and report the worst
+  // failure. A server-only failure is still flagged because the browser-local
+  // copies alone won't survive a cache clear.
+  const [serverOk, idbOk, lsOk] = await Promise.all([
+    serverSaveSessions(sessions),
+    idbSaveSessions(sessions).then(() => true).catch((err) => {
+      console.error('[session-storage] IndexedDB save failed:', err)
+      return false
+    }),
+    Promise.resolve().then(() => {
+      try {
+        const ok = lsSaveSessions(sessions)
+        if (!ok) {
+          console.warn(
+            '[session-storage] localStorage full (>5MB); sync cache will keep its last good snapshot.',
+          )
+        }
+        return ok
+      } catch (err) {
+        console.warn('[session-storage] localStorage write unavailable:', err)
+        return false
+      }
+    }),
+  ])
 
-  // Write to IndexedDB (primary)
-  try {
-    await idbSaveSessions(sessions)
-    idbOk = true
-  } catch {
-    // IDB failed
-  }
-
-  // Write to localStorage (backup) — only keep recent sessions to fit within 5MB
-  try {
-    // Try full save first
-    lsOk = lsSaveSessions(sessions)
-    if (!lsOk && sessions.length > 5) {
-      // Trim old sessions for LS (keep 5 most recent)
-      const recent = [...sessions].sort((a, b) => b.updatedAt - a.updatedAt).slice(0, 5)
-      lsOk = lsSaveSessions(recent)
-    }
-  } catch {
-    // LS failed
-  }
-
-  // Track errors for UI
-  if (!idbOk && !lsOk) {
-    lastSaveError = 'Both IndexedDB and localStorage failed. Sessions may not persist.'
-  } else if (!idbOk) {
-    lastSaveError = null // LS worked, acceptable fallback
+  if (!serverOk && !idbOk && !lsOk) {
+    lastSaveError =
+      'All persistence layers failed (server file, IndexedDB, localStorage). Export now!'
+  } else if (!serverOk) {
+    lastSaveError =
+      'Server-file save failed — sessions only in browser storage. Clearing browser data will lose them.'
+  } else if (!idbOk && !lsOk) {
+    lastSaveError =
+      'Browser cache write failed; server file is fine. Sessions persist on disk.'
+    // Don't warn too loudly — the file is the source of truth.
+    lastSaveError = null
   } else {
     lastSaveError = null
   }

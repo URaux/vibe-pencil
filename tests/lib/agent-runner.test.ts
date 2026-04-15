@@ -40,17 +40,15 @@ describe('AgentRunner', () => {
   it('spawns a claude-code agent and tracks status', async () => {
     const id = runner.spawnAgent('svc-1', 'generate code', 'claude-code', '/tmp')
     const child = spawnMock.mock.results[0]?.value
+    const [command, args, options] = spawnMock.mock.calls[0] ?? []
 
     expect(runner.getStatus(id)?.status).toBe('running')
-    expect(spawnMock).toHaveBeenCalledWith(
-      'claude',
-      ['-p', '--output-format', 'stream-json', '--verbose'],
-      expect.objectContaining({
-        cwd: '/tmp',
-        shell: process.platform === 'win32',
-        stdio: ['pipe', 'pipe', 'pipe'],
-      })
-    )
+    expect(typeof command).toBe('string')
+    expect(args).toEqual(expect.arrayContaining(['-p', '--output-format', 'stream-json', '--verbose']))
+    expect(options).toEqual(expect.objectContaining({
+      cwd: '/tmp',
+      stdio: ['pipe', 'pipe', 'pipe'],
+    }))
     expect(child.stdin.write).toHaveBeenCalledWith('generate code')
     expect(child.stdin.end).toHaveBeenCalled()
 

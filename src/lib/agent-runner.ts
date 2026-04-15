@@ -4,6 +4,7 @@ import { spawn } from 'child_process'
 import { EventEmitter } from 'events'
 import type { Writable } from 'stream'
 import { StringDecoder } from 'string_decoder'
+import { getClaudeCliInvocation } from '@/lib/claude-cli'
 import { clampMaxParallel } from '@/lib/config'
 import type { ProjectConfig } from '@/lib/types'
 
@@ -106,7 +107,10 @@ function getCommand(backend: AgentBackend, prompt: string, model?: string, ccSes
     args.push('--resume', ccSessionId)
   }
   if (model) args.push('--model', model)
-  return { command: 'claude', args, pipeStdin: true, useShell: undefined }
+  return {
+    ...getClaudeCliInvocation(args),
+    pipeStdin: true,
+  }
 }
 
 export class AgentRunner extends EventEmitter {
