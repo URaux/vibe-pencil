@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest'
+import type { Node } from '@xyflow/react'
+import type { CanvasNodeData } from '@/lib/types'
 import { layoutArchitectureCanvas } from '@/lib/graph-layout'
 
 describe('layoutArchitectureCanvas', () => {
   it('assigns positions and sizes to containers and child blocks', async () => {
-    const nodes = [
+    const nodes: Node<CanvasNodeData>[] = [
       {
         id: 'container-app',
         type: 'container',

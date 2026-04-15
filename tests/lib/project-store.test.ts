@@ -20,7 +20,7 @@ describe('project-store', () => {
       name: 'test-project',
       version: '1.0',
       canvas: { nodes: [], edges: [] },
-      config: { agent: 'claude-code' as const, workDir: './output', maxParallel: 3 },
+      config: { agent: 'claude-code' as const, model: 'claude-sonnet-4-6', workDir: './output', maxParallel: 3 },
       history: [],
     }
 

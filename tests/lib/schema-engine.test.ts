@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest'
+import type { Node } from '@xyflow/react'
+import type { CanvasNodeData } from '@/lib/types'
 import { canvasToYaml, yamlToCanvas } from '@/lib/schema-engine'
 
 describe('schema-engine', () => {
-  const nodes = [
+  const nodes: Node<CanvasNodeData>[] = [
     {
       id: 'container-app',
       type: 'container',
