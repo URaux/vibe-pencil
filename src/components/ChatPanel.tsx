@@ -538,6 +538,7 @@ export function ChatPanel() {
       model,
       locale,
       phase: effectivePhase,
+      sessionId,
       buildSummaryContext: formatBuildContext(
         useAppStore.getState().buildState,
         useAppStore.getState().nodes,
@@ -837,6 +838,7 @@ export function ChatPanel() {
       model,
       locale,
       phase: activeSession?.phase ?? 'brainstorm',
+      sessionId,
       buildSummaryContext: formatBuildContext(
         useAppStore.getState().buildState,
         useAppStore.getState().nodes,
@@ -961,6 +963,7 @@ export function ChatPanel() {
       model,
       locale,
       phase: effectiveOptionPhase,
+      sessionId,
       buildSummaryContext: formatBuildContext(
         useAppStore.getState().buildState,
         useAppStore.getState().nodes,
@@ -1283,32 +1286,85 @@ export function ChatPanel() {
                       {entry.content ? (
                         <>
                           <ChatMarkdown content={strippedContent ?? entry.content} />
-                          {userChoices.map((choice, ci) => {
-                            // Single-mode trace: next user message text
-                            const nextUserMsg = activeMessages.slice(messageIndex + 1).find(m => m.role === 'user')
-                            const selectedText = !isLastAssistant && nextUserMsg ? nextUserMsg.content : undefined
-
-                            // Multi-mode trace: persisted on the assistant message itself
-                            const persistedTrace = entry.choiceSelections?.[ci]
-                            const isAnswered = !!persistedTrace
+                          {(() => {
+                            const renderChoice = (choice: typeof userChoices[number], ci: number) => {
+                              const nextUserMsg = activeMessages.slice(messageIndex + 1).find(m => m.role === 'user')
+                              const selectedText = !isLastAssistant && nextUserMsg ? nextUserMsg.content : undefined
+                              const persistedTrace = entry.choiceSelections?.[ci]
+                              const isAnswered = !!persistedTrace
+                              return (
+                                <OptionCards
+                                  options={choice.options.map((opt, oi) => ({ number: String(oi + 1), text: opt }))}
+                                  disabled={isSending || !isLastAssistant || isAnswered}
+                                  selectedText={selectedText}
+                                  selectedTexts={persistedTrace?.selections}
+                                  multi={choice.multi}
+                                  ordered={choice.ordered ?? persistedTrace?.ordered}
+                                  min={choice.min}
+                                  max={choice.max}
+                                  allowCustom={choice.allowCustom}
+                                  allowIndifferent={choice.allowIndifferent}
+                                  onSelect={(text) => { void handleOptionSelect(text) }}
+                                  onSubmitMulti={(payload) => { void handleFormSubmission(messageIndex, ci, payload) }}
+                                />
+                              )
+                            }
+                            if (userChoices.length <= 1) {
+                              return userChoices.map((choice, ci) => (
+                                <div key={ci}>{renderChoice(choice, ci)}</div>
+                              ))
+                            }
+                            const answeredCount = userChoices.filter((_, i) => !!entry.choiceSelections?.[i]).length
                             return (
-                              <OptionCards
-                                key={ci}
-                                options={choice.options.map((opt, oi) => ({ number: String(oi + 1), text: opt }))}
-                                disabled={isSending || !isLastAssistant || isAnswered}
-                                selectedText={selectedText}
-                                selectedTexts={persistedTrace?.selections}
-                                multi={choice.multi}
-                                ordered={choice.ordered ?? persistedTrace?.ordered}
-                                min={choice.min}
-                                max={choice.max}
-                                allowCustom={choice.allowCustom}
-                                allowIndifferent={choice.allowIndifferent}
-                                onSelect={(text) => { void handleOptionSelect(text) }}
-                                onSubmitMulti={(payload) => { void handleFormSubmission(messageIndex, ci, payload) }}
-                              />
+                              <div className="mt-3">
+                                <div className="mb-2 flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-slate-400">
+                                  {userChoices.map((_, ci) => {
+                                    const answered = !!entry.choiceSelections?.[ci]
+                                    return (
+                                      <span
+                                        key={ci}
+                                        className={`h-1.5 w-1.5 rounded-full transition ${answered ? 'bg-orange-400' : 'bg-slate-300'}`}
+                                      />
+                                    )
+                                  })}
+                                  <span className="ml-1 font-semibold tabular-nums">
+                                    {answeredCount}/{userChoices.length}
+                                  </span>
+                                  <span className="ml-auto normal-case tracking-normal text-slate-300">
+                                    {locale === 'zh' ? '左右滑动' : 'swipe →'}
+                                  </span>
+                                </div>
+                                <div className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-2 [scrollbar-width:thin]">
+                                  {userChoices.map((choice, ci) => {
+                                    const persistedTrace = entry.choiceSelections?.[ci]
+                                    const isAnswered = !!persistedTrace
+                                    return (
+                                      <div
+                                        key={ci}
+                                        className="w-[88%] shrink-0 snap-center sm:w-[70%]"
+                                      >
+                                        {choice.question ? (
+                                          <div className="mb-1 flex items-center gap-2 text-xs font-medium text-slate-600">
+                                            <span
+                                              className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold ${
+                                                isAnswered
+                                                  ? 'bg-orange-100 text-orange-600'
+                                                  : 'bg-slate-100 text-slate-500'
+                                              }`}
+                                            >
+                                              {isAnswered ? '✓' : ci + 1}
+                                            </span>
+                                            <span className="flex-1 truncate">{choice.question}</span>
+                                          </div>
+                                        ) : null}
+                                        {renderChoice(choice, ci)}
+                                      </div>
+                                    )
+                                  })}
+                                </div>
+                              </div>
                             )
-                          })}
+                          })()}
                         </>
                       ) : (
                         actionBlocks.length > 0 ? null : (

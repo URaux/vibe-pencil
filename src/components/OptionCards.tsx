@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { Fragment, useState, type ReactNode } from 'react'
 import { useAppStore } from '@/lib/store'
 
 interface Option {
@@ -43,13 +43,37 @@ function rankBadge(idx: number): string {
   return RANK_BADGES[idx] ?? `(${idx + 1})`
 }
 
-function renderOptionInner(text: string): { __html: string } {
-  return {
-    __html: text
-      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-      .replace(/\*(.+?)\*/g, '<em>$1</em>')
-      .replace(/`(.+?)`/g, '<code class="rounded bg-slate-100 px-1 text-xs">$1</code>'),
+function renderOptionInner(text: string): ReactNode {
+  // Tokenize into plain / **bold** / *italic* / `code` segments.
+  // Safe React elements only — never returns raw HTML, so LLM-authored
+  // content like `**<img src=x onerror=alert(1)>**` cannot inject markup.
+  const pattern = /(\*\*([^*]+)\*\*|\*([^*]+)\*|`([^`]+)`)/g
+  const nodes: ReactNode[] = []
+  let lastIndex = 0
+  let key = 0
+  let match: RegExpExecArray | null
+  while ((match = pattern.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      nodes.push(text.slice(lastIndex, match.index))
+    }
+    const [, , bold, italic, code] = match
+    if (bold !== undefined) {
+      nodes.push(<strong key={`b-${key++}`}>{bold}</strong>)
+    } else if (italic !== undefined) {
+      nodes.push(<em key={`i-${key++}`}>{italic}</em>)
+    } else if (code !== undefined) {
+      nodes.push(
+        <code key={`c-${key++}`} className="rounded bg-slate-100 px-1 text-xs">
+          {code}
+        </code>,
+      )
+    }
+    lastIndex = match.index + match[0].length
   }
+  if (lastIndex < text.length) {
+    nodes.push(text.slice(lastIndex))
+  }
+  return <Fragment>{nodes}</Fragment>
 }
 
 export function OptionCards({
@@ -115,8 +139,9 @@ export function OptionCards({
               </span>
               <span
                 className={`flex-1 ${isSelected ? 'text-orange-700 font-medium' : 'text-slate-700'}`}
-                dangerouslySetInnerHTML={renderOptionInner(opt.text)}
-              />
+              >
+                {renderOptionInner(opt.text)}
+              </span>
               <span className={isSelected ? 'text-orange-400' : 'text-slate-300'}>→</span>
             </button>
           )
@@ -196,7 +221,8 @@ export function OptionCards({
   const submitDisabled =
     disabled ||
     effectiveSelections.length === 0 ||
-    effectiveSelections.length > hardMax
+    effectiveSelections.length > hardMax ||
+    (!indifferentPicked && effectiveSelections.length < softMin)
 
   const hintLabel = (() => {
     if (indifferentPicked) return isZh ? '已选「无所谓」' : `Selected: ${indifferentLabel}`
@@ -216,12 +242,8 @@ export function OptionCards({
         const isHistoricalPick = isHistorical && historicalSet.has(opt.text)
         const showSelected = isPicked || isHistoricalPick
         // Historical rank when ordered: position in selectedTexts array
-        const historicalRank = isHistoricalPick && ordered ? (selectedTexts ?? []).indexOf(opt.text) : -1
-        const displayRank = ordered
-          ? isPicked
-            ? pickedIdx
-            : historicalRank
-          : -1
+        const historicalRank = isHistoricalPick ? (selectedTexts ?? []).indexOf(opt.text) : -1
+        const displayRank = isPicked ? pickedIdx : historicalRank
         return (
           <button
             key={opt.number}
@@ -253,9 +275,10 @@ export function OptionCards({
             </span>
             <span
               className={`flex-1 ${showSelected ? 'text-orange-700 font-medium' : 'text-slate-700'}`}
-              dangerouslySetInnerHTML={renderOptionInner(opt.text)}
-            />
-            {ordered && displayRank >= 0 ? (
+            >
+              {renderOptionInner(opt.text)}
+            </span>
+            {displayRank >= 0 ? (
               <span className="ml-2 text-orange-500 text-base font-bold tabular-nums">
                 {rankBadge(displayRank)}
               </span>
