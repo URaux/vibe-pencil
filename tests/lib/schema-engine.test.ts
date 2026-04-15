@@ -106,4 +106,34 @@ edges:
       })
     )
   })
+
+  it('preserves schema refs and field refs on round-trip', async () => {
+    const nodesWithRefs = nodes.map((node) =>
+      node.id === 'block-web'
+        ? {
+            ...node,
+            data: {
+              ...node.data,
+              schemaRefs: ['Users'],
+              schemaFieldRefs: {
+                users: ['ID', 'Email'],
+              },
+            },
+          }
+        : node
+    )
+
+    const yaml = canvasToYaml(nodesWithRefs, edges, 'test-project')
+    const canvas = await yamlToCanvas(yaml)
+    const webNode = canvas.nodes.find((node) => node.id === 'block-web')
+
+    expect(webNode?.data).toEqual(
+      expect.objectContaining({
+        schemaRefs: ['Users'],
+        schemaFieldRefs: {
+          users: ['ID', 'Email'],
+        },
+      })
+    )
+  })
 })

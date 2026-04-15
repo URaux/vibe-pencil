@@ -107,6 +107,45 @@ interface AppState {
 
 const initialLocale = getLocale()
 const CHAT_SESSIONS_STORAGE_KEY = 'vp-chat-sessions'
+export const DEFAULT_MODEL_BY_BACKEND: Record<ProjectConfig['agent'], string> = {
+  'claude-code': 'claude-sonnet-4-6',
+  codex: 'gpt-5.4',
+  gemini: 'gemini-3-flash-preview',
+  'custom-api': 'deepseek-chat',
+}
+
+/** Ordered list of fallback models per backend. When the current model fails
+ *  with "model not found / unavailable", we try the next one in the list.
+ *  Keep 2-3 options per backend — the first is the default, the rest are
+ *  reliable alternates. */
+export const MODEL_FALLBACKS_BY_BACKEND: Record<ProjectConfig['agent'], string[]> = {
+  'claude-code': ['claude-sonnet-4-6', 'claude-haiku-4-5-20251001', 'claude-opus-4-6'],
+  codex: ['gpt-5.4', 'gpt-5-codex', 'o3'],
+  gemini: ['gemini-3-flash-preview', 'gemini-2.5-pro', 'gemini-2.5-flash'],
+  'custom-api': ['deepseek-chat', 'deepseek-reasoner'],
+}
+
+/** Pick the next model to try after `currentModel` failed for `agent`.
+ *  Returns null if no alternates are left. */
+export function pickNextFallbackModel(
+  agent: ProjectConfig['agent'],
+  currentModel: string | undefined,
+): string | null {
+  const list = MODEL_FALLBACKS_BY_BACKEND[agent] ?? []
+  const current = (currentModel ?? '').trim().toLowerCase()
+  for (const candidate of list) {
+    if (candidate.toLowerCase() !== current) return candidate
+  }
+  return null
+}
+
+function normalizeModel(agent: ProjectConfig['agent'], model?: string) {
+  const fallback = DEFAULT_MODEL_BY_BACKEND[agent] ?? 'gpt-5.4'
+  const trimmed = model?.trim()
+  if (!trimmed) return fallback
+  if (agent === 'codex' && trimmed.toLowerCase() === 'o3') return fallback
+  return trimmed
+}
 
 // loadChatSessions: synchronous fallback for SSR/initial render
 // Real loading happens async via session-storage.ts
@@ -289,16 +328,23 @@ export const useAppStore = create<AppState>((set, get) => ({
     }),
   projectName: translate(initialLocale, 'untitled'),
   setProjectName: (name) => set({ projectName: name }),
-  config: { agent: 'codex', model: 'o3', workDir: './workspace', maxParallel: 3 },
+  config: { agent: 'codex', model: 'gpt-5.4', workDir: './workspace', maxParallel: 3 },
   setConfig: (config) =>
-    set({
-      config: {
-        ...get().config,
+    set(() => {
+      const current = get().config
+      const merged = {
+        ...current,
         ...config,
         ...(typeof config.maxParallel === 'number'
           ? { maxParallel: clampMaxParallel(config.maxParallel) }
           : {}),
-      },
+      }
+      return {
+        config: {
+          ...merged,
+          model: normalizeModel(merged.agent, merged.model),
+        },
+      }
     }),
   locale: initialLocale,
   setLocale: (locale) => {
@@ -488,37 +534,116 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 }))
 
+// Union-by-id merge: if both sources have the same session id, keep the one
+// with the newer updatedAt. Used during hydration to reconcile the sync LS
+// seed with the authoritative async IDB load, without dropping edits made
+// while IDB was still loading.
+function mergeSessionsById(primary: ChatSession[], secondary: ChatSession[]): ChatSession[] {
+  const byId = new Map<string, ChatSession>()
+  for (const s of primary) byId.set(s.id, s)
+  for (const s of secondary) {
+    const existing = byId.get(s.id)
+    if (!existing || (s.updatedAt ?? 0) > (existing.updatedAt ?? 0)) {
+      byId.set(s.id, s)
+    }
+  }
+  return Array.from(byId.values()).sort((a, b) => b.updatedAt - a.updatedAt)
+}
+
 if (typeof window !== 'undefined') {
-  // Synchronous initial load from localStorage (fast, for first render)
-  const sessions = loadChatSessions()
+  // ---- Session storage hydration ----
+  //
+  // Two things to get right here:
+  //   1. Race between the sync LS seed and the async server/IDB load — gated
+  //      by a `hydrated` flag so the save subscriber doesn't fire early and
+  //      clobber the authoritative store.
+  //   2. Canvas persistence. The top-level `nodes/edges/projectName` only get
+  //      copied into the active session's `canvasSnapshot` when the user
+  //      switches or creates a new session. So on a mid-session refresh, the
+  //      canvas would evaporate unless we (a) restore it from the active
+  //      session on hydrate, and (b) continuously mirror live canvas state
+  //      into the active session so saves capture it.
+
+  let hydrated = false
+
+  const attachCanvasToActive = (sessions: ChatSession[]): ChatSession[] => {
+    const { activeChatSessionId, nodes, edges, projectName } = useAppStore.getState()
+    if (!activeChatSessionId) return sessions
+    return sessions.map((s) =>
+      s.id === activeChatSessionId
+        ? { ...s, canvasSnapshot: { nodes, edges, projectName } }
+        : s,
+    )
+  }
+
+  const restoreActiveCanvas = () => {
+    const { activeChatSessionId, chatSessions, locale } = useAppStore.getState()
+    if (!activeChatSessionId) return
+    const active = chatSessions.find((s) => s.id === activeChatSessionId)
+    const snap = active?.canvasSnapshot
+    if (!snap) return
+    useAppStore.setState({
+      nodes: snap.nodes ?? [],
+      edges: snap.edges ?? [],
+      projectName: snap.projectName ?? translate(locale, 'untitled'),
+    })
+  }
+
+  // 1. Sync seed from localStorage — fast, for first paint only.
+  const lsSessions = loadChatSessions()
   useAppStore.setState({
-    chatSessions: sessions,
-    activeChatSessionId: sessions[0]?.id ?? null,
+    chatSessions: lsSessions,
+    activeChatSessionId: lsSessions[0]?.id ?? null,
   })
+  restoreActiveCanvas()
 
-  // Async load from IndexedDB (may have more data, e.g. after LS quota trim)
-  loadSessions().then((idbSessions) => {
-    if (idbSessions.length > 0) {
+  // 2. Async load from authoritative source (server file → IDB → LS).
+  loadSessions()
+    .then((authSessions) => {
       const current = useAppStore.getState().chatSessions
-      // Only replace if IDB has more sessions (LS may have been trimmed)
-      if (idbSessions.length > current.length) {
-        useAppStore.setState({
-          chatSessions: idbSessions,
-          activeChatSessionId: idbSessions[0]?.id ?? null,
-        })
-      }
-    }
-  }).catch(() => {})
+      const merged = mergeSessionsById(authSessions, current)
 
-  // Save to both IDB + LS on every change (debounced)
+      if (
+        merged.length !== current.length ||
+        merged.some((s, i) => s.id !== current[i]?.id || s.updatedAt !== current[i]?.updatedAt)
+      ) {
+        const activeId = useAppStore.getState().activeChatSessionId
+        useAppStore.setState({
+          chatSessions: merged,
+          activeChatSessionId:
+            activeId && merged.some((s) => s.id === activeId) ? activeId : merged[0]?.id ?? null,
+        })
+        restoreActiveCanvas()
+      }
+      hydrated = true
+
+      if (merged.length !== authSessions.length) {
+        saveSessions(attachCanvasToActive(merged))
+      }
+    })
+    .catch((err) => {
+      console.error('[store] Session hydration failed; continuing on LS-only state', err)
+      hydrated = true
+    })
+
+  // 3. Save on change — gated until hydration completes. Save whenever the
+  // session list OR the live canvas changes, and always mirror the current
+  // canvas into the active session before persisting.
   useAppStore.subscribe((state, previousState) => {
-    if (state.chatSessions !== previousState.chatSessions) {
-      saveSessions(state.chatSessions)
-    }
+    if (!hydrated) return
+    const sessionsChanged = state.chatSessions !== previousState.chatSessions
+    const canvasChanged =
+      state.nodes !== previousState.nodes ||
+      state.edges !== previousState.edges ||
+      state.projectName !== previousState.projectName
+    if (!sessionsChanged && !canvasChanged) return
+    saveSessions(attachCanvasToActive(state.chatSessions))
   })
 
-  // Flush pending saves on page unload
-  window.addEventListener('beforeunload', () => {
-    flushSave(useAppStore.getState().chatSessions)
+  // 4. Flush pending saves before the tab goes away.
+  const flushNow = () => flushSave(attachCanvasToActive(useAppStore.getState().chatSessions))
+  window.addEventListener('beforeunload', flushNow)
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') flushNow()
   })
 }

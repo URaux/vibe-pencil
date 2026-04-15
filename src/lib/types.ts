@@ -83,6 +83,8 @@ export interface BlockNodeData extends Record<string, unknown> {
   errorMessage?: string
   techStack?: string
   schema?: BlockSchema
+  schemaRefs?: string[]
+  schemaFieldRefs?: Record<string, string[]>
   buildSummary?: BuildSummary
   buildHistory?: BuildAttempt[]
 }
