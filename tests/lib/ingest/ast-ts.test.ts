@@ -66,4 +66,20 @@ describe('parseTsProject — smoke on archviber/src', () => {
     // And exports something
     expect(storeMod.exports.length).toBeGreaterThan(0)
   }, 60_000)
+
+  it('dedups symbols: exported arrow-fn constants appear exactly once per module', async () => {
+    const result = await parseTsProject(srcDir)
+
+    // `exportSessions` in src/lib/session-storage.ts is `export function`;
+    // `saveSessions` is `export function`. Pick an exported-const arrow-fn
+    // pattern: look for any module whose symbols contain a name duplicated.
+    for (const mod of result.modules) {
+      const counts = new Map<string, number>()
+      for (const s of mod.symbols) {
+        counts.set(s.name, (counts.get(s.name) ?? 0) + 1)
+      }
+      const dupes = Array.from(counts.entries()).filter(([, n]) => n > 1)
+      expect(dupes, `${mod.file} has duplicate symbols: ${JSON.stringify(dupes)}`).toEqual([])
+    }
+  }, 60_000)
 })

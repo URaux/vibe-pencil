@@ -10,7 +10,7 @@
  */
 
 import * as path from 'node:path'
-import { Project, SourceFile, Symbol as TsSymbol, SyntaxKind } from 'ts-morph'
+import { Project, SourceFile, SyntaxKind } from 'ts-morph'
 
 // ---------------------------------------------------------------------------
 // Public types — pluggable interface shared across language backends
@@ -141,29 +141,99 @@ function parseSourceFile(sf: SourceFile): ParsedModule {
   }
 
   // --- symbols -------------------------------------------------------------
-  const symbols: ParsedSymbol[] = []
-  for (const c of sf.getClasses()) {
-    const n = c.getName()
-    if (n) symbols.push({ name: n, kind: 'class' })
-  }
-  for (const fn of sf.getFunctions()) {
-    const n = fn.getName()
-    if (n) symbols.push({ name: n, kind: 'function' })
-  }
-  for (const iface of sf.getInterfaces()) {
-    symbols.push({ name: iface.getName(), kind: 'interface' })
-  }
-  for (const ta of sf.getTypeAliases()) {
-    symbols.push({ name: ta.getName(), kind: 'type' })
-  }
-  for (const vs of sf.getVariableStatements()) {
-    for (const decl of vs.getDeclarations()) {
-      const n = decl.getName()
-      if (n) symbols.push({ name: n, kind: 'const' })
+  // Dedup by name: a symbol like `export const foo = () => {}` surfaces both
+  // via `getExportedDeclarations` and `getVariableStatements`. Destructured
+  // `const { a, b } = obj` also emits one entry per binding name. We prefer
+  // the richer entry from `getExportedDeclarations` when both sources exist.
+  const symbolMap = new Map<string, ParsedSymbol>()
+
+  // Pass 1: seed from exported declarations (authoritative kinds).
+  for (const [name, decls] of sf.getExportedDeclarations()) {
+    const decl = decls[0]
+    if (!decl) continue
+    const kind = inferSymbolKindFromNode(decl)
+    if (kind && !symbolMap.has(name)) {
+      symbolMap.set(name, { name, kind })
     }
   }
 
+  const addIfAbsent = (name: string, kind: SymbolKind) => {
+    if (!name) return
+    if (!symbolMap.has(name)) symbolMap.set(name, { name, kind })
+  }
+
+  for (const c of sf.getClasses()) {
+    const n = c.getName()
+    if (n) addIfAbsent(n, 'class')
+  }
+  for (const fn of sf.getFunctions()) {
+    const n = fn.getName()
+    if (n) addIfAbsent(n, 'function')
+  }
+  for (const iface of sf.getInterfaces()) {
+    addIfAbsent(iface.getName(), 'interface')
+  }
+  for (const ta of sf.getTypeAliases()) {
+    addIfAbsent(ta.getName(), 'type')
+  }
+  for (const vs of sf.getVariableStatements()) {
+    for (const decl of vs.getDeclarations()) {
+      for (const bindingName of extractBindingNames(decl.getNameNode())) {
+        addIfAbsent(bindingName, 'const')
+      }
+    }
+  }
+
+  const symbols = Array.from(symbolMap.values())
+
   return { file, imports, exports, symbols }
+}
+
+/**
+ * Map a ts-morph declaration node to our normalized `SymbolKind`.
+ * Returns `undefined` for nodes we don't track as top-level symbols
+ * (e.g. re-exports of namespace bindings, enum members).
+ */
+function inferSymbolKindFromNode(node: import('ts-morph').Node): SymbolKind | undefined {
+  switch (node.getKind()) {
+    case SyntaxKind.ClassDeclaration:
+      return 'class'
+    case SyntaxKind.FunctionDeclaration:
+      return 'function'
+    case SyntaxKind.InterfaceDeclaration:
+      return 'interface'
+    case SyntaxKind.TypeAliasDeclaration:
+      return 'type'
+    case SyntaxKind.VariableDeclaration:
+    case SyntaxKind.BindingElement:
+      return 'const'
+    default:
+      return undefined
+  }
+}
+
+/**
+ * Extract identifier names from a variable declaration name node, walking
+ * object/array binding patterns so destructured `const { a, b } = obj`
+ * yields `['a', 'b']` rather than a single pattern-source entry.
+ */
+function extractBindingNames(nameNode: import('ts-morph').Node | undefined): string[] {
+  if (!nameNode) return []
+  const kind = nameNode.getKind()
+  if (kind === SyntaxKind.Identifier) {
+    return [nameNode.getText()]
+  }
+  if (
+    kind === SyntaxKind.ObjectBindingPattern ||
+    kind === SyntaxKind.ArrayBindingPattern
+  ) {
+    const out: string[] = []
+    for (const el of nameNode.getChildrenOfKind(SyntaxKind.BindingElement)) {
+      out.push(...extractBindingNames(el.getNameNode()))
+    }
+    return out
+  }
+  return []
 }
 
 // ---------------------------------------------------------------------------
@@ -182,7 +252,6 @@ function toGlob(p: string): string {
   return normalizePath(p).replace(/\/$/, '')
 }
 
-// Re-export SyntaxKind / TsSymbol so downstream facts.ts (W2.D2) can reuse
+// Re-export SyntaxKind so downstream facts.ts (W2.D2) can reuse
 // ts-morph primitives without re-importing.
 export { SyntaxKind }
-export type { TsSymbol }
