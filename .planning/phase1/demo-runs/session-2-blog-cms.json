@@ -1,0 +1,56 @@
+{
+  "id": 2,
+  "name": "blog-cms",
+  "result": "PASS",
+  "nodeCount": 57,
+  "screenshots": [
+    "E:\\claude-workspace\\archviber\\.planning\\phase1\\demo-runs\\screenshots\\s2-01-new-session-1776221790556.png",
+    "E:\\claude-workspace\\archviber\\.planning\\phase1\\demo-runs\\screenshots\\s2-02-prompt-sent-1776221801453.png",
+    "E:\\claude-workspace\\archviber\\.planning\\phase1\\demo-runs\\screenshots\\s2-03-first-reply-1776221871692.png",
+    "E:\\claude-workspace\\archviber\\.planning\\phase1\\demo-runs\\screenshots\\s2-04-qa-r0-1776221920188.png",
+    "E:\\claude-workspace\\archviber\\.planning\\phase1\\demo-runs\\screenshots\\s2-05-design-trigger-1776221921688.png",
+    "E:\\claude-workspace\\archviber\\.planning\\phase1\\demo-runs\\screenshots\\s2-05-canvas-1776221925796.png",
+    "E:\\claude-workspace\\archviber\\.planning\\phase1\\demo-runs\\screenshots\\s2-06-adjusted-1776221982804.png",
+    "E:\\claude-workspace\\archviber\\.planning\\phase1\\demo-runs\\screenshots\\s2-07-build-dialog-1776221984955.png"
+  ],
+  "events": [
+    {
+      "phase": "new_session",
+      "ts": 1776221790624
+    },
+    {
+      "phase": "prompt_sent",
+      "ts": 1776221801453
+    },
+    {
+      "phase": "qa_done",
+      "ts": 1776221920289
+    },
+    {
+      "phase": "design_triggered",
+      "ts": 1776221921793
+    },
+    {
+      "phase": "canvas_done",
+      "nodeCount": 39,
+      "ts": 1776221925886
+    },
+    {
+      "phase": "adjusted",
+      "nodesBefore": 39,
+      "nodesAfter": 57,
+      "effectiveCount": 57,
+      "ts": 1776221982917
+    },
+    {
+      "phase": "build_dialog_opened",
+      "ts": 1776221985100
+    },
+    {
+      "phase": "complete",
+      "result": "PASS",
+      "nodeCount": 57,
+      "ts": 1776221985604
+    }
+  ]
+}

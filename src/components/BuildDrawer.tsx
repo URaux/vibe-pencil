@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useAppStore } from '@/lib/store'
+import { t } from '@/lib/i18n'
 import { getRandomLoadingMessage } from '@/lib/loading-messages'
 import { BuildResults } from './build/BuildResults'
 import { DrawerHeader } from './build/DrawerHeader'
@@ -19,6 +20,7 @@ const DEFAULT_HEIGHT = 280
 function CollapsedStrip({ onClick }: { onClick: () => void }) {
   const buildState = useAppStore((state) => state.buildState)
   const nodes = useAppStore((state) => state.nodes)
+  useAppStore((state) => state.locale)
 
   const targetNodeIds: string[] = (buildState as any).targetNodeIds ?? []
   const startedAt: number | undefined = (buildState as any).startedAt
@@ -57,8 +59,13 @@ function CollapsedStrip({ onClick }: { onClick: () => void }) {
 
   let summary: string
   if (active) {
-    // TODO: i18n
-    summary = `Building... Wave ${buildState.currentWave}/${buildState.totalWaves} | ${doneCount}/${total} nodes${elapsed ? ` | ${elapsed}` : ''}`
+    summary =
+      t('build_summary_active', {
+        current: buildState.currentWave,
+        total: buildState.totalWaves,
+        done: doneCount,
+        total_nodes: total,
+      }) + (elapsed ? ` | ${elapsed}` : '')
   } else {
     const parts: string[] = []
     if (doneCount > 0) parts.push(`${doneCount}/${total} built`)
@@ -96,6 +103,7 @@ export function BuildDrawer() {
   const drawerState = useAppStore((state) => (state as any).drawerState as 'hidden' | 'open' | 'collapsed' | undefined) ?? 'hidden'
   const setDrawerState = useAppStore((state) => (state as any).setDrawerState as ((s: 'hidden' | 'open' | 'collapsed') => void) | undefined)
   const buildState = useAppStore((state) => state.buildState)
+  useAppStore((state) => state.locale)
 
   const [panelHeight, setPanelHeight] = useState(DEFAULT_HEIGHT)
   const [activeTab, setActiveTab] = useState<DrawerTab>('waves')
@@ -216,8 +224,7 @@ export function BuildDrawer() {
               }`}
               onClick={() => setActiveTab(tab)}
             >
-              {/* TODO: i18n */}
-              {tab === 'waves' ? 'Waves' : tab === 'output' ? 'Output Log' : 'Results'}
+              {tab === 'waves' ? t('waves_tab') : tab === 'output' ? t('output_log') : t('results')}
             </button>
           )
         )}

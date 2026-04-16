@@ -19,6 +19,8 @@ interface SerializedBlock {
   description: string
   status: string
   schema?: BlockSchema
+  schemaRefs?: string[]
+  schemaFieldRefs?: Record<string, string[]>
   techStack?: string
   summary?: string
   errorMessage?: string
@@ -145,6 +147,8 @@ function toSerializedBlock(node: Node<BlockNodeData>): SerializedBlock {
     description: node.data.description,
     status: node.data.status,
     ...(node.data.schema ? { schema: node.data.schema } : {}),
+    ...(node.data.schemaRefs ? { schemaRefs: node.data.schemaRefs } : {}),
+    ...(node.data.schemaFieldRefs ? { schemaFieldRefs: node.data.schemaFieldRefs } : {}),
     ...(node.data.techStack ? { techStack: node.data.techStack } : {}),
     ...(node.data.summary ? { summary: node.data.summary } : {}),
     ...(node.data.errorMessage ? { errorMessage: node.data.errorMessage } : {}),
@@ -203,6 +207,8 @@ function buildBlockNode(
           ? block.status
           : 'idle',
       ...(block.schema ? { schema: block.schema } : {}),
+      ...(block.schemaRefs ? { schemaRefs: block.schemaRefs } : {}),
+      ...(block.schemaFieldRefs ? { schemaFieldRefs: block.schemaFieldRefs } : {}),
       ...(block.techStack ? { techStack: block.techStack } : {}),
       ...(block.summary ? { summary: block.summary } : {}),
       ...(block.errorMessage ? { errorMessage: block.errorMessage } : {}),
@@ -304,6 +310,32 @@ function normalizeSchemaDocument(input: unknown): SchemaDocument {
                     typeof block.description === 'string' ? block.description : '',
                   status: typeof block.status === 'string' ? block.status : 'idle',
                   ...(isObject(block.schema) ? { schema: block.schema as BlockSchema } : {}),
+                  ...(Array.isArray(block.schemaRefs)
+                    ? {
+                        schemaRefs: block.schemaRefs.filter(
+                          (ref): ref is string => typeof ref === 'string' && ref.trim().length > 0
+                        ),
+                      }
+                    : {}),
+                  ...(isObject(block.schemaFieldRefs)
+                    ? {
+                        schemaFieldRefs: Object.fromEntries(
+                          Object.entries(block.schemaFieldRefs)
+                            .filter(([tableName, fields]) =>
+                              typeof tableName === 'string' &&
+                              tableName.trim().length > 0 &&
+                              Array.isArray(fields) &&
+                              fields.some((field) => typeof field === 'string' && field.trim().length > 0)
+                            )
+                            .map(([tableName, fields]) => [
+                              tableName,
+                              fields
+                                .filter((field) => typeof field === 'string' && field.trim().length > 0)
+                                .map((field) => field.trim()),
+                            ])
+                        ),
+                      }
+                    : {}),
                   ...(typeof block.techStack === 'string'
                     ? { techStack: block.techStack }
                     : {}),

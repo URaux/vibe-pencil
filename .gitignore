@@ -42,7 +42,8 @@ yarn-error.log*
 next-env.d.ts
 /output/
 /workspace/
-.planning/
+.planning/*
+!.planning/phase1/
 design/
 _pf_parts/
 promptfolio_payload.json
@@ -52,3 +53,13 @@ promptfolio_payload.json
 graphify-out/
 src/graphify-out/
 test-results/
+
+# Local session store (chat history persisted on disk)
+/data/
+
+# Runtime project state (IR, brainstorm-state, audit logs) — written at runtime, not source
+.archviber/
+
+# Demo-run screenshots — heavy PNGs, not needed for code review
+.planning/phase1/demo-runs/screenshots/
+tests/demo/screenshots/

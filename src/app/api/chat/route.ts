@@ -1,11 +1,24 @@
 import type { AgentBackend, CustomApiConfig } from '@/lib/agent-runner'
 import { agentRunner } from '@/lib/agent-runner-instance'
+import { ensureCanvasChatScaffold } from '@/lib/cc-native-scaffold'
 import { extractAgentText } from '@/lib/agent-output'
 import { buildSystemContext } from '@/lib/context-engine'
 import type { Locale } from '@/lib/i18n'
 import type { SessionPhase } from '@/lib/store'
 import { streamChat } from '@/lib/llm-client'
 import { getPersistentAgent } from '@/lib/persistent-agent'
+import { compressHistory } from '@/lib/history-compressor'
+import { readIrFile } from '@/lib/ir/persist'
+import type { Ir } from '@/lib/ir'
+import {
+  readBrainstormState,
+  updateBrainstormState,
+  createInitialBrainstormState,
+  formatStateForPrompt,
+  parseAssistantControlComments,
+  applyAssistantControl,
+  type BrainstormState,
+} from '@/lib/brainstorm/state'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -15,8 +28,27 @@ interface ChatMessage {
   content: string
 }
 
+/**
+ * Structured form submission emitted by multi-select OptionCards.
+ * NOT a user chat turn — injected as a system-flavoured user message so the
+ * model sees the structured selection without polluting the chat transcript.
+ */
+interface FormSubmission {
+  questionId?: string
+  selections: string[]
+  ordered: boolean
+}
+
 interface ChatRequest {
   message: string
+  /**
+   * When set, this request is a structured form submission rather than a free
+   * chat turn. The server materializes a deterministic synthetic user message
+   * ("[form] question: ... | selections: [...]") and uses it as the latest
+   * user input. The frontend should NOT push the raw selections into its
+   * visible chat transcript.
+   */
+  formSubmission?: FormSubmission
   history?: ChatMessage[]
   nodeContext?: string
   selectedNodeId?: string
@@ -31,16 +63,87 @@ interface ChatRequest {
   customApiKey?: string
   customApiModel?: string
   ccSessionId?: string  // CC session ID for resume — eliminates prompt cache cold start on follow-up turns
+  /**
+   * ArchViber-side chat session id. When present and `phase === 'brainstorm'`,
+   * the route maintains a persistent BrainstormState file at
+   * `.archviber/brainstorm-state/<sessionId>.json` and injects a short prompt
+   * prefix so the LLM stays anchored across long novice conversations.
+   * Missing → all brainstorm-state logic is skipped silently (legacy clients).
+   */
+  sessionId?: string
 }
 
-function formatHistory(history: ChatMessage[] | undefined) {
-  if (!history?.length) {
-    return 'No prior conversation.'
-  }
+/* ------------------------------------------------ brainstorm-state plumbing --- */
 
-  return history
-    .map((entry) => `<${entry.role}>\n${entry.content}\n</${entry.role}>`)
-    .join('\n\n')
+/**
+ * Load or initialize brainstorm state for this turn. Returns `null` when
+ * disabled (missing sessionId, non-brainstorm phase) or when reading the file
+ * fails — callers should treat null as "skip brainstorm-state path entirely".
+ */
+async function loadOrInitBrainstormState(payload: ChatRequest): Promise<BrainstormState | null> {
+  if (payload.phase !== 'brainstorm') return null
+  const sessionId = payload.sessionId?.trim()
+  if (!sessionId) return null
+  try {
+    const existing = await readBrainstormState(process.cwd(), sessionId)
+    return existing ?? createInitialBrainstormState(sessionId)
+  } catch (err) {
+    console.warn('[chat] brainstorm-state load failed; skipping:', err)
+    return null
+  }
+}
+
+/**
+ * Parse control comments out of the streamed assistant response and persist
+ * the updated brainstorm state. Best-effort: failures log but never throw,
+ * so persistence problems can't break the user-visible chat stream.
+ *
+ * Serialized per sessionId via `updateBrainstormState` — concurrent requests
+ * (double-submit, retry, multiple tabs) are chained so no turn's events are
+ * silently overwritten by a stale-snapshot last-write-wins race.
+ */
+async function persistBrainstormStateFromResponse(
+  state: BrainstormState | null,
+  fullText: string,
+): Promise<void> {
+  if (!state) return
+  try {
+    const control = parseAssistantControlComments(fullText)
+    await updateBrainstormState(process.cwd(), state.sessionId, (current) => {
+      // If another writer raced ahead, rebase our delta on top of their
+      // state rather than the stale `state` captured at request start.
+      const base = current ?? state
+      return applyAssistantControl(base, control)
+    })
+  } catch (err) {
+    console.warn('[chat] brainstorm-state persist failed:', err)
+  }
+}
+
+/**
+ * Compress-aware history formatter.
+ *
+ * Delegates to `compressHistory` which:
+ *   - Leaves short histories untouched.
+ *   - For long histories, uses a cheap LLM (direct API config) to summarize
+ *     older messages and keeps the last N turns verbatim.
+ *   - Falls back to a deterministic head-tail slice if no LLM config is set.
+ */
+async function formatHistory(history: ChatMessage[] | undefined, signal?: AbortSignal) {
+  const result = await compressHistory(history, {
+    llmConfig: getDirectApiConfig() ?? undefined,
+    signal,
+  })
+  if (result.compressed) {
+    console.log(
+      '[chat] history compressed:',
+      result.originalTokens,
+      '→',
+      result.compressedTokens,
+      'tokens (≈' + Math.round((1 - result.compressedTokens / result.originalTokens) * 100) + '% reduction)',
+    )
+  }
+  return result.formatted
 }
 
 /**
@@ -68,10 +171,32 @@ function getBackend(backend?: AgentBackend): AgentBackend {
 }
 
 /**
+ * Attempt to load IR from disk. Returns null on any failure (missing file,
+ * validation error, unexpected I/O) so the caller can fall back silently.
+ */
+async function tryLoadIr(): Promise<Ir | null> {
+  try {
+    return await readIrFile(process.cwd())
+  } catch (err) {
+    console.warn('[chat] IR load failed, falling back to in-memory canvas yaml:', err)
+    return null
+  }
+}
+
+/**
  * Build separated system context and user message.
  * System context goes into the system role; user message into user role.
+ *
+ * @param ir - Optional canonical IR from disk. When provided, replaces in-memory
+ *             canvasYaml as the architecture source-of-truth inside buildSystemContext.
+ *             Callers should load this via tryLoadIr() before invoking this function.
  */
-function buildSplitPrompt(payload: ChatRequest): { system: string; user: string } {
+async function buildSplitPrompt(
+  payload: ChatRequest,
+  signal?: AbortSignal,
+  ir?: Ir | null,
+  brainstormState?: BrainstormState | null,
+): Promise<{ system: string; user: string }> {
   const {
     message,
     history,
@@ -84,29 +209,44 @@ function buildSplitPrompt(payload: ChatRequest): { system: string; user: string 
     phase,
   } = payload
 
+  const conversationHistory = await formatHistory(history, signal)
+
+  const brainstormPrefix = brainstormState ? formatStateForPrompt(brainstormState) : ''
+
   const system = buildSystemContext({
     agentType: 'canvas',
     task: selectedNodeId ? 'discuss-node' : 'discuss',
     locale: locale ?? 'en',
     canvasYaml: architecture_yaml,
     selectedNodeContext: nodeContext ?? (selectedNodeId ? undefined : 'Global chat mode. No node is selected.'),
-    conversationHistory: formatHistory(history),
+    conversationHistory,
     codeContext,
     buildSummaryContext,
     sessionPhase: phase,
     brainstormRound: phase === 'brainstorm'
       ? (history ?? []).filter(m => m.role === 'assistant').length + 1
       : undefined,
+    backend: payload.backend,
+    ir,
   })
 
-  console.log('[chat] phase:', phase, '| system length:', system.length, '| history entries:', payload.history?.length ?? 0)
+  const systemWithPrefix = brainstormPrefix
+    ? `${brainstormPrefix}\n\n${system}`
+    : system
 
-  return { system, user: message }
+  console.log('[chat] phase:', phase, '| system length:', systemWithPrefix.length, '| history entries:', payload.history?.length ?? 0, '| brainstorm-state:', brainstormPrefix ? 'on' : 'off')
+
+  return { system: systemWithPrefix, user: message }
 }
 
 /** Legacy: single prompt string for CC CLI stdin fallback */
-function buildPrompt(payload: ChatRequest): string {
-  const { system, user } = buildSplitPrompt(payload)
+async function buildPrompt(
+  payload: ChatRequest,
+  signal?: AbortSignal,
+  ir?: Ir | null,
+  brainstormState?: BrainstormState | null,
+): Promise<string> {
+  const { system, user } = await buildSplitPrompt(payload, signal, ir, brainstormState)
   return [system, '', 'Latest user message:', user].join('\n')
 }
 
@@ -122,13 +262,16 @@ function encodeEvent(payload: unknown) {
 async function handleDirectApiChat(
   request: Request,
   payload: ChatRequest,
-  directConfig: { apiBase: string; apiKey: string; model: string }
+  directConfig: { apiBase: string; apiKey: string; model: string },
+  ir?: Ir | null,
+  brainstormState?: BrainstormState | null,
 ) {
-  const { system, user } = buildSplitPrompt(payload)
+  const { system, user } = await buildSplitPrompt(payload, request.signal, ir, brainstormState)
 
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
       let closed = false
+      let fullText = ''
 
       const close = () => {
         if (closed) return
@@ -144,8 +287,10 @@ async function handleDirectApiChat(
       try {
         const gen = streamChat(system, [{ role: 'user', content: user }], directConfig, request.signal)
         for await (const chunk of gen) {
+          fullText += chunk
           push({ type: 'chunk', text: chunk })
         }
+        await persistBrainstormStateFromResponse(brainstormState ?? null, fullText)
         push({ type: 'done' })
       } catch (err) {
         if (err instanceof Error && err.name !== 'AbortError') {
@@ -166,11 +311,16 @@ async function handleDirectApiChat(
   })
 }
 
-async function handleCustomApiChat(request: Request, payload: ChatRequest) {
+async function handleCustomApiChat(
+  request: Request,
+  payload: ChatRequest,
+  ir?: Ir | null,
+  brainstormState?: BrainstormState | null,
+) {
   const apiBase = (payload.customApiBase ?? '').replace(/\/+$/, '')
   const apiKey = payload.customApiKey ?? ''
   const apiModel = payload.customApiModel || payload.model || 'gpt-4o'
-  const { system, user } = buildSplitPrompt(payload)
+  const { system, user } = await buildSplitPrompt(payload, request.signal, ir, brainstormState)
 
   if (!apiBase || !apiKey) {
     return Response.json({ error: 'Custom API base URL and key are required.' }, { status: 400 })
@@ -236,6 +386,7 @@ async function handleCustomApiChat(request: Request, payload: ChatRequest) {
       const decoder = new TextDecoder()
       let buffer = ''
       let closed = false
+      let fullText = ''
 
       const close = () => {
         if (closed) return
@@ -269,6 +420,7 @@ async function handleCustomApiChat(request: Request, payload: ChatRequest) {
               }
               const delta = parsed.choices?.[0]?.delta?.content
               if (delta) {
+                fullText += delta
                 push({ type: 'chunk', text: delta })
               }
             } catch {
@@ -277,6 +429,7 @@ async function handleCustomApiChat(request: Request, payload: ChatRequest) {
           }
         }
 
+        await persistBrainstormStateFromResponse(brainstormState ?? null, fullText)
         push({ type: 'done' })
       } catch (err) {
         if (err instanceof Error && err.name !== 'AbortError') {
@@ -303,10 +456,26 @@ async function handleCustomApiChat(request: Request, payload: ChatRequest) {
 async function handlePersistentChat(
   request: Request,
   payload: ChatRequest,
-  backend: 'claude-code' | 'codex' | 'gemini'
+  backend: 'claude-code' | 'codex' | 'gemini',
+  ir?: Ir | null,
+  brainstormState?: BrainstormState | null,
 ) {
-  const prompt = buildPrompt(payload)
-  const agent = getPersistentAgent({ backend, workDir: process.cwd(), model: payload.model })
+  // For Claude Code, spawn inside a scratch dir that contains a CLAUDE.md +
+  // archviber-canvas skill. CC loads them natively (no injected system
+  // prompt), and the skill supplies the canvas-action contract only when
+  // the user actually asks to edit the diagram.
+  const workDir = backend === 'claude-code'
+    ? await ensureCanvasChatScaffold()
+    : process.cwd()
+  const agent = getPersistentAgent({
+    backend,
+    workDir,
+    model: payload.model,
+    resumeSessionId: payload.ccSessionId || undefined,
+  })
+  const prompt = agent.hasConversation()
+    ? await buildPrompt({ ...payload, history: [] }, request.signal, ir, brainstormState)
+    : await buildPrompt(payload, request.signal, ir, brainstormState)
 
   if (!agent.isAlive()) {
     await agent.start()
@@ -316,6 +485,7 @@ async function handlePersistentChat(
     start(controller) {
       let closed = false
       let textAccumulated = ''
+      let sentSessionId = false
 
       const close = () => {
         if (closed) return
@@ -325,6 +495,13 @@ async function handlePersistentChat(
         controller.close()
       }
 
+      // Fire-and-forget persistence on response-done. We snapshot
+      // `textAccumulated` (the full assistant text) and let the I/O race
+      // controller.close — failures are swallowed inside the helper.
+      const persistAndCleanup = () => {
+        void persistBrainstormStateFromResponse(brainstormState ?? null, textAccumulated)
+      }
+
       const push = (event: unknown) => {
         if (closed) return
         controller.enqueue(encodeEvent(event))
@@ -332,6 +509,11 @@ async function handlePersistentChat(
 
       const onEvent = (event: Record<string, unknown>) => {
         if (closed) return
+
+        if (!sentSessionId && typeof event['session_id'] === 'string') {
+          push({ type: 'session', ccSessionId: event['session_id'] })
+          sentSessionId = true
+        }
 
         // Claude stream-json: assistant messages carry content blocks with text
         if (event['type'] === 'assistant') {
@@ -352,6 +534,7 @@ async function handlePersistentChat(
       }
 
       const onDone = () => {
+        persistAndCleanup()
         push({ type: 'done' })
         close()
       }
@@ -388,8 +571,31 @@ async function handlePersistentChat(
   })
 }
 
+/**
+ * Convert a structured FormSubmission into the synthetic user message the
+ * model will see. Kept deterministic so the model can detect "this came from
+ * a UI form" and respond accordingly (e.g., not echo back the choices).
+ */
+function renderFormSubmission(sub: FormSubmission, fallbackMessage: string): string {
+  const orderedTag = sub.ordered ? ' (ordered)' : ''
+  const lines = [
+    `[form-submission${orderedTag}]`,
+    sub.questionId ? `question_id: ${sub.questionId}` : null,
+    `selections: ${JSON.stringify(sub.selections)}`,
+    fallbackMessage ? `note: ${fallbackMessage}` : null,
+  ].filter(Boolean)
+  return lines.join('\n')
+}
+
 export async function POST(request: Request) {
   const payload = (await request.json()) as ChatRequest
+
+  // Materialize structured form submissions into a synthetic user message
+  // BEFORE the empty-message guard, so multi-select cards can submit without
+  // any chat-text payload.
+  if (payload.formSubmission && Array.isArray(payload.formSubmission.selections)) {
+    payload.message = renderFormSubmission(payload.formSubmission, payload.message ?? '')
+  }
 
   if (!payload.message?.trim()) {
     return Response.json({ error: 'Message cannot be empty.' }, { status: 400 })
@@ -397,27 +603,31 @@ export async function POST(request: Request) {
 
   const backend = getBackend(payload.backend)
 
+  // Load canonical IR from disk once per request. Non-blocking: null on any failure.
+  const ir = await tryLoadIr()
+
+  // Load (or initialize) per-session brainstorm state for novice/long-conversation
+  // anchoring. Returns null when phase !== 'brainstorm' or sessionId missing.
+  const brainstormState = await loadOrInitBrainstormState(payload)
+
   // Fast path: if VIBE_LLM_* env vars are set, use direct HTTP (no CLI subprocess, no cold start).
   // This takes priority over CLI backends but NOT over an explicitly chosen custom-api backend
   // (which may have its own base URL / key from the UI).
   const directConfig = backend !== 'custom-api' ? getDirectApiConfig() : null
   if (directConfig) {
-    return handleDirectApiChat(request, payload, directConfig)
+    return handleDirectApiChat(request, payload, directConfig, ir, brainstormState)
   }
 
   if (backend === 'custom-api') {
-    return handleCustomApiChat(request, payload)
+    return handleCustomApiChat(request, payload, ir, brainstormState)
   }
-
-  // Persistent agent path: DISABLED for now — CC interactive mode stdin issues on Windows.
-  // TODO: debug and re-enable. See persistent-agent.ts.
-  // if (backend === 'claude-code') {
-  //   try {
-  //     return await handlePersistentChat(request, payload, backend)
-  //   } catch {
-  //     // Persistent agent failed — fall through to one-shot spawn
-  //   }
-  // }
+  if (backend === 'claude-code') {
+    try {
+      return await handlePersistentChat(request, payload, backend, ir, brainstormState)
+    } catch (err) {
+      console.error('[chat] persistent Claude path failed, falling back to one-shot:', err)
+    }
+  }
 
   // Fallback: one-shot spawn (used for CC/codex/gemini)
   // CC CLI: combined prompt via stdin (--system-prompt conflicts with CC's own system prompt).
@@ -429,13 +639,16 @@ export async function POST(request: Request) {
   const supportsResume = backend === 'claude-code' || backend === 'codex' || backend === 'gemini'
   const ccSessionId = supportsResume ? (payload.ccSessionId || undefined) : undefined
   const prompt = ccSessionId
-    ? buildPrompt({ ...payload, history: [] })
-    : buildPrompt(payload)
+    ? await buildPrompt({ ...payload, history: [] }, request.signal, ir, brainstormState)
+    : await buildPrompt(payload, request.signal, ir, brainstormState)
+  const spawnWorkDir = backend === 'claude-code'
+    ? await ensureCanvasChatScaffold()
+    : process.cwd()
   const agentId = agentRunner.spawnAgent(
     'chat',
     prompt,
     backend,
-    process.cwd(),
+    spawnWorkDir,
     payload.model,
     undefined,
     ccSessionId
@@ -479,6 +692,8 @@ export async function POST(request: Request) {
 
   const fullText = extractAgentText(finalStatus.output)
   const sessionMatch = finalStatus.output.match(/"session_id"\s*:\s*"([0-9a-f-]{36})"/)
+
+  await persistBrainstormStateFromResponse(brainstormState, fullText)
 
   return Response.json({
     content: fullText,

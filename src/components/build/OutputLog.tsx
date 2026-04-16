@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useAppStore } from '@/lib/store'
 import { getRandomLoadingMessage } from '@/lib/loading-messages'
+import { t } from '@/lib/i18n'
 
 interface LogLine {
   text: string
@@ -17,6 +18,7 @@ export function OutputLog() {
   ) ?? {}
   const buildState = useAppStore((state) => state.buildState)
   const nodes = useAppStore((state) => state.nodes)
+  useAppStore((state) => state.locale)
 
   const targetNodeIds: string[] = (buildState as any).targetNodeIds ?? []
 
@@ -118,8 +120,7 @@ export function OutputLog() {
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
         >
-          {/* TODO: i18n */}
-          <option value="all">All nodes</option>
+          <option value="all">{t('all_nodes_filter')}</option>
           {targetNodeIds.map((id) => (
             <option key={id} value={id}>
               {nodeNameMap.get(id) ?? id}
@@ -141,9 +142,8 @@ export function OutputLog() {
               ? 'bg-orange-50 text-orange-600'
               : 'text-slate-400 hover:bg-slate-100 hover:text-slate-600'
           }`}
-          title={pinToBottom ? 'Auto-scroll on' : 'Auto-scroll off'}
+          title={pinToBottom ? t('auto_scroll_on') : t('auto_scroll_off')}
         >
-          {/* TODO: i18n */}
           <svg
             className="h-3 w-3"
             fill="none"
@@ -153,7 +153,7 @@ export function OutputLog() {
           >
             <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
           </svg>
-          {pinToBottom ? 'Following' : 'Follow'}
+          {pinToBottom ? t('following_log') : t('follow_log')}
         </button>
       </div>
 
@@ -165,8 +165,7 @@ export function OutputLog() {
       >
         {displayLines.length === 0 ? (
           <span className="italic text-slate-500">
-            {/* TODO: i18n */}
-            {buildState.active ? 'Waiting for output...' : 'No output yet.'}
+            {buildState.active ? t('waiting_for_output') : t('no_output_yet')}
           </span>
         ) : (
           displayLines.map((line, i) => {

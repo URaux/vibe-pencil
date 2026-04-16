@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useAppStore } from '@/lib/store'
+import { t } from '@/lib/i18n'
 import type { BuildStatus } from '@/lib/types'
 
 // ---- Elapsed time helpers ----
@@ -122,6 +123,7 @@ function NodeRow({
   errorMessage,
   blockedByName,
 }: NodeRowProps) {
+  useAppStore((state) => state.locale)
   const elapsed = useElapsed(startedAt, finishedAt)
   const [errorExpanded, setErrorExpanded] = useState(false)
 
@@ -136,9 +138,8 @@ function NodeRow({
       {/* Blocked badge */}
       {status === ('blocked' as string) && blockedByName && (
         <div className="mb-1 ml-5 text-xs text-red-400">
-          {/* TODO: i18n — "Blocked by:" */}
           <span className="rounded-full bg-red-50 px-2 py-0.5 font-medium">
-            Blocked by: {blockedByName}
+            {t('blocked_by', { name: blockedByName })}
           </span>
         </div>
       )}
@@ -151,8 +152,7 @@ function NodeRow({
             className="text-xs text-red-400 underline underline-offset-2 hover:text-red-500"
             onClick={() => setErrorExpanded((v) => !v)}
           >
-            {/* TODO: i18n */}
-            {errorExpanded ? 'Hide error' : 'Show error'}
+            {errorExpanded ? t('hide_error') : t('show_error')}
           </button>
           {errorExpanded && (
             <pre className="mt-1 max-h-24 overflow-auto whitespace-pre-wrap rounded bg-red-50 p-2 text-[10px] text-red-600">
@@ -186,6 +186,7 @@ function WaveSection({
   nodeErrorMap,
   blockedNodes,
 }: WaveSectionProps) {
+  useAppStore((state) => state.locale)
   const aggregate = waveAggregateStatus(nodeIds, nodeStatusMap)
   const [collapsed, setCollapsed] = useState(false)
 
@@ -234,8 +235,7 @@ function WaveSection({
           )}
         </span>
 
-        {/* TODO: i18n — "Wave" */}
-        <span>Wave {waveIndex + 1}</span>
+        <span>{t('wave_n', { n: waveIndex + 1 })}</span>
         <span className="ml-auto text-slate-300">{collapsed ? '▶' : '▼'}</span>
       </button>
 
@@ -276,6 +276,7 @@ export function WaveList() {
   const blockedNodes =
     useAppStore((state) => (state.buildState as any).blockedNodes as Record<string, string> | undefined) ?? {}
   const nodes = useAppStore((state) => state.nodes)
+  useAppStore((state) => state.locale)
 
   // Build lookup maps from nodes
   const nodeStatusMap = new Map<string, BuildStatus>()
@@ -294,8 +295,7 @@ export function WaveList() {
   if (waves.length === 0) {
     return (
       <div className="flex items-center justify-center py-8 text-xs text-slate-400">
-        {/* TODO: i18n */}
-        No wave data available.
+        {t('no_wave_data')}
       </div>
     )
   }

@@ -1,0 +1,55 @@
+{
+  "id": 3,
+  "name": "data-pipeline",
+  "result": "PASS",
+  "nodeCount": 22,
+  "screenshots": [
+    "E:\\claude-workspace\\archviber\\.planning\\phase1\\demo-runs\\screenshots\\s3-01-new-session-1776221990327.png",
+    "E:\\claude-workspace\\archviber\\.planning\\phase1\\demo-runs\\screenshots\\s3-02-prompt-sent-1776221991783.png",
+    "E:\\claude-workspace\\archviber\\.planning\\phase1\\demo-runs\\screenshots\\s3-03-first-reply-1776222043934.png",
+    "E:\\claude-workspace\\archviber\\.planning\\phase1\\demo-runs\\screenshots\\s3-05-design-trigger-1776222045383.png",
+    "E:\\claude-workspace\\archviber\\.planning\\phase1\\demo-runs\\screenshots\\s3-05-canvas-1776222096863.png",
+    "E:\\claude-workspace\\archviber\\.planning\\phase1\\demo-runs\\screenshots\\s3-06-adjusted-1776222138628.png",
+    "E:\\claude-workspace\\archviber\\.planning\\phase1\\demo-runs\\screenshots\\s3-07-build-dialog-1776222140752.png"
+  ],
+  "events": [
+    {
+      "phase": "new_session",
+      "ts": 1776221990411
+    },
+    {
+      "phase": "prompt_sent",
+      "ts": 1776221991783
+    },
+    {
+      "phase": "qa_done",
+      "ts": 1776222044012
+    },
+    {
+      "phase": "design_triggered",
+      "ts": 1776222045473
+    },
+    {
+      "phase": "canvas_done",
+      "nodeCount": 11,
+      "ts": 1776222096949
+    },
+    {
+      "phase": "adjusted",
+      "nodesBefore": 11,
+      "nodesAfter": 22,
+      "effectiveCount": 22,
+      "ts": 1776222138736
+    },
+    {
+      "phase": "build_dialog_opened",
+      "ts": 1776222140887
+    },
+    {
+      "phase": "complete",
+      "result": "PASS",
+      "nodeCount": 22,
+      "ts": 1776222141390
+    }
+  ]
+}

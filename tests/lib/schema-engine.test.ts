@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest'
+import type { Node } from '@xyflow/react'
+import type { CanvasNodeData } from '@/lib/types'
 import { canvasToYaml, yamlToCanvas } from '@/lib/schema-engine'
 
 describe('schema-engine', () => {
-  const nodes = [
+  const nodes: Node<CanvasNodeData>[] = [
     {
       id: 'container-app',
       type: 'container',
@@ -103,6 +105,36 @@ edges:
         source: 'fe-1',
         target: 'svc-1',
         type: 'sync',
+      })
+    )
+  })
+
+  it('preserves schema refs and field refs on round-trip', async () => {
+    const nodesWithRefs = nodes.map((node) =>
+      node.id === 'block-web'
+        ? {
+            ...node,
+            data: {
+              ...node.data,
+              schemaRefs: ['Users'],
+              schemaFieldRefs: {
+                users: ['ID', 'Email'],
+              },
+            },
+          }
+        : node
+    )
+
+    const yaml = canvasToYaml(nodesWithRefs, edges, 'test-project')
+    const canvas = await yamlToCanvas(yaml)
+    const webNode = canvas.nodes.find((node) => node.id === 'block-web')
+
+    expect(webNode?.data).toEqual(
+      expect.objectContaining({
+        schemaRefs: ['Users'],
+        schemaFieldRefs: {
+          users: ['ID', 'Email'],
+        },
       })
     )
   })

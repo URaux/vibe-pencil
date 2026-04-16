@@ -9,6 +9,8 @@ import { ChatPanel } from '@/components/ChatPanel'
 import { ChatSidebar } from '@/components/ChatSidebar'
 import { ExportMenu } from '@/components/ExportMenu'
 import { ImportDialog } from '@/components/ImportDialog'
+import { IrAutosaveBootstrap } from '@/components/IrAutosaveBootstrap'
+import { IrExternalWatcher } from '@/components/IrExternalWatcher'
 import { NodePalette } from '@/components/NodePalette'
 import { SettingsDialog } from '@/components/SettingsDialog'
 import { StatusBar } from '@/components/StatusBar'
@@ -57,6 +59,8 @@ export default function Home() {
 
   return (
     <ReactFlowProvider>
+      <IrAutosaveBootstrap />
+      <IrExternalWatcher />
       <main className="flex flex-col overflow-hidden bg-transparent text-slate-800" style={{ height: '100dvh', width: '100dvw' }}>
         <header className="vp-panel relative z-50 flex flex-wrap items-center justify-between gap-3 border-b border-slate-200/80 px-5 py-3">
           <div>

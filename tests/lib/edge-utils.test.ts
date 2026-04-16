@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest'
+import type { Node } from '@xyflow/react'
+import type { CanvasNodeData } from '@/lib/types'
 import { assignAllEdgeHandles, assignHandles } from '@/lib/edge-utils'
 
 describe('assignHandles', () => {
@@ -24,7 +26,7 @@ describe('assignHandles', () => {
   })
 
   it('uses vertical handles for cross-container edges when target is below', () => {
-    const allNodes = [
+    const allNodes: Node<CanvasNodeData>[] = [
       {
         id: 'container-1',
         type: 'container',
@@ -61,7 +63,7 @@ describe('assignHandles', () => {
 
 describe('assignAllEdgeHandles', () => {
   it('assigns handles across the full edge list', () => {
-    const nodes = [
+    const nodes: Node<CanvasNodeData>[] = [
       {
         id: 'block-a',
         type: 'block',

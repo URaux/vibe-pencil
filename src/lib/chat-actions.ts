@@ -96,6 +96,18 @@ export function extractVisibleChatText(content: string) {
 export interface UserChoice {
   question: string
   options: string[]
+  /** Multi-select mode (checkboxes + submit button). Default: false. */
+  multi?: boolean
+  /** Soft-hint minimum selections (label only, not enforced). Default: 1. */
+  min?: number
+  /** Hard cap on selections (disable more picks). Default: options.length. */
+  max?: number
+  /** Render an "其他（自己填）" custom text input. Default: false. */
+  allowCustom?: boolean
+  /** Append a "无所谓" option at bottom, mutually exclusive with others. Default: false. */
+  allowIndifferent?: boolean
+  /** Multi-select with rank badges (①②③) showing pick order. Implies multi. Default: false. */
+  ordered?: boolean
 }
 
 export function extractUserChoices(content: string): UserChoice[] {
@@ -103,9 +115,27 @@ export function extractUserChoices(content: string): UserChoice[] {
   const choices: UserChoice[] = []
   for (const match of content.matchAll(CHOICE_BLOCK)) {
     try {
-      const parsed = JSON.parse(match[1].trim()) as { question?: string; options?: string[] }
+      const parsed = JSON.parse(match[1].trim()) as {
+        question?: string
+        options?: string[]
+        multi?: boolean
+        min?: number
+        max?: number
+        allowCustom?: boolean
+        allowIndifferent?: boolean
+        ordered?: boolean
+      }
       if (parsed.question && Array.isArray(parsed.options) && parsed.options.length >= 2) {
-        choices.push({ question: parsed.question, options: parsed.options })
+        const choice: UserChoice = { question: parsed.question, options: parsed.options }
+        // ordered implies multi
+        const isMulti = parsed.multi === true || parsed.ordered === true
+        if (isMulti) choice.multi = true
+        if (parsed.ordered === true) choice.ordered = true
+        if (typeof parsed.min === 'number' && parsed.min > 0) choice.min = parsed.min
+        if (typeof parsed.max === 'number' && parsed.max > 0) choice.max = parsed.max
+        if (parsed.allowCustom === true) choice.allowCustom = true
+        if (parsed.allowIndifferent === true) choice.allowIndifferent = true
+        choices.push(choice)
       }
     } catch { /* skip invalid */ }
   }

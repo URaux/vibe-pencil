@@ -6,6 +6,8 @@ import type { BlockSchema, ColumnConstraints, SchemaColumn, SchemaIndex, SchemaT
 interface SchemaEditorProps {
   schema: BlockSchema | undefined
   onChange: (schema: BlockSchema | undefined) => void
+  readOnly?: boolean
+  hint?: string
 }
 
 function createEmptyColumn(): SchemaColumn {
@@ -101,7 +103,7 @@ function getColumnHighlight(column: SchemaColumn) {
   return 'border border-slate-200 bg-white'
 }
 
-export default function SchemaEditor({ schema, onChange }: SchemaEditorProps) {
+export default function SchemaEditor({ schema, onChange, readOnly = false, hint }: SchemaEditorProps) {
   const [localSchema, setLocalSchema] = useState<BlockSchema | undefined>(schema)
   const [isExpanded, setIsExpanded] = useState(Boolean(schema))
 
@@ -113,10 +115,15 @@ export default function SchemaEditor({ schema, onChange }: SchemaEditorProps) {
   function commitSchema(nextSchema: BlockSchema | undefined) {
     setLocalSchema(nextSchema)
     setIsExpanded(Boolean(nextSchema))
-    onChange(nextSchema)
+    if (!readOnly) {
+      onChange(nextSchema)
+    }
   }
 
   function updateSchema(updater: (current: BlockSchema) => BlockSchema) {
+    if (readOnly) {
+      return
+    }
     const nextSchema = updater(localSchema ?? { tables: [] })
     commitSchema(nextSchema.tables.length > 0 ? nextSchema : undefined)
   }
@@ -154,6 +161,9 @@ export default function SchemaEditor({ schema, onChange }: SchemaEditorProps) {
   }
 
   function handleAddSchema() {
+    if (readOnly) {
+      return
+    }
     commitSchema({ tables: [] })
     setIsExpanded(true)
   }
@@ -161,9 +171,15 @@ export default function SchemaEditor({ schema, onChange }: SchemaEditorProps) {
   if (!localSchema && !isExpanded) {
     return (
       <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50/80 p-4">
+        {readOnly ? (
+          <p className="text-sm text-slate-500">
+            {hint ?? 'Schema is defined in the data layer.'}
+          </p>
+        ) : null}
         <button
           type="button"
           onClick={handleAddSchema}
+          disabled={readOnly}
           className="vp-button-secondary rounded-2xl px-4 py-2 text-sm font-medium"
         >
           + Add Schema
@@ -180,12 +196,16 @@ export default function SchemaEditor({ schema, onChange }: SchemaEditorProps) {
           <p className="text-xs text-slate-500">
             {localSchema ? `${localSchema.tables.length} table${localSchema.tables.length === 1 ? '' : 's'}` : 'No tables yet'}
           </p>
+          {hint ? (
+            <p className="mt-1 text-xs text-slate-400">{hint}</p>
+          ) : null}
         </div>
         <div className="flex items-center gap-2">
           {!localSchema ? (
             <button
               type="button"
               onClick={handleAddSchema}
+              disabled={readOnly}
               className="vp-button-secondary rounded-2xl px-3 py-2 text-xs font-medium uppercase tracking-[0.2em]"
             >
               + Add Schema
@@ -221,6 +241,7 @@ export default function SchemaEditor({ schema, onChange }: SchemaEditorProps) {
                     }
                     placeholder="users"
                     className="vp-input w-full rounded-2xl px-4 py-3 text-sm"
+                    disabled={readOnly}
                   />
                 </div>
                 <button
@@ -230,6 +251,7 @@ export default function SchemaEditor({ schema, onChange }: SchemaEditorProps) {
                       tables: current.tables.filter((_, index) => index !== tableIndex),
                     }))
                   }
+                  disabled={readOnly}
                   className="vp-button-secondary rounded-2xl px-3 py-2 text-xs font-medium text-rose-600"
                 >
                   Delete Table
@@ -250,6 +272,7 @@ export default function SchemaEditor({ schema, onChange }: SchemaEditorProps) {
                         columns: [...currentTable.columns, createEmptyColumn()],
                       }))
                     }
+                    disabled={readOnly}
                     className="vp-button-secondary rounded-2xl px-3 py-2 text-xs font-medium"
                   >
                     Add Column
@@ -284,6 +307,7 @@ export default function SchemaEditor({ schema, onChange }: SchemaEditorProps) {
                                 }
                                 placeholder="id"
                                 className="vp-input rounded-2xl px-3 py-2 text-sm"
+                                disabled={readOnly}
                               />
                               <input
                                 type="text"
@@ -296,6 +320,7 @@ export default function SchemaEditor({ schema, onChange }: SchemaEditorProps) {
                                 }
                                 placeholder="uuid"
                                 className="vp-input rounded-2xl px-3 py-2 text-sm"
+                                disabled={readOnly}
                               />
                               <label className="flex items-center justify-center rounded-2xl border border-slate-200 bg-white px-2">
                                 <input
@@ -311,6 +336,7 @@ export default function SchemaEditor({ schema, onChange }: SchemaEditorProps) {
                                     }))
                                   }
                                   className="h-4 w-4 accent-amber-500"
+                                  disabled={readOnly}
                                 />
                               </label>
                               <input
@@ -327,6 +353,7 @@ export default function SchemaEditor({ schema, onChange }: SchemaEditorProps) {
                                 }
                                 placeholder="users.id"
                                 className="vp-input rounded-2xl px-3 py-2 text-sm"
+                                disabled={readOnly}
                               />
                               <label className="flex items-center justify-center rounded-2xl border border-slate-200 bg-white px-2">
                                 <input
@@ -342,6 +369,7 @@ export default function SchemaEditor({ schema, onChange }: SchemaEditorProps) {
                                     }))
                                   }
                                   className="h-4 w-4 accent-slate-700"
+                                  disabled={readOnly}
                                 />
                               </label>
                               <label className="flex items-center justify-center rounded-2xl border border-slate-200 bg-white px-2">
@@ -358,6 +386,7 @@ export default function SchemaEditor({ schema, onChange }: SchemaEditorProps) {
                                     }))
                                   }
                                   className="h-4 w-4 accent-slate-700"
+                                  disabled={readOnly}
                                 />
                               </label>
                             </div>
@@ -369,6 +398,7 @@ export default function SchemaEditor({ schema, onChange }: SchemaEditorProps) {
                                   columns: currentTable.columns.filter((_, index) => index !== columnIndex),
                                 }))
                               }
+                              disabled={readOnly}
                               className="vp-button-secondary rounded-2xl px-3 py-2 text-xs font-medium text-rose-600"
                             >
                               Remove
@@ -399,6 +429,7 @@ export default function SchemaEditor({ schema, onChange }: SchemaEditorProps) {
                         indexes: [...(currentTable.indexes ?? []), createEmptyIndex()],
                       }))
                     }
+                    disabled={readOnly}
                     className="vp-button-secondary rounded-2xl px-3 py-2 text-xs font-medium"
                   >
                     Add Index
@@ -423,6 +454,7 @@ export default function SchemaEditor({ schema, onChange }: SchemaEditorProps) {
                           }
                           placeholder="idx_users_email"
                           className="vp-input rounded-2xl px-3 py-2 text-sm"
+                          disabled={readOnly}
                         />
                         <input
                           type="text"
@@ -438,6 +470,7 @@ export default function SchemaEditor({ schema, onChange }: SchemaEditorProps) {
                           }
                           placeholder="email, tenant_id"
                           className="vp-input rounded-2xl px-3 py-2 text-sm"
+                          disabled={readOnly}
                         />
                         <label className="flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-medium uppercase tracking-[0.14em] text-slate-600">
                           <input
@@ -450,6 +483,7 @@ export default function SchemaEditor({ schema, onChange }: SchemaEditorProps) {
                               }))
                             }
                             className="h-4 w-4 accent-slate-700"
+                            disabled={readOnly}
                           />
                           Unique
                         </label>
@@ -461,6 +495,7 @@ export default function SchemaEditor({ schema, onChange }: SchemaEditorProps) {
                               indexes: (currentTable.indexes ?? []).filter((_, currentIndex) => currentIndex !== indexIndex),
                             }))
                           }
+                          disabled={readOnly}
                           className="vp-button-secondary rounded-2xl px-3 py-2 text-xs font-medium text-rose-600"
                         >
                           Remove
@@ -484,6 +519,7 @@ export default function SchemaEditor({ schema, onChange }: SchemaEditorProps) {
                 tables: [...current.tables, createEmptyTable()],
               }))
             }
+            disabled={readOnly}
             className="vp-button-primary rounded-2xl px-4 py-3 text-sm font-medium"
           >
             Add Table

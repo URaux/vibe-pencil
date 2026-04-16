@@ -144,12 +144,30 @@ export function useBuildActions() {
       const waveSummary = buildWaveSummary(waves, nodeNames)
       const scopeLabel = mode === 'selected' ? 'selected subgraph' : 'full project'
       const promptTemplate = mode === 'selected' ? buildSubgraph : buildAllPrompt
+      // Index wave membership so each agent knows its concurrent siblings.
+      const nodeIdToWaveIndex = new Map<string, number>()
+      waves.forEach((wave, i) => { for (const id of wave) nodeIdToWaveIndex.set(id, i) })
+
       const prompts = Object.fromEntries(
         scopedBlocks.map((node) => {
           const targetName = node.data.name || node.id
-          // Use a node-scoped YAML (target + 1-hop neighbors) instead of the
-          // full architecture to reduce token cost and agent confusion.
           const nodeYaml = scopeToNode(node.id, nodes, edges, projectName)
+
+          // Contract fields: concurrent siblings (same wave), scope hints,
+          // and consumed dependencies (upstream blocks this node imports).
+          const myWaveIdx = nodeIdToWaveIndex.get(node.id) ?? 0
+          const myWave = waves[myWaveIdx] ?? []
+          const siblings = myWave
+            .filter((id) => id !== node.id)
+            .map((id) => nodeNames.get(id) ?? id)
+          const upstreamIds = edges
+            .filter((e) => e.target === node.id)
+            .map((e) => e.source)
+            .filter((id, i, arr) => arr.indexOf(id) === i)
+          const consumed = upstreamIds
+            .map((id) => nodeNames.get(id) ?? id)
+            .map((name) => `${name} — signature per the architecture YAML`)
+
           const prompt = [
             promptTemplate({
               architecture_yaml: nodeYaml,
@@ -157,18 +175,20 @@ export function useBuildActions() {
               project_context: [
                 `Project: ${projectName}`,
                 `Scope: ${scopeLabel}`,
-                `Target node: ${targetName}`,
-                ...(node.data.techStack ? [`Tech stack: ${node.data.techStack}`] : []),
                 waveSummary,
               ].join('\n'),
               user_feedback: `Implement the target node directly in ${projectWorkDir}. Keep changes focused on ${targetName}.`,
               locale,
+              workDir: projectWorkDir,
+              nodeName: targetName,
+              blockId: node.id,
+              techStack: node.data.techStack,
+              waveIndex: myWaveIdx + 1,
+              waveSize: myWave.length,
+              waveTotal: waves.length,
+              siblingNames: siblings,
+              consumedSymbols: consumed.length > 0 ? consumed : undefined,
             }),
-            '',
-            'Execution instructions:',
-            `Implement the code for ${targetName} in the current workspace.`,
-            ...(node.data.techStack ? [`Tech stack: ${node.data.techStack}`] : []),
-            'Respect the wave plan and avoid editing unrelated parts of the graph.',
           ].join('\n')
 
           return [node.id, prompt]
@@ -241,26 +261,34 @@ export function useBuildActions() {
 
     try {
       const targetName = targetNode.data.name || targetNode.id
-      const techInfo = targetNode.data.techStack ? [`Tech stack: ${targetNode.data.techStack}`] : []
-      const prompt = [
-        buildNodePrompt({
-          architecture_yaml: scopeToNode(nodeId, nodes, edges, projectName),
-          selected_nodes: [targetName],
-          project_context: [
-            `Project: ${projectName}`,
-            'Scope: single node',
-            `Target node: ${targetName}`,
-            ...techInfo,
-          ].join('\n'),
-          user_feedback: `Implement ${targetName} directly in ${projectWorkDir}. Keep changes focused on this node.`,
-          locale,
-        }),
-        '',
-        'Execution instructions:',
-        `Implement the code for ${targetName} in the current workspace.`,
-        ...techInfo,
-        'Keep changes focused on this node and note any required dependencies.',
-      ].join('\n')
+      const upstreamIds = edges
+        .filter((e) => e.target === nodeId)
+        .map((e) => e.source)
+        .filter((id, i, arr) => arr.indexOf(id) === i)
+      const upstreamNames = upstreamIds.map((id) => {
+        const n = nodes.find((nd) => nd.id === id)
+        return (n?.data as BlockNodeData | undefined)?.name ?? id
+      })
+      const consumed = upstreamNames.map((name) => `${name} — signature per the architecture YAML`)
+
+      const prompt = buildNodePrompt({
+        architecture_yaml: scopeToNode(nodeId, nodes, edges, projectName),
+        selected_nodes: [targetName],
+        project_context: [
+          `Project: ${projectName}`,
+          'Scope: single node',
+        ].join('\n'),
+        user_feedback: `Implement ${targetName} directly in ${projectWorkDir}. Keep changes focused on this node.`,
+        locale,
+        workDir: projectWorkDir,
+        nodeName: targetName,
+        blockId: nodeId,
+        techStack: targetNode.data.techStack,
+        waveIndex: 1,
+        waveSize: 1,
+        waveTotal: 1,
+        consumedSymbols: consumed.length > 0 ? consumed : undefined,
+      })
 
       useAppStore.getState().clearBuildOutputLog()
       updateNodeStatus(nodeId, 'idle', undefined, undefined)

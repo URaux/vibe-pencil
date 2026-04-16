@@ -180,7 +180,7 @@ export function ImportDialog({ open, onClose }: ImportDialogProps) {
     projectName: string
   ) {
     // Fire-and-forget: create session and stream intro message
-    createChatSession()
+    const sessionId = createChatSession()
     const yaml = canvasToYaml(nodes, edges, projectName)
     const isZh = locale === 'zh'
     const introPrompt = isZh
@@ -208,6 +208,7 @@ export function ImportDialog({ open, onClose }: ImportDialogProps) {
         backend,
         model,
         locale,
+        sessionId,
       }),
     })
       .then(async (chatRes) => {

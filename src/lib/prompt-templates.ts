@@ -10,6 +10,26 @@ interface PromptTemplateInput {
   workDir?: string
   nodeName?: string
   skillContent?: string
+  // Subagent-contract fields (optional; empty when caller hasn't computed them
+  // yet, which makes the corresponding prompt section collapse).
+  blockId?: string
+  techStack?: string
+  waveIndex?: number
+  waveSize?: number
+  waveTotal?: number
+  siblingNames?: string[]
+  writeScope?: string[]
+  readOnlyScope?: string[]
+  exposedSymbols?: string[]
+  consumedSymbols?: string[]
+  facts?: string
+  shellAllowlist?: string[]
+  validationCmd?: string
+}
+
+function pack(list?: string[]): string | undefined {
+  if (!list || list.length === 0) return undefined
+  return list.join('\n')
 }
 
 function formatSelectedNodeContext(input: PromptTemplateInput): string | undefined {
@@ -45,6 +65,24 @@ export function buildAll(input: PromptTemplateInput) {
 
 export function buildNode(input: PromptTemplateInput) {
   const locale = input.locale ?? 'en'
+  const taskParams: Record<string, string> = {
+    nodeName: input.nodeName ?? (input.selected_nodes?.join(', ') ?? 'selected node'),
+    workDir: input.workDir ?? process.cwd(),
+  }
+  if (input.blockId) taskParams.blockId = input.blockId
+  if (input.techStack) taskParams.techStack = input.techStack
+  if (input.waveIndex) taskParams.waveIndex = String(input.waveIndex)
+  if (input.waveSize) taskParams.waveSize = String(input.waveSize)
+  if (input.waveTotal) taskParams.waveTotal = String(input.waveTotal)
+  if (input.siblingNames?.length) taskParams.siblingNames = input.siblingNames.join(', ')
+  const w = pack(input.writeScope); if (w) taskParams.writeScope = w
+  const r = pack(input.readOnlyScope); if (r) taskParams.readOnlyScope = r
+  const e = pack(input.exposedSymbols); if (e) taskParams.exposedSymbols = e
+  const c = pack(input.consumedSymbols); if (c) taskParams.consumedSymbols = c
+  if (input.facts) taskParams.facts = input.facts
+  const s = pack(input.shellAllowlist); if (s) taskParams.shellAllowlist = s
+  if (input.validationCmd) taskParams.validationCmd = input.validationCmd
+
   return buildSystemContext({
     agentType: 'build',
     task: 'implement',
@@ -52,10 +90,7 @@ export function buildNode(input: PromptTemplateInput) {
     canvasYaml: input.architecture_yaml,
     selectedNodeContext: formatSelectedNodeContext(input),
     skillContent: input.skillContent,
-    taskParams: {
-      nodeName: input.nodeName ?? (input.selected_nodes?.join(', ') ?? 'selected node'),
-      workDir: input.workDir ?? process.cwd(),
-    },
+    taskParams,
   })
 }
 

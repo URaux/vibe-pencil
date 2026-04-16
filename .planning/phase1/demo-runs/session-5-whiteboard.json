@@ -1,0 +1,43 @@
+{
+  "id": 5,
+  "name": "whiteboard",
+  "result": "FAIL",
+  "error": "locator.click: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('input[placeholder=\"输入消息...\"]')\u001b[22m\n\u001b[2m    - locator resolved to <input value=\"\" disabled type=\"text\" placeholder=\"输入消息...\" class=\"vp-input flex-1 rounded-xl px-4 py-3 text-sm\"/>\u001b[22m\n\u001b[2m  - attempting click action\u001b[22m\n\u001b[2m    2 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is not enabled\u001b[22m\n\u001b[2m    - retrying click action\u001b[22m\n\u001b[2m    - waiting 20ms\u001b[22m\n\u001b[2m    2 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is not enabled\u001b[22m\n\u001b[2m    - retrying click action\u001b[22m\n\u001b[2m      - waiting 100ms\u001b[22m\n\u001b[2m    58 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m       - element is not enabled\u001b[22m\n\u001b[2m     - retrying click action\u001b[22m\n\u001b[2m       - waiting 500ms\u001b[22m\n",
+  "screenshots": [
+    "E:\\claude-workspace\\archviber\\.planning\\phase1\\demo-runs\\screenshots\\s5-01-new-session-1776222327852.png",
+    "E:\\claude-workspace\\archviber\\.planning\\phase1\\demo-runs\\screenshots\\s5-02-prompt-sent-1776222329330.png",
+    "E:\\claude-workspace\\archviber\\.planning\\phase1\\demo-runs\\screenshots\\s5-03-first-reply-1776222378481.png",
+    "E:\\claude-workspace\\archviber\\.planning\\phase1\\demo-runs\\screenshots\\s5-04-qa-r0-1776222446479.png",
+    "E:\\claude-workspace\\archviber\\.planning\\phase1\\demo-runs\\screenshots\\s5-05-design-trigger-1776222448915.png",
+    "E:\\claude-workspace\\archviber\\.planning\\phase1\\demo-runs\\screenshots\\s5-05-canvas-1776222526812.png",
+    "E:\\claude-workspace\\archviber\\.planning\\phase1\\demo-runs\\screenshots\\s5-99-error-1776222558626.png"
+  ],
+  "events": [
+    {
+      "phase": "new_session",
+      "ts": 1776222327935
+    },
+    {
+      "phase": "prompt_sent",
+      "ts": 1776222329330
+    },
+    {
+      "phase": "qa_done",
+      "ts": 1776222447560
+    },
+    {
+      "phase": "design_triggered",
+      "ts": 1776222450658
+    },
+    {
+      "phase": "canvas_done",
+      "nodeCount": 17,
+      "ts": 1776222528618
+    },
+    {
+      "phase": "error",
+      "error": "locator.click: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('input[placeholder=\"输入消息...\"]')\u001b[22m\n\u001b[2m    - locator resolved to <input value=\"\" disabled type=\"text\" placeholder=\"输入消息...\" class=\"vp-input flex-1 rounded-xl px-4 py-3 text-sm\"/>\u001b[22m\n\u001b[2m  - attempting click action\u001b[22m\n\u001b[2m    2 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is not enabled\u001b[22m\n\u001b[2m    - retrying click action\u001b[22m\n\u001b[2m    - waiting 20ms\u001b[22m\n\u001b[2m    2 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is not enabled\u001b[22m\n\u001b[2m    - retrying click action\u001b[22m\n\u001b[2m      - waiting 100ms\u001b[22m\n\u001b[2m    58 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m       - element is not enabled\u001b[22m\n\u001b[2m     - retrying click action\u001b[22m\n\u001b[2m       - waiting 500ms\u001b[22m\n",
+      "ts": 1776222558721
+    }
+  ]
+}

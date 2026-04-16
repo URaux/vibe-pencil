@@ -1,0 +1,142 @@
+{
+  "timestamp": "2026-04-15T03:09:23.755Z",
+  "results": [
+    {
+      "id": 1,
+      "name": "ecommerce",
+      "result": "FAIL",
+      "nodeCount": 24,
+      "screenshots": [
+        "E:\\claude-workspace\\archviber\\.planning\\phase1\\demo-runs\\screenshots\\s1-01-new-session-1776221670846.png",
+        "E:\\claude-workspace\\archviber\\.planning\\phase1\\demo-runs\\screenshots\\s1-02-prompt-sent-1776221672295.png",
+        "E:\\claude-workspace\\archviber\\.planning\\phase1\\demo-runs\\screenshots\\s1-03-first-reply-1776221709460.png",
+        "E:\\claude-workspace\\archviber\\.planning\\phase1\\demo-runs\\screenshots\\s1-05-design-trigger-1776221711477.png",
+        "E:\\claude-workspace\\archviber\\.planning\\phase1\\demo-runs\\screenshots\\s1-05-canvas-1776221755657.png",
+        "E:\\claude-workspace\\archviber\\.planning\\phase1\\demo-runs\\screenshots\\s1-99-error-1776221785785.png"
+      ],
+      "error": "locator.click: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('input[placeholder=\"输入消息...\"]')\u001b[22m\n\u001b[2m    - locator resolved to <input value=\"\" disabled type=\"text\" placeholder=\"输入消息...\" class=\"vp-input flex-1 rounded-xl px-4 py-3 text-sm\"/>\u001b[22m\n\u001b[2m  - attempting click action\u001b[22m\n\u001b[2m    2 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is not enabled\u001b[22m\n\u001b[2m    - retrying click action\u001b[22m\n\u001b[2m    - waiting 20ms\u001b[22m\n\u001b[2m    2 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is not enabled\u001b[22m\n\u001b[2m    - retrying click action\u001b[22m\n\u001b[2m      - waiting 100ms\u001b[22m\n\u001b[2m    58 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m       - element is not enabled\u001b[22m\n\u001b[2m     - retrying click action\u001b[22m\n\u001b[2m       - waiting 500ms\u001b[22m\n"
+    },
+    {
+      "id": 2,
+      "name": "blog-cms",
+      "result": "PASS",
+      "nodeCount": 57,
+      "screenshots": [
+        "E:\\claude-workspace\\archviber\\.planning\\phase1\\demo-runs\\screenshots\\s2-01-new-session-1776221790556.png",
+        "E:\\claude-workspace\\archviber\\.planning\\phase1\\demo-runs\\screenshots\\s2-02-prompt-sent-1776221801453.png",
+        "E:\\claude-workspace\\archviber\\.planning\\phase1\\demo-runs\\screenshots\\s2-03-first-reply-1776221871692.png",
+        "E:\\claude-workspace\\archviber\\.planning\\phase1\\demo-runs\\screenshots\\s2-04-qa-r0-1776221920188.png",
+        "E:\\claude-workspace\\archviber\\.planning\\phase1\\demo-runs\\screenshots\\s2-05-design-trigger-1776221921688.png",
+        "E:\\claude-workspace\\archviber\\.planning\\phase1\\demo-runs\\screenshots\\s2-05-canvas-1776221925796.png",
+        "E:\\claude-workspace\\archviber\\.planning\\phase1\\demo-runs\\screenshots\\s2-06-adjusted-1776221982804.png",
+        "E:\\claude-workspace\\archviber\\.planning\\phase1\\demo-runs\\screenshots\\s2-07-build-dialog-1776221984955.png"
+      ],
+      "error": null
+    },
+    {
+      "id": 3,
+      "name": "data-pipeline",
+      "result": "PASS",
+      "nodeCount": 22,
+      "screenshots": [
+        "E:\\claude-workspace\\archviber\\.planning\\phase1\\demo-runs\\screenshots\\s3-01-new-session-1776221990327.png",
+        "E:\\claude-workspace\\archviber\\.planning\\phase1\\demo-runs\\screenshots\\s3-02-prompt-sent-1776221991783.png",
+        "E:\\claude-workspace\\archviber\\.planning\\phase1\\demo-runs\\screenshots\\s3-03-first-reply-1776222043934.png",
+        "E:\\claude-workspace\\archviber\\.planning\\phase1\\demo-runs\\screenshots\\s3-05-design-trigger-1776222045383.png",
+        "E:\\claude-workspace\\archviber\\.planning\\phase1\\demo-runs\\screenshots\\s3-05-canvas-1776222096863.png",
+        "E:\\claude-workspace\\archviber\\.planning\\phase1\\demo-runs\\screenshots\\s3-06-adjusted-1776222138628.png",
+        "E:\\claude-workspace\\archviber\\.planning\\phase1\\demo-runs\\screenshots\\s3-07-build-dialog-1776222140752.png"
+      ],
+      "error": null
+    },
+    {
+      "id": 4,
+      "name": "saas-pm",
+      "result": "PASS",
+      "nodeCount": 26,
+      "screenshots": [
+        "E:\\claude-workspace\\archviber\\.planning\\phase1\\demo-runs\\screenshots\\s4-01-new-session-1776222146011.png",
+        "E:\\claude-workspace\\archviber\\.planning\\phase1\\demo-runs\\screenshots\\s4-02-prompt-sent-1776222147463.png",
+        "E:\\claude-workspace\\archviber\\.planning\\phase1\\demo-runs\\screenshots\\s4-03-first-reply-1776222214614.png",
+        "E:\\claude-workspace\\archviber\\.planning\\phase1\\demo-runs\\screenshots\\s4-05-design-trigger-1776222216092.png",
+        "E:\\claude-workspace\\archviber\\.planning\\phase1\\demo-runs\\screenshots\\s4-05-canvas-1776222264219.png",
+        "E:\\claude-workspace\\archviber\\.planning\\phase1\\demo-runs\\screenshots\\s4-06-adjusted-1776222320414.png",
+        "E:\\claude-workspace\\archviber\\.planning\\phase1\\demo-runs\\screenshots\\s4-07-build-dialog-1776222322552.png"
+      ],
+      "error": null
+    },
+    {
+      "id": 5,
+      "name": "whiteboard",
+      "result": "FAIL",
+      "nodeCount": 17,
+      "screenshots": [
+        "E:\\claude-workspace\\archviber\\.planning\\phase1\\demo-runs\\screenshots\\s5-01-new-session-1776222327852.png",
+        "E:\\claude-workspace\\archviber\\.planning\\phase1\\demo-runs\\screenshots\\s5-02-prompt-sent-1776222329330.png",
+        "E:\\claude-workspace\\archviber\\.planning\\phase1\\demo-runs\\screenshots\\s5-03-first-reply-1776222378481.png",
+        "E:\\claude-workspace\\archviber\\.planning\\phase1\\demo-runs\\screenshots\\s5-04-qa-r0-1776222446479.png",
+        "E:\\claude-workspace\\archviber\\.planning\\phase1\\demo-runs\\screenshots\\s5-05-design-trigger-1776222448915.png",
+        "E:\\claude-workspace\\archviber\\.planning\\phase1\\demo-runs\\screenshots\\s5-05-canvas-1776222526812.png",
+        "E:\\claude-workspace\\archviber\\.planning\\phase1\\demo-runs\\screenshots\\s5-99-error-1776222558626.png"
+      ],
+      "error": "locator.click: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('input[placeholder=\"输入消息...\"]')\u001b[22m\n\u001b[2m    - locator resolved to <input value=\"\" disabled type=\"text\" placeholder=\"输入消息...\" class=\"vp-input flex-1 rounded-xl px-4 py-3 text-sm\"/>\u001b[22m\n\u001b[2m  - attempting click action\u001b[22m\n\u001b[2m    2 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is not enabled\u001b[22m\n\u001b[2m    - retrying click action\u001b[22m\n\u001b[2m    - waiting 20ms\u001b[22m\n\u001b[2m    2 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is not enabled\u001b[22m\n\u001b[2m    - retrying click action\u001b[22m\n\u001b[2m      - waiting 100ms\u001b[22m\n\u001b[2m    58 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m       - element is not enabled\u001b[22m\n\u001b[2m     - retrying click action\u001b[22m\n\u001b[2m       - waiting 500ms\u001b[22m\n"
+    }
+  ],
+  "passCount": 3,
+  "persistence": {
+    "serverCount": 7,
+    "idbCount": 7,
+    "sessions": [
+      {
+        "id": "61060ce0",
+        "title": "架构概览",
+        "phase": "iterate",
+        "msgs": 6,
+        "nodes": 24
+      },
+      {
+        "id": "session-",
+        "title": "电商系统架构",
+        "phase": "iterate",
+        "msgs": 12,
+        "nodes": 22
+      },
+      {
+        "id": "session-",
+        "title": "Blog CMS 架构",
+        "phase": "iterate",
+        "msgs": 12,
+        "nodes": 10
+      },
+      {
+        "id": "session-",
+        "title": "数据管道架构",
+        "phase": "iterate",
+        "msgs": 12,
+        "nodes": 0
+      },
+      {
+        "id": "session-",
+        "title": "电商系统架构",
+        "phase": "iterate",
+        "msgs": 12,
+        "nodes": 29
+      },
+      {
+        "id": "session-",
+        "title": "Blog CMS 架构",
+        "phase": "iterate",
+        "msgs": 12,
+        "nodes": 0
+      },
+      {
+        "id": "session-",
+        "title": "数据管道架构",
+        "phase": "iterate",
+        "msgs": 12,
+        "nodes": 15
+      }
+    ]
+  },
+  "finalScreenshot": "E:\\claude-workspace\\archviber\\.planning\\phase1\\demo-runs\\screenshots\\s0-final-1776222563361.png"
+}

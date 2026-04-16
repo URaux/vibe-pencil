@@ -139,7 +139,8 @@ function buildContainers(scan: ProjectScan): ContainerSpec[] {
 function getSubdirsWithFiles(
   relDirPath: string,
   scanDir: string,
-  fileTree: import('./project-scanner').FileTreeNode[]
+  fileTree: import('./project-scanner').FileTreeNode[],
+  opts: { minFiles?: number; markerFiles?: string[] } = {}
 ): Array<{ name: string; fileCount: number }> {
   // Find the node in the tree matching relDirPath
   function findNode(
@@ -159,12 +160,21 @@ function getSubdirsWithFiles(
   const targetNode = findNode(fileTree, relDirPath)
   if (!targetNode || targetNode.type !== 'dir' || !targetNode.children) return []
 
+  const minFiles = opts.minFiles ?? 2
+  const markerFiles = (opts.markerFiles ?? []).map((s) => s.toLowerCase())
+
   const result: Array<{ name: string; fileCount: number }> = []
   for (const child of targetNode.children) {
     if (child.type !== 'dir') continue
-    const fileCount = (child.children ?? []).filter((c) => c.type === 'file').length
-    if (fileCount >= 2) {
-      result.push({ name: child.name, fileCount })
+    const files = (child.children ?? []).filter((c) => c.type === 'file')
+    const fileCount = files.length
+    // A subdir counts as a block if either: it has at least `minFiles` files,
+    // OR one of its files is a framework "marker" (e.g. Next.js `route.ts`,
+    // which makes the folder a real API endpoint even when it's the only file).
+    const hasMarker = markerFiles.length > 0 &&
+      files.some((f) => markerFiles.includes(f.name.toLowerCase()))
+    if (fileCount >= minFiles || hasMarker) {
+      result.push({ name: child.name, fileCount: Math.max(fileCount, 1) })
     }
   }
   return result
@@ -220,11 +230,26 @@ function getSignificantFiles(
 function buildBlocksForContainer(
   container: ContainerSpec,
   scan: ProjectScan,
-  projectRoot: string
+  projectRoot: string,
+  otherContainers: ContainerSpec[] = []
 ): BlockSpec[] {
   const MAX_BLOCKS = 6
   const blocks: BlockSpec[] = []
   const seenNames = new Set<string>()
+  // Paths claimed by siblings — used to skip e.g. `src/app/api` when walking
+  // Frontend's `src/app` so the api folder isn't double-counted.
+  const siblingPaths = new Set<string>()
+  for (const c of otherContainers) {
+    if (c.id === container.id) continue
+    for (const sp of c.sourcePaths) siblingPaths.add(sp)
+  }
+
+  function isClaimedBySibling(subPath: string): boolean {
+    for (const p of siblingPaths) {
+      if (p === subPath || p.startsWith(subPath + '/')) return true
+    }
+    return false
+  }
 
   function addBlock(name: string, suffix?: string) {
     const displayName = titleCase(name)
@@ -257,6 +282,9 @@ function buildBlocksForContainer(
     const appChildren = findAppChildren()
     for (const child of appChildren) {
       if (child.type === 'dir') {
+        // Skip subdirs that belong to a sibling container (e.g. src/app/api
+        // → API LAYER container has its own block list).
+        if (isClaimedBySibling(`src/app/${child.name}`)) continue
         // Route groups: (name) -> strip parens
         const cleaned = child.name.replace(/^\(|\)$/g, '')
         addBlock(cleaned)
@@ -265,9 +293,16 @@ function buildBlocksForContainer(
   }
 
   if (scan.framework === 'nextjs' && container.role === 'api') {
-    // src/app/api subdirectories
+    // Next.js route folders are architecturally real even when they contain
+    // only a single `route.ts` — that's the entire API endpoint. So treat
+    // `route.ts` / `route.tsx` / `route.js` as markers that make the folder
+    // count as a block regardless of file count.
+    const ROUTE_MARKERS = ['route.ts', 'route.tsx', 'route.js']
     for (const sourcePath of container.sourcePaths) {
-      const subdirs = getSubdirsWithFiles(sourcePath, projectRoot, scan.fileTree)
+      const subdirs = getSubdirsWithFiles(sourcePath, projectRoot, scan.fileTree, {
+        minFiles: 1,
+        markerFiles: ROUTE_MARKERS,
+      })
       for (const sub of subdirs) addBlock(sub.name)
     }
     return blocks.slice(0, MAX_BLOCKS)
@@ -318,6 +353,7 @@ function buildBlocksForContainer(
     const subdirs = getSubdirsWithFiles(sourcePath, projectRoot, scan.fileTree)
     for (const sub of subdirs) {
       if (blocks.length >= MAX_BLOCKS) break
+      if (isClaimedBySibling(`${sourcePath}/${sub.name}`)) continue
       addBlock(sub.name)
     }
   }
@@ -427,32 +463,86 @@ function buildEdgesFromImports(
   const importEdges = scan.importGraph?.edges
   if (!importEdges || importEdges.length === 0) return []
 
-  // Build a mapping: file path -> block id
+  // --- File → Block mapping ---
+  //
+  // The previous implementation built this map INSIDE the importEdges loop,
+  // so only files that happened to appear in edges (and matched a weak
+  // strict-equality heuristic) got mapped. Every other file was silently
+  // dropped at the aggregation step below, producing zero cross-container
+  // edges. The fix: (1) enumerate the file set explicitly, (2) find each
+  // file's owning container by sourcePath prefix, (3) score each block
+  // within that container with a richer heuristic, (4) fall back to the
+  // container's first block so imports still contribute to container-level
+  // edges when no block matches precisely.
+
+  const blocksByContainer = new Map<string, BlockSpec[]>()
+  for (const b of blocks) {
+    const list = blocksByContainer.get(b.containerId) ?? []
+    list.push(b)
+    blocksByContainer.set(b.containerId, list)
+  }
+
+  const normalize = (s: string) => s.toLowerCase().replace(/[\s_\-.]/g, '')
+
+  const allFiles = new Set<string>()
+  for (const e of importEdges) {
+    allFiles.add(e.sourceFile)
+    allFiles.add(e.targetFile)
+  }
+
   const fileToBlock = new Map<string, string>()
 
-  for (const container of containers) {
-    const containerBlocks = blocks.filter(b => b.containerId === container.id)
-    for (const sourcePath of container.sourcePaths) {
-      for (const edge of importEdges) {
-        for (const filePath of [edge.sourceFile, edge.targetFile]) {
-          if (filePath.startsWith(sourcePath + '/') || filePath === sourcePath) {
-            let matched = false
-            for (const block of containerBlocks) {
-              const blockNameLower = block.name.toLowerCase().replace(/\s+/g, '-')
-              const pathParts = filePath.toLowerCase().split('/')
-              if (pathParts.some(part => part === blockNameLower || part === block.name.toLowerCase())) {
-                fileToBlock.set(filePath, block.id)
-                matched = true
-                break
-              }
-            }
-            if (!matched && containerBlocks.length > 0) {
-              fileToBlock.set(filePath, containerBlocks[0].id)
-            }
+  for (const filePath of allFiles) {
+    // Longest-prefix match: prefer the container whose source path matches the
+    // longest prefix of filePath. Without this, a file under `src/app/api/...`
+    // routes to the FRONTEND container (because `src/app` matches first) and
+    // never reaches API LAYER, killing every cross-container edge.
+    let owningContainer: ContainerSpec | null = null
+    let owningLen = -1
+    for (const c of containers) {
+      for (const sp of c.sourcePaths) {
+        if (filePath.startsWith(sp + '/') || filePath === sp) {
+          if (sp.length > owningLen) {
+            owningContainer = c
+            owningLen = sp.length
           }
         }
       }
     }
+    if (!owningContainer) continue
+
+    const containerBlocks = blocksByContainer.get(owningContainer.id) ?? []
+    if (containerBlocks.length === 0) continue
+
+    const segments = filePath.toLowerCase().split(/[\/\\]/).filter(Boolean)
+    const basenameNoExt = (segments[segments.length - 1] ?? '').replace(/\.\w+$/, '')
+
+    let bestBlock: BlockSpec | null = null
+    let bestScore = 0
+
+    for (const block of containerBlocks) {
+      const token = normalize(block.name)
+      if (!token) continue
+
+      // Score 3: an exact path-segment match (strongest signal)
+      if (segments.some((seg) => normalize(seg) === token)) {
+        bestBlock = block
+        bestScore = 3
+        break
+      }
+      // Score 2: file basename contains the block-name token
+      if (normalize(basenameNoExt).includes(token) && bestScore < 2) {
+        bestBlock = block
+        bestScore = 2
+      }
+      // Score 1: any path segment contains the block-name token
+      else if (segments.some((seg) => normalize(seg).includes(token)) && bestScore < 1) {
+        bestBlock = block
+        bestScore = 1
+      }
+    }
+
+    fileToBlock.set(filePath, (bestBlock ?? containerBlocks[0]).id)
   }
 
   // Aggregate file-level imports into block-level edges
@@ -569,7 +659,7 @@ export function generateSkeleton(scan: ProjectScan): {
 
   const allBlocks: BlockSpec[] = []
   for (const container of containers) {
-    const blocks = buildBlocksForContainer(container, scan, '')
+    const blocks = buildBlocksForContainer(container, scan, '', containers)
     allBlocks.push(...blocks)
   }
 

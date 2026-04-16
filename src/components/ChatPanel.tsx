@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Edge, Node } from '@xyflow/react'
@@ -10,9 +10,10 @@ import { ChatMarkdown } from './ChatMarkdown'
 import { OptionCards } from './OptionCards'
 import { canvasToYaml } from '@/lib/schema-engine'
 import { formatBuildContext } from '@/lib/build-context-formatter'
-import { useAppStore } from '@/lib/store'
+import { useAppStore, pickNextFallbackModel } from '@/lib/store'
 import { getNodeTypeLabel } from '@/lib/ui-text'
 import { useCanvasActions } from '@/hooks/useCanvasActions'
+import { fetchChatWithRetry, describeChatFetchError, type ChatFetchError } from '@/lib/chat-fetch'
 import type {
   BlockNodeData,
   CanvasNodeData,
@@ -271,6 +272,7 @@ export function ChatPanel() {
   const projectName = useAppStore((state) => state.projectName)
   const backend = useAppStore((state) => state.config.agent)
   const rawModel = useAppStore((state) => state.config.model)
+  const setConfig = useAppStore((state) => state.setConfig)
   const customApiModel = useAppStore((state) => state.config.customApiModel)
   const model = backend === 'custom-api' && customApiModel ? customApiModel : rawModel
   const customApiBase = useAppStore((state) => state.config.customApiBase)
@@ -290,6 +292,10 @@ export function ChatPanel() {
   const [message, setMessage] = useState('')
   const [isSending, setIsSending] = useState(false)
   const sendLockRef = useRef(false)
+  // Tracks whether we've already run an auto-remediation for the current
+  // user-initiated message. Cleared on every new user submit, so we never
+  // retry more than once per deterministic-fix kind.
+  const remediationAppliedRef = useRef<Set<string>>(new Set())
   const [error, setError] = useState<string | null>(null)
   const [codeContext, setCodeContext] = useState<string | null>(null)
   const [isLoadingCode, setIsLoadingCode] = useState(false)
@@ -421,6 +427,75 @@ export function ChatPanel() {
     })
   }
 
+  // Build the `remediate` callback handed to fetchChatWithRetry. The callback
+  // runs once per fetch attempt and can deterministically fix specific errors
+  // before they surface to the user:
+  //   - `model-not-found` / `model-unavailable` → switch to the next fallback
+  //     model for the current backend and re-send with the new model name in
+  //     the body.
+  //   - `offline` → wait until `window.online` fires, then retry unchanged.
+  function buildRemediate(originalBody: Record<string, unknown>) {
+    return async (err: ChatFetchError) => {
+      // Model fallback — applies to all backends (CC / Codex / Gemini / custom-api).
+      if (err.kind === 'model-not-found' || err.kind === 'model-unavailable') {
+        if (remediationAppliedRef.current.has('model-fallback')) return null
+        const currentModel = (originalBody.model as string | undefined) ?? rawModel
+        const next = pickNextFallbackModel(backend, currentModel)
+        if (!next) return null
+        remediationAppliedRef.current.add('model-fallback')
+        setConfig({ model: next })
+        const newBody = { ...originalBody, model: next }
+        return {
+          init: {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(newBody),
+          } as RequestInit,
+          note: locale === 'zh'
+            ? `检测到 ${currentModel ?? '当前模型'} 不可用，已自动切到 ${next} 重试`
+            : `${currentModel ?? 'current model'} unavailable, auto-switched to ${next}`,
+        }
+      }
+
+      // Offline auto-resume — wait for network to come back, then retry the
+      // exact same request. Cap the wait at 60s so we don't hang forever.
+      if (err.kind === 'offline') {
+        if (remediationAppliedRef.current.has('wait-online')) return null
+        remediationAppliedRef.current.add('wait-online')
+        updateAssistantMessage(
+          locale === 'zh'
+            ? '⏳ 电脑离线中，网络一恢复就自动重发（最多等 60 秒）…'
+            : '⏳ Offline — auto-resend as soon as network returns (up to 60s)…',
+        )
+        const came = await new Promise<boolean>((resolve) => {
+          const timer = setTimeout(() => resolve(false), 60_000)
+          const handler = () => {
+            clearTimeout(timer)
+            window.removeEventListener('online', handler)
+            resolve(true)
+          }
+          window.addEventListener('online', handler, { once: true })
+        })
+        if (!came) return null
+        return {
+          init: {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(originalBody),
+          } as RequestInit,
+          note: locale === 'zh' ? '网络已恢复，正在重发' : 'Network restored, resending',
+        }
+      }
+
+      return null
+    }
+  }
+
+  const onRemediateMessage = (note: string | undefined) => {
+    if (!note) return
+    updateAssistantMessage(`🔁 ${note}`)
+  }
+
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
 
@@ -451,38 +526,62 @@ export function ChatPanel() {
       }
     }
 
-    try {
-      const response = await fetch('/api/chat', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          message: trimmedMessage,
-          history: nextHistory,
-          nodeContext,
-          codeContext: codeContext ?? undefined,
-          architecture_yaml: canvasToYaml(nodes, edges, projectName),
-          backend,
-          model,
-          locale,
-          phase: effectivePhase,
-          buildSummaryContext: formatBuildContext(
-            useAppStore.getState().buildState,
-            useAppStore.getState().nodes,
-            useAppStore.getState().buildOutputLog
-          ) ?? undefined,
-          customApiBase,
-          customApiKey,
-          customApiModel,
-          ccSessionId: activeSession?.ccSessionId,
-        }),
-      })
+    // Reset per-message remediation bookkeeping so each new user send starts fresh.
+    remediationAppliedRef.current = new Set()
+    const chatBody = {
+      message: trimmedMessage,
+      history: nextHistory,
+      nodeContext,
+      codeContext: codeContext ?? undefined,
+      architecture_yaml: canvasToYaml(nodes, edges, projectName),
+      backend,
+      model,
+      locale,
+      phase: effectivePhase,
+      sessionId,
+      buildSummaryContext: formatBuildContext(
+        useAppStore.getState().buildState,
+        useAppStore.getState().nodes,
+        useAppStore.getState().buildOutputLog
+      ) ?? undefined,
+      customApiBase,
+      customApiKey,
+      customApiModel,
+      ccSessionId: activeSession?.ccSessionId,
+    } as Record<string, unknown>
 
-      if (!response.ok) {
-        const errBody = await response.json().catch(() => ({ error: t('chat_start_failed') })) as { error?: string }
-        throw new Error(errBody.error ?? t('chat_start_failed'))
-      }
+    try {
+      const response = await fetchChatWithRetry(
+        '/api/chat',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(chatBody),
+        },
+        {
+          onRetry: (_attempt, reason) => {
+            const hint = locale === 'zh'
+              ? `(刚刚连接失败，正在重试一次… ${reason})`
+              : `(first attempt failed, retrying once… ${reason})`
+            updateAssistantMessage(hint)
+          },
+          onCooldown: (seconds, reason) => {
+            const label = reason === 'concurrent-limit' ? '中转站卡池并发已满' : '被平台限速'
+            const hint = locale === 'zh'
+              ? `⏳ ${label}，等 ${seconds}s 后自动重试（无需操作）…`
+              : `⏳ ${reason}, waiting ${seconds}s before auto-retry…`
+            updateAssistantMessage(hint)
+          },
+          onCooldownTick: (remaining) => {
+            const hint = locale === 'zh'
+              ? `⏳ 还剩 ${remaining}s 自动重试…`
+              : `⏳ ${remaining}s until auto-retry…`
+            updateAssistantMessage(hint)
+          },
+          remediate: buildRemediate(chatBody),
+          onRemediate: (_err, note) => onRemediateMessage(note),
+        },
+      )
 
       let fullAssistantText = ''
 
@@ -542,7 +641,7 @@ export function ChatPanel() {
         if (currentPhase === 'design') {
           useAppStore.getState().setSessionPhase(sessionId, 'iterate')
 
-          // Post-generation completeness check: missing edges or schemas
+          // Post-generation completeness check: missing edges, schemas, or schema refs
           const { nodes: postNodes, edges: postEdges } = useAppStore.getState()
           const blocks = postNodes.filter(n => n.type === 'block')
           const dataBlocks = blocks.filter(n => {
@@ -553,6 +652,25 @@ export function ChatPanel() {
             return /data|数据|database|db/i.test(parentName)
           })
           const missingSchema = dataBlocks.filter(n => !(n.data as Record<string, unknown>).schema)
+          const dataLayerIds = new Set(dataBlocks.map((n) => n.id))
+          const missingSchemaRefs = blocks.filter((n) => {
+            if (!n.parentId) return false
+            const parent = postNodes.find((p) => p.id === n.parentId)
+            const parentName = (parent?.data as { name?: string })?.name ?? ''
+            if (/data|数据|database|db/i.test(parentName)) return false
+
+            const hasDataLayerEdge = postEdges.some(
+              (edge) =>
+                (edge.source === n.id && dataLayerIds.has(edge.target)) ||
+                (edge.target === n.id && dataLayerIds.has(edge.source))
+            )
+            if (!hasDataLayerEdge) return false
+
+            const blockData = n.data as Record<string, unknown>
+            const refs = Array.isArray(blockData.schemaRefs) ? blockData.schemaRefs : []
+            const fieldRefs = blockData.schemaFieldRefs
+            return refs.length === 0 || !fieldRefs || Object.keys(fieldRefs as Record<string, unknown>).length === 0
+          })
           const hasEdges = postEdges.length > 0
           const needsFollowUp: string[] = []
 
@@ -569,6 +687,14 @@ export function ChatPanel() {
               locale === 'zh'
                 ? `以下数据层 block 缺少 schema 定义：${names}。请用 update-node 为它们补充完整的 schema（tables/columns/indexes/constraints）。`
                 : `These data layer blocks are missing schema definitions: ${names}. Please use update-node to add complete schema (tables/columns/indexes/constraints).`
+            )
+          }
+          if (missingSchemaRefs.length > 0) {
+            const names = missingSchemaRefs.map(n => (n.data as { name?: string }).name ?? n.id).join(', ')
+            needsFollowUp.push(
+              locale === 'zh'
+                ? `以下业务 block 连到了数据层但缺少 schema 引用：${names}。请用 update-node 为它们补充 schemaRefs 和 schemaFieldRefs，只保留自己实际涉及的表和字段。`
+                : `These business blocks connect to the data layer but are missing schema references: ${names}. Please use update-node to add schemaRefs and schemaFieldRefs with only the tables and fields they actually use.`
             )
           }
 
@@ -609,7 +735,25 @@ export function ChatPanel() {
         }
       }
     } catch (sendError) {
-      setError(sendError instanceof Error ? sendError.message : t('send_failed'))
+      const cfe = sendError as Partial<ChatFetchError>
+      const message = cfe.kind
+        ? describeChatFetchError(sendError as ChatFetchError, locale === 'zh' ? 'zh' : 'en')
+        : sendError instanceof Error ? sendError.message : t('send_failed')
+      setError(message)
+      if (cfe.kind) {
+        const inline = locale === 'zh'
+          ? `⚠️ ${message}`
+          : `⚠️ ${message}`
+        updateAssistantMessage(inline)
+      }
+      if (cfe.kind === 'subprocess' || cfe.kind === 'server') {
+        console.error('[chat] terminal failure', {
+          kind: cfe.kind,
+          status: cfe.status,
+          attempts: cfe.attempts,
+          serverMessage: cfe.serverMessage,
+        })
+      }
       updateActiveChatMessages((current) => {
         const lastMessage = current.at(-1)
 
@@ -621,6 +765,163 @@ export function ChatPanel() {
       })
     } finally {
       setIsSending(false)
+    }
+  }
+
+  /**
+   * Multi-select form submission from an OptionCards block.
+   *
+   * Unlike handleOptionSelect, this does NOT push a visible user message into
+   * the chat transcript. Instead:
+   *   1. The structured selections are persisted on the *assistant* message
+   *      (via choiceSelections[choiceIndex]) so the OptionCards re-render in
+   *      "trace" mode on revisit.
+   *   2. The selections are serialized into a synthetic [form-submission]
+   *      block that is appended to the history payload sent to the API, AND
+   *      passed structurally via the `formSubmission` field on the request
+   *      body (for the server to materialize into the latest user turn).
+   *   3. The next assistant turn streams normally.
+   */
+  async function handleFormSubmission(
+    assistantMessageIndex: number,
+    choiceIndex: number,
+    payload: { selections: string[]; ordered: boolean }
+  ) {
+    if (isSending || sendLockRef.current) return
+    sendLockRef.current = true
+
+    const sessionId = activeChatSessionId ?? createChatSession()
+
+    // 1. Persist trace on the assistant message so a future re-render shows
+    //    selections as highlighted (disabled state).
+    updateActiveChatMessages((current) => {
+      const next = [...current]
+      const target = next[assistantMessageIndex]
+      if (!target || target.role !== 'assistant') return current
+      const existing = target.choiceSelections ?? {}
+      next[assistantMessageIndex] = {
+        ...target,
+        choiceSelections: { ...existing, [choiceIndex]: payload },
+      }
+      return next
+    })
+
+    const syntheticUserText =
+      `[form-submission${payload.ordered ? ' (ordered)' : ''}] ` +
+      `selections: ${JSON.stringify(payload.selections)}`
+
+    // History sent to API: include the synthetic user turn so the model has
+    // full context. The frontend transcript itself does NOT show this.
+    const historyForApi = [
+      ...activeMessages,
+      { role: 'user' as const, content: syntheticUserText },
+    ]
+
+    setError(null)
+    setIsSending(true)
+    // Append a placeholder assistant message for the streaming reply, but
+    // skip the visible user bubble entirely.
+    updateActiveChatMessages((current) => [...current, { role: 'assistant', content: '' }])
+
+    remediationAppliedRef.current = new Set()
+    const chatBody = {
+      message: syntheticUserText,
+      formSubmission: {
+        selections: payload.selections,
+        ordered: payload.ordered,
+      },
+      history: historyForApi,
+      nodeContext,
+      codeContext: codeContext ?? undefined,
+      architecture_yaml: canvasToYaml(nodes, edges, projectName),
+      backend,
+      model,
+      locale,
+      phase: activeSession?.phase ?? 'brainstorm',
+      sessionId,
+      buildSummaryContext: formatBuildContext(
+        useAppStore.getState().buildState,
+        useAppStore.getState().nodes,
+        useAppStore.getState().buildOutputLog
+      ) ?? undefined,
+      customApiBase,
+      customApiKey,
+      customApiModel,
+      ccSessionId: activeSession?.ccSessionId,
+    } as Record<string, unknown>
+
+    try {
+      const response = await fetchChatWithRetry(
+        '/api/chat',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(chatBody),
+        },
+        {
+          remediate: buildRemediate(chatBody),
+          onRemediate: (_err, note) => onRemediateMessage(note),
+        },
+      )
+
+      let fullAssistantText = ''
+      const contentType = response.headers.get('content-type') ?? ''
+      if (contentType.includes('application/json')) {
+        const data = await response.json() as { content?: string; ccSessionId?: string; error?: string }
+        if (data.error) throw new Error(data.error)
+        fullAssistantText = data.content ?? ''
+        if (data.ccSessionId) {
+          updateChatSession(sessionId, { ccSessionId: data.ccSessionId })
+        }
+      } else {
+        if (!response.body) throw new Error(t('chat_start_failed'))
+        const reader = response.body.getReader()
+        const decoder = new TextDecoder()
+        let buffer = ''
+        let visibleAssistantText = ''
+        while (true) {
+          const { value, done } = await reader.read()
+          if (done) break
+          buffer += decoder.decode(value, { stream: true })
+          const { events, rest } = parseStreamEvents(buffer)
+          buffer = rest
+          for (const streamEvent of events) {
+            if (streamEvent.type === 'session' && streamEvent.ccSessionId) {
+              updateChatSession(sessionId, { ccSessionId: streamEvent.ccSessionId })
+              continue
+            }
+            if (streamEvent.type === 'chunk' && streamEvent.text) {
+              fullAssistantText += streamEvent.text
+              const nextVisibleText = extractVisibleChatText(fullAssistantText)
+              if (nextVisibleText !== visibleAssistantText) {
+                visibleAssistantText = nextVisibleText
+                updateAssistantMessage(visibleAssistantText)
+              }
+              continue
+            }
+            if (streamEvent.type === 'error') {
+              throw new Error(streamEvent.error ?? t('chat_failed'))
+            }
+          }
+        }
+      }
+
+      const actionBlocks = extractActionBlocks(fullAssistantText)
+      updateAssistantMessage(extractVisibleChatText(fullAssistantText), actionBlocks)
+    } catch (sendError) {
+      const cfe = sendError as Partial<ChatFetchError>
+      const message = cfe.kind
+        ? describeChatFetchError(sendError as ChatFetchError, locale === 'zh' ? 'zh' : 'en')
+        : sendError instanceof Error ? sendError.message : t('send_failed')
+      setError(message)
+      updateActiveChatMessages((current) => {
+        const last = current.at(-1)
+        if (!last || last.role !== 'assistant' || last.content.trim()) return current
+        return current.slice(0, -1)
+      })
+    } finally {
+      setIsSending(false)
+      sendLockRef.current = false
     }
   }
 
@@ -651,36 +952,61 @@ export function ChatPanel() {
       }
     }
 
-    try {
-      const response = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message: trimmedMessage,
-          history: nextHistory,
-          nodeContext,
-          codeContext: codeContext ?? undefined,
-          architecture_yaml: canvasToYaml(nodes, edges, projectName),
-          backend,
-          model,
-          locale,
-          phase: effectiveOptionPhase,
-          buildSummaryContext: formatBuildContext(
-            useAppStore.getState().buildState,
-            useAppStore.getState().nodes,
-            useAppStore.getState().buildOutputLog
-          ) ?? undefined,
-          customApiBase,
-          customApiKey,
-          customApiModel,
-          ccSessionId: activeSession?.ccSessionId,
-        }),
-      })
+    remediationAppliedRef.current = new Set()
+    const chatBody = {
+      message: trimmedMessage,
+      history: nextHistory,
+      nodeContext,
+      codeContext: codeContext ?? undefined,
+      architecture_yaml: canvasToYaml(nodes, edges, projectName),
+      backend,
+      model,
+      locale,
+      phase: effectiveOptionPhase,
+      sessionId,
+      buildSummaryContext: formatBuildContext(
+        useAppStore.getState().buildState,
+        useAppStore.getState().nodes,
+        useAppStore.getState().buildOutputLog
+      ) ?? undefined,
+      customApiBase,
+      customApiKey,
+      customApiModel,
+      ccSessionId: activeSession?.ccSessionId,
+    } as Record<string, unknown>
 
-      if (!response.ok) {
-        const errBody = await response.json().catch(() => ({ error: t('chat_start_failed') })) as { error?: string }
-        throw new Error(errBody.error ?? t('chat_start_failed'))
-      }
+    try {
+      const response = await fetchChatWithRetry(
+        '/api/chat',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(chatBody),
+        },
+        {
+          onRetry: (_attempt, reason) => {
+            const hint = locale === 'zh'
+              ? `(刚刚连接失败，正在重试一次… ${reason})`
+              : `(first attempt failed, retrying once… ${reason})`
+            updateAssistantMessage(hint)
+          },
+          onCooldown: (seconds, reason) => {
+            const label = reason === 'concurrent-limit' ? '中转站卡池并发已满' : '被平台限速'
+            const hint = locale === 'zh'
+              ? `⏳ ${label}，等 ${seconds}s 后自动重试（无需操作）…`
+              : `⏳ ${reason}, waiting ${seconds}s before auto-retry…`
+            updateAssistantMessage(hint)
+          },
+          onCooldownTick: (remaining) => {
+            const hint = locale === 'zh'
+              ? `⏳ 还剩 ${remaining}s 自动重试…`
+              : `⏳ ${remaining}s until auto-retry…`
+            updateAssistantMessage(hint)
+          },
+          remediate: buildRemediate(chatBody),
+          onRemediate: (_err, note) => onRemediateMessage(note),
+        },
+      )
 
       let fullAssistantText = ''
 
@@ -747,6 +1073,25 @@ export function ChatPanel() {
             return /data|数据|database|db/i.test(parentName)
           })
           const missingSchema = dataBlocks.filter(n => !(n.data as Record<string, unknown>).schema)
+          const dataLayerIds = new Set(dataBlocks.map((n) => n.id))
+          const missingSchemaRefs = blocks.filter((n) => {
+            if (!n.parentId) return false
+            const parent = postNodes.find((p) => p.id === n.parentId)
+            const parentName = (parent?.data as { name?: string })?.name ?? ''
+            if (/data|数据|database|db/i.test(parentName)) return false
+
+            const hasDataLayerEdge = postEdges.some(
+              (edge) =>
+                (edge.source === n.id && dataLayerIds.has(edge.target)) ||
+                (edge.target === n.id && dataLayerIds.has(edge.source))
+            )
+            if (!hasDataLayerEdge) return false
+
+            const blockData = n.data as Record<string, unknown>
+            const refs = Array.isArray(blockData.schemaRefs) ? blockData.schemaRefs : []
+            const fieldRefs = blockData.schemaFieldRefs
+            return refs.length === 0 || !fieldRefs || Object.keys(fieldRefs as Record<string, unknown>).length === 0
+          })
           const hasEdges = postEdges.length > 0
           const needsFollowUp: string[] = []
 
@@ -765,6 +1110,14 @@ export function ChatPanel() {
                 : `These data layer blocks are missing schema definitions: ${names}. Please use update-node to add complete schema (tables/columns/indexes/constraints).`
             )
           }
+          if (missingSchemaRefs.length > 0) {
+            const names = missingSchemaRefs.map(n => (n.data as { name?: string }).name ?? n.id).join(', ')
+            needsFollowUp.push(
+              locale === 'zh'
+                ? `以下业务 block 连到了数据层但缺少 schema 引用：${names}。请用 update-node 为它们补充 schemaRefs 和 schemaFieldRefs，只保留自己实际涉及的表和字段。`
+                : `These business blocks connect to the data layer but are missing schema references: ${names}. Please use update-node to add schemaRefs and schemaFieldRefs with only the tables and fields they actually use.`
+            )
+          }
 
           if (needsFollowUp.length > 0) {
             const followUpMsg = needsFollowUp.join('\n\n')
@@ -773,7 +1126,25 @@ export function ChatPanel() {
         }
       }
     } catch (sendError) {
-      setError(sendError instanceof Error ? sendError.message : t('send_failed'))
+      const cfe = sendError as Partial<ChatFetchError>
+      const message = cfe.kind
+        ? describeChatFetchError(sendError as ChatFetchError, locale === 'zh' ? 'zh' : 'en')
+        : sendError instanceof Error ? sendError.message : t('send_failed')
+      setError(message)
+      if (cfe.kind) {
+        const inline = locale === 'zh'
+          ? `⚠️ ${message}`
+          : `⚠️ ${message}`
+        updateAssistantMessage(inline)
+      }
+      if (cfe.kind === 'subprocess' || cfe.kind === 'server') {
+        console.error('[chat] terminal failure', {
+          kind: cfe.kind,
+          status: cfe.status,
+          attempts: cfe.attempts,
+          serverMessage: cfe.serverMessage,
+        })
+      }
       updateActiveChatMessages((current) => {
         const lastMessage = current.at(-1)
         if (!lastMessage || lastMessage.role !== 'assistant' || lastMessage.content.trim()) {
@@ -915,20 +1286,85 @@ export function ChatPanel() {
                       {entry.content ? (
                         <>
                           <ChatMarkdown content={strippedContent ?? entry.content} />
-                          {userChoices.map((choice, ci) => {
-                            // Find the user's reply after this message to highlight selected option
-                            const nextUserMsg = activeMessages.slice(messageIndex + 1).find(m => m.role === 'user')
-                            const selectedText = !isLastAssistant && nextUserMsg ? nextUserMsg.content : undefined
+                          {(() => {
+                            const renderChoice = (choice: typeof userChoices[number], ci: number) => {
+                              const nextUserMsg = activeMessages.slice(messageIndex + 1).find(m => m.role === 'user')
+                              const selectedText = !isLastAssistant && nextUserMsg ? nextUserMsg.content : undefined
+                              const persistedTrace = entry.choiceSelections?.[ci]
+                              const isAnswered = !!persistedTrace
+                              return (
+                                <OptionCards
+                                  options={choice.options.map((opt, oi) => ({ number: String(oi + 1), text: opt }))}
+                                  disabled={isSending || !isLastAssistant || isAnswered}
+                                  selectedText={selectedText}
+                                  selectedTexts={persistedTrace?.selections}
+                                  multi={choice.multi}
+                                  ordered={choice.ordered ?? persistedTrace?.ordered}
+                                  min={choice.min}
+                                  max={choice.max}
+                                  allowCustom={choice.allowCustom}
+                                  allowIndifferent={choice.allowIndifferent}
+                                  onSelect={(text) => { void handleOptionSelect(text) }}
+                                  onSubmitMulti={(payload) => { void handleFormSubmission(messageIndex, ci, payload) }}
+                                />
+                              )
+                            }
+                            if (userChoices.length <= 1) {
+                              return userChoices.map((choice, ci) => (
+                                <div key={ci}>{renderChoice(choice, ci)}</div>
+                              ))
+                            }
+                            const answeredCount = userChoices.filter((_, i) => !!entry.choiceSelections?.[i]).length
                             return (
-                              <OptionCards
-                                key={ci}
-                                options={choice.options.map((opt, oi) => ({ number: String(oi + 1), text: opt }))}
-                                disabled={isSending || !isLastAssistant}
-                                selectedText={selectedText}
-                                onSelect={(text) => { void handleOptionSelect(text) }}
-                              />
+                              <div className="mt-3">
+                                <div className="mb-2 flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-slate-400">
+                                  {userChoices.map((_, ci) => {
+                                    const answered = !!entry.choiceSelections?.[ci]
+                                    return (
+                                      <span
+                                        key={ci}
+                                        className={`h-1.5 w-1.5 rounded-full transition ${answered ? 'bg-orange-400' : 'bg-slate-300'}`}
+                                      />
+                                    )
+                                  })}
+                                  <span className="ml-1 font-semibold tabular-nums">
+                                    {answeredCount}/{userChoices.length}
+                                  </span>
+                                  <span className="ml-auto normal-case tracking-normal text-slate-300">
+                                    {locale === 'zh' ? '左右滑动' : 'swipe →'}
+                                  </span>
+                                </div>
+                                <div className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-2 [scrollbar-width:thin]">
+                                  {userChoices.map((choice, ci) => {
+                                    const persistedTrace = entry.choiceSelections?.[ci]
+                                    const isAnswered = !!persistedTrace
+                                    return (
+                                      <div
+                                        key={ci}
+                                        className="w-[88%] shrink-0 snap-center sm:w-[70%]"
+                                      >
+                                        {choice.question ? (
+                                          <div className="mb-1 flex items-center gap-2 text-xs font-medium text-slate-600">
+                                            <span
+                                              className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold ${
+                                                isAnswered
+                                                  ? 'bg-orange-100 text-orange-600'
+                                                  : 'bg-slate-100 text-slate-500'
+                                              }`}
+                                            >
+                                              {isAnswered ? '✓' : ci + 1}
+                                            </span>
+                                            <span className="flex-1 truncate">{choice.question}</span>
+                                          </div>
+                                        ) : null}
+                                        {renderChoice(choice, ci)}
+                                      </div>
+                                    )
+                                  })}
+                                </div>
+                              </div>
                             )
-                          })}
+                          })()}
                         </>
                       ) : (
                         actionBlocks.length > 0 ? null : (
@@ -1028,7 +1464,7 @@ export function ChatPanel() {
                   {isLoadingCode
                     ? (locale === 'zh' ? '读取中...' : 'Loading...')
                     : codeContext
-                      ? (locale === 'zh' ? '✓ 代码已加载' : '✓ Code loaded')
+                      ? (locale === 'zh' ? '? 代码已加载' : '? Code loaded')
                       : (locale === 'zh' ? '加载代码上下文' : 'Load code context')}
                 </button>
                 {codeContext ? (
@@ -1065,3 +1501,4 @@ export function ChatPanel() {
     </div>
   )
 }
+

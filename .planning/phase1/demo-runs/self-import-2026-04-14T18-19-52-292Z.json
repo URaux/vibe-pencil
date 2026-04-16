@@ -1,0 +1,5261 @@
+{
+  "runId": "self-import-2026-04-14T18-19-52-292Z",
+  "base": "http://localhost:3000",
+  "target": "C:/Users/loey/AppData/Local/Temp/archviber-demos/hermes-agent",
+  "backend": "claude-code",
+  "startedAt": "2026-04-14T18:19:52.292Z",
+  "scan": {
+    "nodes": [
+      {
+        "id": "container-infrastructure",
+        "type": "container",
+        "position": {
+          "x": 12,
+          "y": 12
+        },
+        "style": {
+          "width": 400,
+          "height": 230
+        },
+        "data": {
+          "name": "Infrastructure",
+          "color": "slate",
+          "collapsed": false
+        }
+      },
+      {
+        "id": "block-infrastructure-1",
+        "type": "block",
+        "position": {
+          "x": 30,
+          "y": 60
+        },
+        "parentId": "container-infrastructure",
+        "extent": "parent",
+        "data": {
+          "name": "Entrypoint",
+          "description": "",
+          "status": "idle",
+          "techStack": ""
+        }
+      }
+    ],
+    "edges": [],
+    "scan": {
+      "name": "hermes-agent",
+      "framework": null,
+      "language": "python",
+      "fileTree": [
+        {
+          "name": ".dockerignore",
+          "path": ".dockerignore",
+          "type": "file",
+          "size": 134
+        },
+        {
+          "name": ".env.example",
+          "path": ".env.example",
+          "type": "file",
+          "size": 18371
+        },
+        {
+          "name": ".envrc",
+          "path": ".envrc",
+          "type": "file",
+          "size": 11
+        },
+        {
+          "name": ".gitattributes",
+          "path": ".gitattributes",
+          "type": "file",
+          "size": 122
+        },
+        {
+          "name": ".gitignore",
+          "path": ".gitignore",
+          "type": "file",
+          "size": 1097
+        },
+        {
+          "name": ".gitmodules",
+          "path": ".gitmodules",
+          "type": "file",
+          "size": 109
+        },
+        {
+          "name": ".mailmap",
+          "path": ".mailmap",
+          "type": "file",
+          "size": 5729
+        },
+        {
+          "name": "acp_adapter",
+          "path": "acp_adapter",
+          "type": "dir",
+          "children": [
+            {
+              "name": "auth.py",
+              "path": "acp_adapter/auth.py",
+              "type": "file",
+              "size": 855
+            },
+            {
+              "name": "entry.py",
+              "path": "acp_adapter/entry.py",
+              "type": "file",
+              "size": 2512
+            },
+            {
+              "name": "events.py",
+              "path": "acp_adapter/events.py",
+              "type": "file",
+              "size": 5770
+            },
+            {
+              "name": "permissions.py",
+              "path": "acp_adapter/permissions.py",
+              "type": "file",
+              "size": 2602
+            },
+            {
+              "name": "server.py",
+              "path": "acp_adapter/server.py",
+              "type": "file",
+              "size": 29005
+            },
+            {
+              "name": "session.py",
+              "path": "acp_adapter/session.py",
+              "type": "file",
+              "size": 18454
+            },
+            {
+              "name": "tools.py",
+              "path": "acp_adapter/tools.py",
+              "type": "file",
+              "size": 7480
+            },
+            {
+              "name": "__init__.py",
+              "path": "acp_adapter/__init__.py",
+              "type": "file",
+              "size": 68
+            },
+            {
+              "name": "__main__.py",
+              "path": "acp_adapter/__main__.py",
+              "type": "file",
+              "size": 104
+            }
+          ]
+        },
+        {
+          "name": "acp_registry",
+          "path": "acp_registry",
+          "type": "dir",
+          "children": [
+            {
+              "name": "agent.json",
+              "path": "acp_registry/agent.json",
+              "type": "file",
+              "size": 321
+            }
+          ]
+        },
+        {
+          "name": "agent",
+          "path": "agent",
+          "type": "dir",
+          "children": [
+            {
+              "name": "anthropic_adapter.py",
+              "path": "agent/anthropic_adapter.py",
+              "type": "file",
+              "size": 59063
+            },
+            {
+              "name": "auxiliary_client.py",
+              "path": "agent/auxiliary_client.py",
+              "type": "file",
+              "size": 112906
+            },
+            {
+              "name": "context_compressor.py",
+              "path": "agent/context_compressor.py",
+              "type": "file",
+              "size": 37952
+            },
+            {
+              "name": "context_engine.py",
+              "path": "agent/context_engine.py",
+              "type": "file",
+              "size": 6960
+            },
+            {
+              "name": "context_references.py",
+              "path": "agent/context_references.py",
+              "type": "file",
+              "size": 17454
+            },
+            {
+              "name": "copilot_acp_client.py",
+              "path": "agent/copilot_acp_client.py",
+              "type": "file",
+              "size": 20306
+            },
+            {
+              "name": "credential_pool.py",
+              "path": "agent/credential_pool.py",
+              "type": "file",
+              "size": 59864
+            },
+            {
+              "name": "display.py",
+              "path": "agent/display.py",
+              "type": "file",
+              "size": 41076
+            },
+            {
+              "name": "error_classifier.py",
+              "path": "agent/error_classifier.py",
+              "type": "file",
+              "size": 29397
+            },
+            {
+              "name": "insights.py",
+              "path": "agent/insights.py",
+              "type": "file",
+              "size": 34608
+            },
+            {
+              "name": "manual_compression_feedback.py",
+              "path": "agent/manual_compression_feedback.py",
+              "type": "file",
+              "size": 1649
+            },
+            {
+              "name": "memory_manager.py",
+              "path": "agent/memory_manager.py",
+              "type": "file",
+              "size": 14138
+            },
+            {
+              "name": "memory_provider.py",
+              "path": "agent/memory_provider.py",
+              "type": "file",
+              "size": 10078
+            },
+            {
+              "name": "models_dev.py",
+              "path": "agent/models_dev.py",
+              "type": "file",
+              "size": 20087
+            },
+            {
+              "name": "model_metadata.py",
+              "path": "agent/model_metadata.py",
+              "type": "file",
+              "size": 45329
+            },
+            {
+              "name": "prompt_builder.py",
+              "path": "agent/prompt_builder.py",
+              "type": "file",
+              "size": 47360
+            },
+            {
+              "name": "prompt_caching.py",
+              "path": "agent/prompt_caching.py",
+              "type": "file",
+              "size": 2322
+            },
+            {
+              "name": "rate_limit_tracker.py",
+              "path": "agent/rate_limit_tracker.py",
+              "type": "file",
+              "size": 8704
+            },
+            {
+              "name": "redact.py",
+              "path": "agent/redact.py",
+              "type": "file",
+              "size": 7267
+            },
+            {
+              "name": "retry_utils.py",
+              "path": "agent/retry_utils.py",
+              "type": "file",
+              "size": 1869
+            },
+            {
+              "name": "skill_commands.py",
+              "path": "agent/skill_commands.py",
+              "type": "file",
+              "size": 14018
+            },
+            {
+              "name": "skill_utils.py",
+              "path": "agent/skill_utils.py",
+              "type": "file",
+              "size": 16551
+            },
+            {
+              "name": "smart_model_routing.py",
+              "path": "agent/smart_model_routing.py",
+              "type": "file",
+              "size": 5977
+            },
+            {
+              "name": "subdirectory_hints.py",
+              "path": "agent/subdirectory_hints.py",
+              "type": "file",
+              "size": 8374
+            },
+            {
+              "name": "title_generator.py",
+              "path": "agent/title_generator.py",
+              "type": "file",
+              "size": 4246
+            },
+            {
+              "name": "trajectory.py",
+              "path": "agent/trajectory.py",
+              "type": "file",
+              "size": 2084
+            },
+            {
+              "name": "usage_pricing.py",
+              "path": "agent/usage_pricing.py",
+              "type": "file",
+              "size": 22849
+            },
+            {
+              "name": "__init__.py",
+              "path": "agent/__init__.py",
+              "type": "file",
+              "size": 282
+            }
+          ]
+        },
+        {
+          "name": "AGENTS.md",
+          "path": "AGENTS.md",
+          "type": "file",
+          "size": 21328
+        },
+        {
+          "name": "assets",
+          "path": "assets",
+          "type": "dir",
+          "children": []
+        },
+        {
+          "name": "batch_runner.py",
+          "path": "batch_runner.py",
+          "type": "file",
+          "size": 56609
+        },
+        {
+          "name": "cli-config.yaml.example",
+          "path": "cli-config.yaml.example",
+          "type": "file",
+          "size": 45927
+        },
+        {
+          "name": "cli.py",
+          "path": "cli.py",
+          "type": "file",
+          "size": 456485
+        },
+        {
+          "name": "constraints-termux.txt",
+          "path": "constraints-termux.txt",
+          "type": "file",
+          "size": 422
+        },
+        {
+          "name": "CONTRIBUTING.md",
+          "path": "CONTRIBUTING.md",
+          "type": "file",
+          "size": 27568
+        },
+        {
+          "name": "cron",
+          "path": "cron",
+          "type": "dir",
+          "children": [
+            {
+              "name": "jobs.py",
+              "path": "cron/jobs.py",
+              "type": "file",
+              "size": 27137
+            },
+            {
+              "name": "scheduler.py",
+              "path": "cron/scheduler.py",
+              "type": "file",
+              "size": 40564
+            },
+            {
+              "name": "__init__.py",
+              "path": "cron/__init__.py",
+              "type": "file",
+              "size": 1105
+            }
+          ]
+        },
+        {
+          "name": "datagen-config-examples",
+          "path": "datagen-config-examples",
+          "type": "dir",
+          "children": [
+            {
+              "name": "example_browser_tasks.jsonl",
+              "path": "datagen-config-examples/example_browser_tasks.jsonl",
+              "type": "file",
+              "size": 1020
+            },
+            {
+              "name": "run_browser_tasks.sh",
+              "path": "datagen-config-examples/run_browser_tasks.sh",
+              "type": "file",
+              "size": 3036
+            },
+            {
+              "name": "trajectory_compression.yaml",
+              "path": "datagen-config-examples/trajectory_compression.yaml",
+              "type": "file",
+              "size": 3147
+            },
+            {
+              "name": "web_research.yaml",
+              "path": "datagen-config-examples/web_research.yaml",
+              "type": "file",
+              "size": 1372
+            }
+          ]
+        },
+        {
+          "name": "docker",
+          "path": "docker",
+          "type": "dir",
+          "children": [
+            {
+              "name": "entrypoint.sh",
+              "path": "docker/entrypoint.sh",
+              "type": "file",
+              "size": 2289
+            },
+            {
+              "name": "SOUL.md",
+              "path": "docker/SOUL.md",
+              "type": "file",
+              "size": 550
+            }
+          ]
+        },
+        {
+          "name": "Dockerfile",
+          "path": "Dockerfile",
+          "type": "file",
+          "size": 1837
+        },
+        {
+          "name": "docs",
+          "path": "docs",
+          "type": "dir",
+          "children": [
+            {
+              "name": "acp-setup.md",
+              "path": "docs/acp-setup.md",
+              "type": "file",
+              "size": 6099
+            },
+            {
+              "name": "honcho-integration-spec.html",
+              "path": "docs/honcho-integration-spec.html",
+              "type": "file",
+              "size": 39244
+            },
+            {
+              "name": "honcho-integration-spec.md",
+              "path": "docs/honcho-integration-spec.md",
+              "type": "file",
+              "size": 15759
+            },
+            {
+              "name": "migration",
+              "path": "docs/migration",
+              "type": "dir",
+              "children": [
+                {
+                  "name": "openclaw.md",
+                  "path": "docs/migration/openclaw.md",
+                  "type": "file",
+                  "size": 7568
+                }
+              ]
+            },
+            {
+              "name": "plans",
+              "path": "docs/plans",
+              "type": "dir",
+              "children": [
+                {
+                  "name": "2026-03-16-pricing-accuracy-architecture-design.md",
+                  "path": "docs/plans/2026-03-16-pricing-accuracy-architecture-design.md",
+                  "type": "file",
+                  "size": 15296
+                }
+              ]
+            },
+            {
+              "name": "skins",
+              "path": "docs/skins",
+              "type": "dir",
+              "children": [
+                {
+                  "name": "example-skin.yaml",
+                  "path": "docs/skins/example-skin.yaml",
+                  "type": "file",
+                  "size": 4664
+                }
+              ]
+            },
+            {
+              "name": "specs",
+              "path": "docs/specs",
+              "type": "dir",
+              "children": [
+                {
+                  "name": "container-cli-review-fixes.md",
+                  "path": "docs/specs/container-cli-review-fixes.md",
+                  "type": "file",
+                  "size": 16295
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "environments",
+          "path": "environments",
+          "type": "dir",
+          "children": [
+            {
+              "name": "agentic_opd_env.py",
+              "path": "environments/agentic_opd_env.py",
+              "type": "file",
+              "size": 52320
+            },
+            {
+              "name": "agent_loop.py",
+              "path": "environments/agent_loop.py",
+              "type": "file",
+              "size": 24756
+            },
+            {
+              "name": "benchmarks",
+              "path": "environments/benchmarks",
+              "type": "dir",
+              "children": [
+                {
+                  "name": "tblite",
+                  "path": "environments/benchmarks/tblite",
+                  "type": "dir",
+                  "children": [
+                    {
+                      "name": "default.yaml",
+                      "path": "environments/benchmarks/tblite/default.yaml",
+                      "type": "file",
+                      "size": 1540
+                    },
+                    {
+                      "name": "local.yaml",
+                      "path": "environments/benchmarks/tblite/local.yaml",
+                      "type": "file",
+                      "size": 1322
+                    },
+                    {
+                      "name": "local_vllm.yaml",
+                      "path": "environments/benchmarks/tblite/local_vllm.yaml",
+                      "type": "file",
+                      "size": 1616
+                    },
+                    {
+                      "name": "README.md",
+                      "path": "environments/benchmarks/tblite/README.md",
+                      "type": "file",
+                      "size": 3772
+                    },
+                    {
+                      "name": "run_eval.sh",
+                      "path": "environments/benchmarks/tblite/run_eval.sh",
+                      "type": "file",
+                      "size": 1155
+                    },
+                    {
+                      "name": "tblite_env.py",
+                      "path": "environments/benchmarks/tblite/tblite_env.py",
+                      "type": "file",
+                      "size": 3810
+                    },
+                    {
+                      "name": "__init__.py",
+                      "path": "environments/benchmarks/tblite/__init__.py",
+                      "type": "file",
+                      "size": 0
+                    }
+                  ]
+                },
+                {
+                  "name": "terminalbench_2",
+                  "path": "environments/benchmarks/terminalbench_2",
+                  "type": "dir",
+                  "children": [
+                    {
+                      "name": "default.yaml",
+                      "path": "environments/benchmarks/terminalbench_2/default.yaml",
+                      "type": "file",
+                      "size": 1771
+                    },
+                    {
+                      "name": "run_eval.sh",
+                      "path": "environments/benchmarks/terminalbench_2/run_eval.sh",
+                      "type": "file",
+                      "size": 1189
+                    },
+                    {
+                      "name": "terminalbench2_env.py",
+                      "path": "environments/benchmarks/terminalbench_2/terminalbench2_env.py",
+                      "type": "file",
+                      "size": 43252
+                    },
+                    {
+                      "name": "__init__.py",
+                      "path": "environments/benchmarks/terminalbench_2/__init__.py",
+                      "type": "file",
+                      "size": 0
+                    }
+                  ]
+                },
+                {
+                  "name": "yc_bench",
+                  "path": "environments/benchmarks/yc_bench",
+                  "type": "dir",
+                  "children": [
+                    {
+                      "name": "default.yaml",
+                      "path": "environments/benchmarks/yc_bench/default.yaml",
+                      "type": "file",
+                      "size": 1628
+                    },
+                    {
+                      "name": "README.md",
+                      "path": "environments/benchmarks/yc_bench/README.md",
+                      "type": "file",
+                      "size": 4557
+                    },
+                    {
+                      "name": "run_eval.sh",
+                      "path": "environments/benchmarks/yc_bench/run_eval.sh",
+                      "type": "file",
+                      "size": 884
+                    },
+                    {
+                      "name": "yc_bench_env.py",
+                      "path": "environments/benchmarks/yc_bench/yc_bench_env.py",
+                      "type": "file",
+                      "size": 33486
+                    },
+                    {
+                      "name": "__init__.py",
+                      "path": "environments/benchmarks/yc_bench/__init__.py",
+                      "type": "file",
+                      "size": 0
+                    }
+                  ]
+                },
+                {
+                  "name": "__init__.py",
+                  "path": "environments/benchmarks/__init__.py",
+                  "type": "file",
+                  "size": 0
+                }
+              ]
+            },
+            {
+              "name": "hermes_base_env.py",
+              "path": "environments/hermes_base_env.py",
+              "type": "file",
+              "size": 29937
+            },
+            {
+              "name": "hermes_swe_env",
+              "path": "environments/hermes_swe_env",
+              "type": "dir",
+              "children": [
+                {
+                  "name": "default.yaml",
+                  "path": "environments/hermes_swe_env/default.yaml",
+                  "type": "file",
+                  "size": 1123
+                },
+                {
+                  "name": "hermes_swe_env.py",
+                  "path": "environments/hermes_swe_env/hermes_swe_env.py",
+                  "type": "file",
+                  "size": 8420
+                },
+                {
+                  "name": "__init__.py",
+                  "path": "environments/hermes_swe_env/__init__.py",
+                  "type": "file",
+                  "size": 0
+                }
+              ]
+            },
+            {
+              "name": "patches.py",
+              "path": "environments/patches.py",
+              "type": "file",
+              "size": 1132
+            },
+            {
+              "name": "README.md",
+              "path": "environments/README.md",
+              "type": "file",
+              "size": 14924
+            },
+            {
+              "name": "terminal_test_env",
+              "path": "environments/terminal_test_env",
+              "type": "dir",
+              "children": [
+                {
+                  "name": "default.yaml",
+                  "path": "environments/terminal_test_env/default.yaml",
+                  "type": "file",
+                  "size": 1157
+                },
+                {
+                  "name": "terminal_test_env.py",
+                  "path": "environments/terminal_test_env/terminal_test_env.py",
+                  "type": "file",
+                  "size": 10716
+                },
+                {
+                  "name": "__init__.py",
+                  "path": "environments/terminal_test_env/__init__.py",
+                  "type": "file",
+                  "size": 0
+                }
+              ]
+            },
+            {
+              "name": "tool_call_parsers",
+              "path": "environments/tool_call_parsers",
+              "type": "dir",
+              "children": [
+                {
+                  "name": "deepseek_v3_1_parser.py",
+                  "path": "environments/tool_call_parsers/deepseek_v3_1_parser.py",
+                  "type": "file",
+                  "size": 2329
+                },
+                {
+                  "name": "deepseek_v3_parser.py",
+                  "path": "environments/tool_call_parsers/deepseek_v3_parser.py",
+                  "type": "file",
+                  "size": 3052
+                },
+                {
+                  "name": "glm45_parser.py",
+                  "path": "environments/tool_call_parsers/glm45_parser.py",
+                  "type": "file",
+                  "size": 3473
+                },
+                {
+                  "name": "glm47_parser.py",
+                  "path": "environments/tool_call_parsers/glm47_parser.py",
+                  "type": "file",
+                  "size": 1175
+                },
+                {
+                  "name": "hermes_parser.py",
+                  "path": "environments/tool_call_parsers/hermes_parser.py",
+                  "type": "file",
+                  "size": 2467
+                },
+                {
+                  "name": "kimi_k2_parser.py",
+                  "path": "environments/tool_call_parsers/kimi_k2_parser.py",
+                  "type": "file",
+                  "size": 3116
+                },
+                {
+                  "name": "llama_parser.py",
+                  "path": "environments/tool_call_parsers/llama_parser.py",
+                  "type": "file",
+                  "size": 3450
+                },
+                {
+                  "name": "longcat_parser.py",
+                  "path": "environments/tool_call_parsers/longcat_parser.py",
+                  "type": "file",
+                  "size": 2163
+                },
+                {
+                  "name": "mistral_parser.py",
+                  "path": "environments/tool_call_parsers/mistral_parser.py",
+                  "type": "file",
+                  "size": 5451
+                },
+                {
+                  "name": "qwen3_coder_parser.py",
+                  "path": "environments/tool_call_parsers/qwen3_coder_parser.py",
+                  "type": "file",
+                  "size": 5420
+                },
+                {
+                  "name": "qwen_parser.py",
+                  "path": "environments/tool_call_parsers/qwen_parser.py",
+                  "type": "file",
+                  "size": 591
+                },
+                {
+                  "name": "__init__.py",
+                  "path": "environments/tool_call_parsers/__init__.py",
+                  "type": "file",
+                  "size": 4404
+                }
+              ]
+            },
+            {
+              "name": "tool_context.py",
+              "path": "environments/tool_context.py",
+              "type": "file",
+              "size": 17124
+            },
+            {
+              "name": "web_research_env.py",
+              "path": "environments/web_research_env.py",
+              "type": "file",
+              "size": 29729
+            },
+            {
+              "name": "__init__.py",
+              "path": "environments/__init__.py",
+              "type": "file",
+              "size": 1326
+            }
+          ]
+        },
+        {
+          "name": "flake.nix",
+          "path": "flake.nix",
+          "type": "file",
+          "size": 959
+        },
+        {
+          "name": "gateway",
+          "path": "gateway",
+          "type": "dir",
+          "children": [
+            {
+              "name": "builtin_hooks",
+              "path": "gateway/builtin_hooks",
+              "type": "dir",
+              "children": [
+                {
+                  "name": "boot_md.py",
+                  "path": "gateway/builtin_hooks/boot_md.py",
+                  "type": "file",
+                  "size": 2723
+                },
+                {
+                  "name": "__init__.py",
+                  "path": "gateway/builtin_hooks/__init__.py",
+                  "type": "file",
+                  "size": 58
+                }
+              ]
+            },
+            {
+              "name": "channel_directory.py",
+              "path": "gateway/channel_directory.py",
+              "type": "file",
+              "size": 9920
+            },
+            {
+              "name": "config.py",
+              "path": "gateway/config.py",
+              "type": "file",
+              "size": 53727
+            },
+            {
+              "name": "delivery.py",
+              "path": "gateway/delivery.py",
+              "type": "file",
+              "size": 8805
+            },
+            {
+              "name": "display_config.py",
+              "path": "gateway/display_config.py",
+              "type": "file",
+              "size": 6995
+            },
+            {
+              "name": "hooks.py",
+              "path": "gateway/hooks.py",
+              "type": "file",
+              "size": 6597
+            },
+            {
+              "name": "mirror.py",
+              "path": "gateway/mirror.py",
+              "type": "file",
+              "size": 4456
+            },
+            {
+              "name": "pairing.py",
+              "path": "gateway/pairing.py",
+              "type": "file",
+              "size": 11777
+            },
+            {
+              "name": "platforms",
+              "path": "gateway/platforms",
+              "type": "dir",
+              "children": [
+                {
+                  "name": "ADDING_A_PLATFORM.md",
+                  "path": "gateway/platforms/ADDING_A_PLATFORM.md",
+                  "type": "file",
+                  "size": 9139
+                },
+                {
+                  "name": "api_server.py",
+                  "path": "gateway/platforms/api_server.py",
+                  "type": "file",
+                  "size": 82007
+                },
+                {
+                  "name": "base.py",
+                  "path": "gateway/platforms/base.py",
+                  "type": "file",
+                  "size": 84320
+                },
+                {
+                  "name": "bluebubbles.py",
+                  "path": "gateway/platforms/bluebubbles.py",
+                  "type": "file",
+                  "size": 34385
+                },
+                {
+                  "name": "dingtalk.py",
+                  "path": "gateway/platforms/dingtalk.py",
+                  "type": "file",
+                  "size": 13077
+                },
+                {
+                  "name": "discord.py",
+                  "path": "gateway/platforms/discord.py",
+                  "type": "file",
+                  "size": 132120
+                },
+                {
+                  "name": "email.py",
+                  "path": "gateway/platforms/email.py",
+                  "type": "file",
+                  "size": 23939
+                },
+                {
+                  "name": "feishu.py",
+                  "path": "gateway/platforms/feishu.py",
+                  "type": "file",
+                  "size": 168072
+                },
+                {
+                  "name": "helpers.py",
+                  "path": "gateway/platforms/helpers.py",
+                  "type": "file",
+                  "size": 9334
+                },
+                {
+                  "name": "homeassistant.py",
+                  "path": "gateway/platforms/homeassistant.py",
+                  "type": "file",
+                  "size": 16695
+                },
+                {
+                  "name": "matrix.py",
+                  "path": "gateway/platforms/matrix.py",
+                  "type": "file",
+                  "size": 82958
+                },
+                {
+                  "name": "mattermost.py",
+                  "path": "gateway/platforms/mattermost.py",
+                  "type": "file",
+                  "size": 28153
+                },
+                {
+                  "name": "qqbot.py",
+                  "path": "gateway/platforms/qqbot.py",
+                  "type": "file",
+                  "size": 81812
+                },
+                {
+                  "name": "signal.py",
+                  "path": "gateway/platforms/signal.py",
+                  "type": "file",
+                  "size": 32567
+                },
+                {
+                  "name": "slack.py",
+                  "path": "gateway/platforms/slack.py",
+                  "type": "file",
+                  "size": 69509
+                },
+                {
+                  "name": "sms.py",
+                  "path": "gateway/platforms/sms.py",
+                  "type": "file",
+                  "size": 14578
+                },
+                {
+                  "name": "telegram.py",
+                  "path": "gateway/platforms/telegram.py",
+                  "type": "file",
+                  "size": 125791
+                },
+                {
+                  "name": "telegram_network.py",
+                  "path": "gateway/platforms/telegram_network.py",
+                  "type": "file",
+                  "size": 9441
+                },
+                {
+                  "name": "webhook.py",
+                  "path": "gateway/platforms/webhook.py",
+                  "type": "file",
+                  "size": 26533
+                },
+                {
+                  "name": "wecom.py",
+                  "path": "gateway/platforms/wecom.py",
+                  "type": "file",
+                  "size": 59478
+                },
+                {
+                  "name": "wecom_callback.py",
+                  "path": "gateway/platforms/wecom_callback.py",
+                  "type": "file",
+                  "size": 15878
+                },
+                {
+                  "name": "wecom_crypto.py",
+                  "path": "gateway/platforms/wecom_crypto.py",
+                  "type": "file",
+                  "size": 5550
+                },
+                {
+                  "name": "weixin.py",
+                  "path": "gateway/platforms/weixin.py",
+                  "type": "file",
+                  "size": 68792
+                },
+                {
+                  "name": "whatsapp.py",
+                  "path": "gateway/platforms/whatsapp.py",
+                  "type": "file",
+                  "size": 42375
+                },
+                {
+                  "name": "__init__.py",
+                  "path": "gateway/platforms/__init__.py",
+                  "type": "file",
+                  "size": 433
+                }
+              ]
+            },
+            {
+              "name": "restart.py",
+              "path": "gateway/restart.py",
+              "type": "file",
+              "size": 764
+            },
+            {
+              "name": "run.py",
+              "path": "gateway/run.py",
+              "type": "file",
+              "size": 436747
+            },
+            {
+              "name": "session.py",
+              "path": "gateway/session.py",
+              "type": "file",
+              "size": 42718
+            },
+            {
+              "name": "session_context.py",
+              "path": "gateway/session_context.py",
+              "type": "file",
+              "size": 4518
+            },
+            {
+              "name": "status.py",
+              "path": "gateway/status.py",
+              "type": "file",
+              "size": 14679
+            },
+            {
+              "name": "sticker_cache.py",
+              "path": "gateway/sticker_cache.py",
+              "type": "file",
+              "size": 3211
+            },
+            {
+              "name": "stream_consumer.py",
+              "path": "gateway/stream_consumer.py",
+              "type": "file",
+              "size": 34868
+            },
+            {
+              "name": "__init__.py",
+              "path": "gateway/__init__.py",
+              "type": "file",
+              "size": 1055
+            }
+          ]
+        },
+        {
+          "name": "hermes",
+          "path": "hermes",
+          "type": "file",
+          "size": 273
+        },
+        {
+          "name": "hermes_cli",
+          "path": "hermes_cli",
+          "type": "dir",
+          "children": [
+            {
+              "name": "auth.py",
+              "path": "hermes_cli/auth.py",
+              "type": "file",
+              "size": 128548
+            },
+            {
+              "name": "auth_commands.py",
+              "path": "hermes_cli/auth_commands.py",
+              "type": "file",
+              "size": 20355
+            },
+            {
+              "name": "backup.py",
+              "path": "hermes_cli/backup.py",
+              "type": "file",
+              "size": 22300
+            },
+            {
+              "name": "banner.py",
+              "path": "hermes_cli/banner.py",
+              "type": "file",
+              "size": 22248
+            },
+            {
+              "name": "callbacks.py",
+              "path": "hermes_cli/callbacks.py",
+              "type": "file",
+              "size": 8515
+            },
+            {
+              "name": "claw.py",
+              "path": "hermes_cli/claw.py",
+              "type": "file",
+              "size": 27488
+            },
+            {
+              "name": "clipboard.py",
+              "path": "hermes_cli/clipboard.py",
+              "type": "file",
+              "size": 15225
+            },
+            {
+              "name": "cli_output.py",
+              "path": "hermes_cli/cli_output.py",
+              "type": "file",
+              "size": 2605
+            },
+            {
+              "name": "codex_models.py",
+              "path": "hermes_cli/codex_models.py",
+              "type": "file",
+              "size": 6017
+            },
+            {
+              "name": "colors.py",
+              "path": "hermes_cli/colors.py",
+              "type": "file",
+              "size": 975
+            },
+            {
+              "name": "commands.py",
+              "path": "hermes_cli/commands.py",
+              "type": "file",
+              "size": 46139
+            },
+            {
+              "name": "completion.py",
+              "path": "hermes_cli/completion.py",
+              "type": "file",
+              "size": 11231
+            },
+            {
+              "name": "config.py",
+              "path": "hermes_cli/config.py",
+              "type": "file",
+              "size": 137534
+            },
+            {
+              "name": "copilot_auth.py",
+              "path": "hermes_cli/copilot_auth.py",
+              "type": "file",
+              "size": 10302
+            },
+            {
+              "name": "cron.py",
+              "path": "hermes_cli/cron.py",
+              "type": "file",
+              "size": 10765
+            },
+            {
+              "name": "curses_ui.py",
+              "path": "hermes_cli/curses_ui.py",
+              "type": "file",
+              "size": 16394
+            },
+            {
+              "name": "debug.py",
+              "path": "hermes_cli/debug.py",
+              "type": "file",
+              "size": 10946
+            },
+            {
+              "name": "default_soul.py",
+              "path": "hermes_cli/default_soul.py",
+              "type": "file",
+              "size": 665
+            },
+            {
+              "name": "doctor.py",
+              "path": "hermes_cli/doctor.py",
+              "type": "file",
+              "size": 47133
+            },
+            {
+              "name": "dump.py",
+              "path": "hermes_cli/dump.py",
+              "type": "file",
+              "size": 11675
+            },
+            {
+              "name": "env_loader.py",
+              "path": "hermes_cli/env_loader.py",
+              "type": "file",
+              "size": 3302
+            },
+            {
+              "name": "gateway.py",
+              "path": "hermes_cli/gateway.py",
+              "type": "file",
+              "size": 130769
+            },
+            {
+              "name": "logs.py",
+              "path": "hermes_cli/logs.py",
+              "type": "file",
+              "size": 13736
+            },
+            {
+              "name": "main.py",
+              "path": "hermes_cli/main.py",
+              "type": "file",
+              "size": 251408
+            },
+            {
+              "name": "mcp_config.py",
+              "path": "hermes_cli/mcp_config.py",
+              "type": "file",
+              "size": 25173
+            },
+            {
+              "name": "memory_setup.py",
+              "path": "hermes_cli/memory_setup.py",
+              "type": "file",
+              "size": 16842
+            },
+            {
+              "name": "models.py",
+              "path": "hermes_cli/models.py",
+              "type": "file",
+              "size": 73259
+            },
+            {
+              "name": "model_normalize.py",
+              "path": "hermes_cli/model_normalize.py",
+              "type": "file",
+              "size": 13681
+            },
+            {
+              "name": "model_switch.py",
+              "path": "hermes_cli/model_switch.py",
+              "type": "file",
+              "size": 41764
+            },
+            {
+              "name": "nous_subscription.py",
+              "path": "hermes_cli/nous_subscription.py",
+              "type": "file",
+              "size": 19989
+            },
+            {
+              "name": "pairing.py",
+              "path": "hermes_cli/pairing.py",
+              "type": "file",
+              "size": 3510
+            },
+            {
+              "name": "platforms.py",
+              "path": "hermes_cli/platforms.py",
+              "type": "file",
+              "size": 2787
+            },
+            {
+              "name": "plugins.py",
+              "path": "hermes_cli/plugins.py",
+              "type": "file",
+              "size": 28091
+            },
+            {
+              "name": "plugins_cmd.py",
+              "path": "hermes_cli/plugins_cmd.py",
+              "type": "file",
+              "size": 40552
+            },
+            {
+              "name": "profiles.py",
+              "path": "hermes_cli/profiles.py",
+              "type": "file",
+              "size": 38695
+            },
+            {
+              "name": "providers.py",
+              "path": "hermes_cli/providers.py",
+              "type": "file",
+              "size": 17527
+            },
+            {
+              "name": "runtime_provider.py",
+              "path": "hermes_cli/runtime_provider.py",
+              "type": "file",
+              "size": 38027
+            },
+            {
+              "name": "setup.py",
+              "path": "hermes_cli/setup.py",
+              "type": "file",
+              "size": 129948
+            },
+            {
+              "name": "skills_config.py",
+              "path": "hermes_cli/skills_config.py",
+              "type": "file",
+              "size": 7322
+            },
+            {
+              "name": "skills_hub.py",
+              "path": "hermes_cli/skills_hub.py",
+              "type": "file",
+              "size": 47826
+            },
+            {
+              "name": "skin_engine.py",
+              "path": "hermes_cli/skin_engine.py",
+              "type": "file",
+              "size": 40385
+            },
+            {
+              "name": "status.py",
+              "path": "hermes_cli/status.py",
+              "type": "file",
+              "size": 20222
+            },
+            {
+              "name": "tips.py",
+              "path": "hermes_cli/tips.py",
+              "type": "file",
+              "size": 27978
+            },
+            {
+              "name": "tools_config.py",
+              "path": "hermes_cli/tools_config.py",
+              "type": "file",
+              "size": 72618
+            },
+            {
+              "name": "uninstall.py",
+              "path": "hermes_cli/uninstall.py",
+              "type": "file",
+              "size": 11728
+            },
+            {
+              "name": "webhook.py",
+              "path": "hermes_cli/webhook.py",
+              "type": "file",
+              "size": 7865
+            },
+            {
+              "name": "web_server.py",
+              "path": "hermes_cli/web_server.py",
+              "type": "file",
+              "size": 78849
+            },
+            {
+              "name": "__init__.py",
+              "path": "hermes_cli/__init__.py",
+              "type": "file",
+              "size": 520
+            }
+          ]
+        },
+        {
+          "name": "hermes_constants.py",
+          "path": "hermes_constants.py",
+          "type": "file",
+          "size": 10652
+        },
+        {
+          "name": "hermes_logging.py",
+          "path": "hermes_logging.py",
+          "type": "file",
+          "size": 13983
+        },
+        {
+          "name": "hermes_state.py",
+          "path": "hermes_state.py",
+          "type": "file",
+          "size": 50774
+        },
+        {
+          "name": "hermes_time.py",
+          "path": "hermes_time.py",
+          "type": "file",
+          "size": 3313
+        },
+        {
+          "name": "landingpage",
+          "path": "landingpage",
+          "type": "dir",
+          "children": [
+            {
+              "name": "index.html",
+              "path": "landingpage/index.html",
+              "type": "file",
+              "size": 25174
+            },
+            {
+              "name": "script.js",
+              "path": "landingpage/script.js",
+              "type": "file",
+              "size": 15395
+            },
+            {
+              "name": "style.css",
+              "path": "landingpage/style.css",
+              "type": "file",
+              "size": 24354
+            }
+          ]
+        },
+        {
+          "name": "LICENSE",
+          "path": "LICENSE",
+          "type": "file",
+          "size": 1091
+        },
+        {
+          "name": "MANIFEST.in",
+          "path": "MANIFEST.in",
+          "type": "file",
+          "size": 91
+        },
+        {
+          "name": "mcp_serve.py",
+          "path": "mcp_serve.py",
+          "type": "file",
+          "size": 31554
+        },
+        {
+          "name": "mini_swe_runner.py",
+          "path": "mini_swe_runner.py",
+          "type": "file",
+          "size": 28115
+        },
+        {
+          "name": "model_tools.py",
+          "path": "model_tools.py",
+          "type": "file",
+          "size": 24673
+        },
+        {
+          "name": "nix",
+          "path": "nix",
+          "type": "dir",
+          "children": [
+            {
+              "name": "checks.nix",
+              "path": "nix/checks.nix",
+              "type": "file",
+              "size": 16818
+            },
+            {
+              "name": "configMergeScript.nix",
+              "path": "nix/configMergeScript.nix",
+              "type": "file",
+              "size": 1111
+            },
+            {
+              "name": "devShell.nix",
+              "path": "nix/devShell.nix",
+              "type": "file",
+              "size": 1618
+            },
+            {
+              "name": "nixosModules.nix",
+              "path": "nix/nixosModules.nix",
+              "type": "file",
+              "size": 39442
+            },
+            {
+              "name": "packages.nix",
+              "path": "nix/packages.nix",
+              "type": "file",
+              "size": 1807
+            },
+            {
+              "name": "python.nix",
+              "path": "nix/python.nix",
+              "type": "file",
+              "size": 2308
+            }
+          ]
+        },
+        {
+          "name": "optional-skills",
+          "path": "optional-skills",
+          "type": "dir",
+          "children": [
+            {
+              "name": "autonomous-ai-agents",
+              "path": "optional-skills/autonomous-ai-agents",
+              "type": "dir",
+              "children": [
+                {
+                  "name": "blackbox",
+                  "path": "optional-skills/autonomous-ai-agents/blackbox",
+                  "type": "dir",
+                  "children": [
+                    {
+                      "name": "SKILL.md",
+                      "path": "optional-skills/autonomous-ai-agents/blackbox/SKILL.md",
+                      "type": "file",
+                      "size": 5543
+                    }
+                  ]
+                },
+                {
+                  "name": "DESCRIPTION.md",
+                  "path": "optional-skills/autonomous-ai-agents/DESCRIPTION.md",
+                  "type": "file",
+                  "size": 130
+                },
+                {
+                  "name": "honcho",
+                  "path": "optional-skills/autonomous-ai-agents/honcho",
+                  "type": "dir",
+                  "children": [
+                    {
+                      "name": "SKILL.md",
+                      "path": "optional-skills/autonomous-ai-agents/honcho/SKILL.md",
+                      "type": "file",
+                      "size": 9839
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "blockchain",
+              "path": "optional-skills/blockchain",
+              "type": "dir",
+              "children": [
+                {
+                  "name": "base",
+                  "path": "optional-skills/blockchain/base",
+                  "type": "dir",
+                  "children": [
+                    {
+                      "name": "scripts",
+                      "path": "optional-skills/blockchain/base/scripts",
+                      "type": "dir",
+                      "children": [
+                        {
+                          "name": "base_client.py",
+                          "path": "optional-skills/blockchain/base/scripts/base_client.py",
+                          "type": "file",
+                          "size": 38099
+                        }
+                      ]
+                    },
+                    {
+                      "name": "SKILL.md",
+                      "path": "optional-skills/blockchain/base/SKILL.md",
+                      "type": "file",
+                      "size": 8043
+                    }
+                  ]
+                },
+                {
+                  "name": "solana",
+                  "path": "optional-skills/blockchain/solana",
+                  "type": "dir",
+                  "children": [
+                    {
+                      "name": "scripts",
+                      "path": "optional-skills/blockchain/solana/scripts",
+                      "type": "dir",
+                      "children": [
+                        {
+                          "name": "solana_client.py",
+                          "path": "optional-skills/blockchain/solana/scripts/solana_client.py",
+                          "type": "file",
+                          "size": 26737
+                        }
+                      ]
+                    },
+                    {
+                      "name": "SKILL.md",
+                      "path": "optional-skills/blockchain/solana/SKILL.md",
+                      "type": "file",
+                      "size": 6764
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "communication",
+              "path": "optional-skills/communication",
+              "type": "dir",
+              "children": [
+                {
+                  "name": "DESCRIPTION.md",
+                  "path": "optional-skills/communication/DESCRIPTION.md",
+                  "type": "file",
+                  "size": 152
+                },
+                {
+                  "name": "one-three-one-rule",
+                  "path": "optional-skills/communication/one-three-one-rule",
+                  "type": "dir",
+                  "children": [
+                    {
+                      "name": "SKILL.md",
+                      "path": "optional-skills/communication/one-three-one-rule/SKILL.md",
+                      "type": "file",
+                      "size": 5129
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "creative",
+              "path": "optional-skills/creative",
+              "type": "dir",
+              "children": [
+                {
+                  "name": "blender-mcp",
+                  "path": "optional-skills/creative/blender-mcp",
+                  "type": "dir",
+                  "children": [
+                    {
+                      "name": "SKILL.md",
+                      "path": "optional-skills/creative/blender-mcp/SKILL.md",
+                      "type": "file",
+                      "size": 4228
+                    }
+                  ]
+                },
+                {
+                  "name": "meme-generation",
+                  "path": "optional-skills/creative/meme-generation",
+                  "type": "dir",
+                  "children": [
+                    {
+                      "name": "EXAMPLES.md",
+                      "path": "optional-skills/creative/meme-generation/EXAMPLES.md",
+                      "type": "file",
+                      "size": 1122
+                    },
+                    {
+                      "name": "scripts",
+                      "path": "optional-skills/creative/meme-generation/scripts",
+                      "type": "dir",
+                      "children": [
+                        {
+                          "name": ".gitignore",
+                          "path": "optional-skills/creative/meme-generation/scripts/.gitignore",
+                          "type": "file",
+                          "size": 9
+                        },
+                        {
+                          "name": "generate_meme.py",
+                          "path": "optional-skills/creative/meme-generation/scripts/generate_meme.py",
+                          "type": "file",
+                          "size": 17116
+                        },
+                        {
+                          "name": "templates.json",
+                          "path": "optional-skills/creative/meme-generation/scripts/templates.json",
+                          "type": "file",
+                          "size": 4251
+                        }
+                      ]
+                    },
+                    {
+                      "name": "SKILL.md",
+                      "path": "optional-skills/creative/meme-generation/SKILL.md",
+                      "type": "file",
+                      "size": 5558
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "DESCRIPTION.md",
+              "path": "optional-skills/DESCRIPTION.md",
+              "type": "file",
+              "size": 1039
+            },
+            {
+              "name": "devops",
+              "path": "optional-skills/devops",
+              "type": "dir",
+              "children": [
+                {
+                  "name": "cli",
+                  "path": "optional-skills/devops/cli",
+                  "type": "dir",
+                  "children": [
+                    {
+                      "name": "references",
+                      "path": "optional-skills/devops/cli/references",
+                      "type": "dir",
+                      "children": [
+                        {
+                          "name": "app-discovery.md",
+                          "path": "optional-skills/devops/cli/references/app-discovery.md",
+                          "type": "file",
+                          "size": 2232
+                        },
+                        {
+                          "name": "authentication.md",
+                          "path": "optional-skills/devops/cli/references/authentication.md",
+                          "type": "file",
+                          "size": 1143
+                        },
+                        {
+                          "name": "cli-reference.md",
+                          "path": "optional-skills/devops/cli/references/cli-reference.md",
+                          "type": "file",
+                          "size": 3285
+                        },
+                        {
+                          "name": "running-apps.md",
+                          "path": "optional-skills/devops/cli/references/running-apps.md",
+                          "type": "file",
+                          "size": 3876
+                        }
+                      ]
+                    },
+                    {
+                      "name": "SKILL.md",
+                      "path": "optional-skills/devops/cli/SKILL.md",
+                      "type": "file",
+                      "size": 4811
+                    }
+                  ]
+                },
+                {
+                  "name": "docker-management",
+                  "path": "optional-skills/devops/docker-management",
+                  "type": "dir",
+                  "children": [
+                    {
+                      "name": "SKILL.md",
+                      "path": "optional-skills/devops/docker-management/SKILL.md",
+                      "type": "file",
+                      "size": 10685
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "email",
+              "path": "optional-skills/email",
+              "type": "dir",
+              "children": [
+                {
+                  "name": "agentmail",
+                  "path": "optional-skills/email/agentmail",
+                  "type": "dir",
+                  "children": [
+                    {
+                      "name": "SKILL.md",
+                      "path": "optional-skills/email/agentmail/SKILL.md",
+                      "type": "file",
+                      "size": 4252
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "health",
+              "path": "optional-skills/health",
+              "type": "dir",
+              "children": [
+                {
+                  "name": "DESCRIPTION.md",
+                  "path": "optional-skills/health/DESCRIPTION.md",
+                  "type": "file",
+                  "size": 134
+                },
+                {
+                  "name": "fitness-nutrition",
+                  "path": "optional-skills/health/fitness-nutrition",
+                  "type": "dir",
+                  "children": [
+                    {
+                      "name": "references",
+                      "path": "optional-skills/health/fitness-nutrition/references",
+                      "type": "dir",
+                      "children": [
+                        {
+                          "name": "FORMULAS.md",
+                          "path": "optional-skills/health/fitness-nutrition/references/FORMULAS.md",
+                          "type": "file",
+                          "size": 3333
+                        }
+                      ]
+                    },
+                    {
+                      "name": "scripts",
+                      "path": "optional-skills/health/fitness-nutrition/scripts",
+                      "type": "dir",
+                      "children": [
+                        {
+                          "name": "body_calc.py",
+                          "path": "optional-skills/health/fitness-nutrition/scripts/body_calc.py",
+                          "type": "file",
+                          "size": 6639
+                        },
+                        {
+                          "name": "nutrition_search.py",
+                          "path": "optional-skills/health/fitness-nutrition/scripts/nutrition_search.py",
+                          "type": "file",
+                          "size": 2746
+                        }
+                      ]
+                    },
+                    {
+                      "name": "SKILL.md",
+                      "path": "optional-skills/health/fitness-nutrition/SKILL.md",
+                      "type": "file",
+                      "size": 10306
+                    }
+                  ]
+                },
+                {
+                  "name": "neuroskill-bci",
+                  "path": "optional-skills/health/neuroskill-bci",
+                  "type": "dir",
+                  "children": [
+                    {
+                      "name": "references",
+                      "path": "optional-skills/health/neuroskill-bci/references",
+                      "type": "dir",
+                      "children": [
+                        {
+                          "name": "api.md",
+                          "path": "optional-skills/health/neuroskill-bci/references/api.md",
+                          "type": "file",
+                          "size": 8672
+                        },
+                        {
+                          "name": "metrics.md",
+                          "path": "optional-skills/health/neuroskill-bci/references/metrics.md",
+                          "type": "file",
+                          "size": 9699
+                        },
+                        {
+                          "name": "protocols.md",
+                          "path": "optional-skills/health/neuroskill-bci/references/protocols.md",
+                          "type": "file",
+                          "size": 16984
+                        }
+                      ]
+                    },
+                    {
+                      "name": "SKILL.md",
+                      "path": "optional-skills/health/neuroskill-bci/SKILL.md",
+                      "type": "file",
+                      "size": 17111
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "mcp",
+              "path": "optional-skills/mcp",
+              "type": "dir",
+              "children": [
+                {
+                  "name": "DESCRIPTION.md",
+                  "path": "optional-skills/mcp/DESCRIPTION.md",
+                  "type": "file",
+                  "size": 92
+                },
+                {
+                  "name": "fastmcp",
+                  "path": "optional-skills/mcp/fastmcp",
+                  "type": "dir",
+                  "children": [
+                    {
+                      "name": "references",
+                      "path": "optional-skills/mcp/fastmcp/references",
+                      "type": "dir",
+                      "children": [
+                        {
+                          "name": "fastmcp-cli.md",
+                          "path": "optional-skills/mcp/fastmcp/references/fastmcp-cli.md",
+                          "type": "file",
+                          "size": 2469
+                        }
+                      ]
+                    },
+                    {
+                      "name": "scripts",
+                      "path": "optional-skills/mcp/fastmcp/scripts",
+                      "type": "dir",
+                      "children": [
+                        {
+                          "name": "scaffold_fastmcp.py",
+                          "path": "optional-skills/mcp/fastmcp/scripts/scaffold_fastmcp.py",
+                          "type": "file",
+                          "size": 2061
+                        }
+                      ]
+                    },
+                    {
+                      "name": "SKILL.md",
+                      "path": "optional-skills/mcp/fastmcp/SKILL.md",
+                      "type": "file",
+                      "size": 8633
+                    },
+                    {
+                      "name": "templates",
+                      "path": "optional-skills/mcp/fastmcp/templates",
+                      "type": "dir",
+                      "children": [
+                        {
+                          "name": "api_wrapper.py",
+                          "path": "optional-skills/mcp/fastmcp/templates/api_wrapper.py",
+                          "type": "file",
+                          "size": 1662
+                        },
+                        {
+                          "name": "database_server.py",
+                          "path": "optional-skills/mcp/fastmcp/templates/database_server.py",
+                          "type": "file",
+                          "size": 2315
+                        },
+                        {
+                          "name": "file_processor.py",
+                          "path": "optional-skills/mcp/fastmcp/templates/file_processor.py",
+                          "type": "file",
+                          "size": 1718
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "migration",
+              "path": "optional-skills/migration",
+              "type": "dir",
+              "children": [
+                {
+                  "name": "DESCRIPTION.md",
+                  "path": "optional-skills/migration/DESCRIPTION.md",
+                  "type": "file",
+                  "size": 119
+                },
+                {
+                  "name": "openclaw-migration",
+                  "path": "optional-skills/migration/openclaw-migration",
+                  "type": "dir",
+                  "children": [
+                    {
+                      "name": "scripts",
+                      "path": "optional-skills/migration/openclaw-migration/scripts",
+                      "type": "dir",
+                      "children": [
+                        {
+                          "name": "openclaw_to_hermes.py",
+                          "path": "optional-skills/migration/openclaw-migration/scripts/openclaw_to_hermes.py",
+                          "type": "file",
+                          "size": 131294
+                        }
+                      ]
+                    },
+                    {
+                      "name": "SKILL.md",
+                      "path": "optional-skills/migration/openclaw-migration/SKILL.md",
+                      "type": "file",
+                      "size": 16190
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "mlops",
+              "path": "optional-skills/mlops",
+              "type": "dir",
+              "children": [
+                {
+                  "name": "accelerate",
+                  "path": "optional-skills/mlops/accelerate",
+                  "type": "dir",
+                  "children": [
+                    {
+                      "name": "references",
+                      "path": "optional-skills/mlops/accelerate/references",
+                      "type": "dir",
+                      "children": [
+                        {
+                          "name": "custom-plugins.md",
+                          "path": "optional-skills/mlops/accelerate/references/custom-plugins.md",
+                          "type": "file",
+                          "size": 12234
+                        },
+                        {
+                          "name": "megatron-integration.md",
+                          "path": "optional-skills/mlops/accelerate/references/megatron-integration.md",
+                          "type": "file",
+                          "size": 11741
+                        },
+                        {
+                          "name": "performance.md",
+                          "path": "optional-skills/mlops/accelerate/references/performance.md",
+                          "type": "file",
+                          "size": 13094
+                        }
+                      ]
+                    },
+                    {
+                      "name": "SKILL.md",
+                      "path": "optional-skills/mlops/accelerate/SKILL.md",
+                      "type": "file",
+                      "size": 8700
+                    }
+                  ]
+                },
+                {
+                  "name": "chroma",
+                  "path": "optional-skills/mlops/chroma",
+                  "type": "dir",
+                  "children": [
+                    {
+                      "name": "references",
+                      "path": "optional-skills/mlops/chroma/references",
+                      "type": "dir",
+                      "children": [
+                        {
+                          "name": "integration.md",
+                          "path": "optional-skills/mlops/chroma/references/integration.md",
+                          "type": "file",
+                          "size": 809
+                        }
+                      ]
+                    },
+                    {
+                      "name": "SKILL.md",
+                      "path": "optional-skills/mlops/chroma/SKILL.md",
+                      "type": "file",
+                      "size": 9599
+                    }
+                  ]
+                },
+                {
+                  "name": "faiss",
+                  "path": "optional-skills/mlops/faiss",
+                  "type": "dir",
+                  "children": [
+                    {
+                      "name": "references",
+                      "path": "optional-skills/mlops/faiss/references",
+                      "type": "dir",
+                      "children": [
+                        {
+                          "name": "index_types.md",
+                          "path": "optional-skills/mlops/faiss/references/index_types.md",
+                          "type": "file",
+                          "size": 6461
+                        }
+                      ]
+                    },
+                    {
+                      "name": "SKILL.md",
+                      "path": "optional-skills/mlops/faiss/SKILL.md",
+                      "type": "file",
+                      "size": 5297
+                    }
+                  ]
+                },
+                {
+                  "name": "flash-attention",
+                  "path": "optional-skills/mlops/flash-attention",
+                  "type": "dir",
+                  "children": [
+                    {
+                      "name": "references",
+                      "path": "optional-skills/mlops/flash-attention/references",
+                      "type": "dir",
+                      "children": [
+                        {
+                          "name": "benchmarks.md",
+                          "path": "optional-skills/mlops/flash-attention/references/benchmarks.md",
+                          "type": "file",
+                          "size": 7344
+                        },
+                        {
+                          "name": "transformers-integration.md",
+                          "path": "optional-skills/mlops/flash-attention/references/transformers-integration.md",
+                          "type": "file",
+                          "size": 7720
+                        }
+                      ]
+                    },
+                    {
+                      "name": "SKILL.md",
+                      "path": "optional-skills/mlops/flash-attention/SKILL.md",
+                      "type": "file",
+                      "size": 10596
+                    }
+                  ]
+                },
+                {
+                  "name": "hermes-atropos-environments",
+                  "path": "optional-skills/mlops/hermes-atropos-environments",
+                  "type": "dir",
+                  "children": [
+                    {
+                      "name": "references",
+                      "path": "optional-skills/mlops/hermes-atropos-environments/references",
+                      "type": "dir",
+                      "children": [
+                        {
+                          "name": "agentresult-fields.md",
+                          "path": "optional-skills/mlops/hermes-atropos-environments/references/agentresult-fields.md",
+                          "type": "file",
+                          "size": 2114
+                        },
+                        {
+                          "name": "atropos-base-env.md",
+                          "path": "optional-skills/mlops/hermes-atropos-environments/references/atropos-base-env.md",
+                          "type": "file",
+                          "size": 3098
+                        },
+                        {
+                          "name": "usage-patterns.md",
+                          "path": "optional-skills/mlops/hermes-atropos-environments/references/usage-patterns.md",
+                          "type": "file",
+                          "size": 6049
+                        }
+                      ]
+                    },
+                    {
+                      "name": "SKILL.md",
+                      "path": "optional-skills/mlops/hermes-atropos-environments/SKILL.md",
+                      "type": "file",
+                      "size": 13728
+                    }
+                  ]
+                },
+                {
+                  "name": "huggingface-tokenizers",
+                  "path": "optional-skills/mlops/huggingface-tokenizers",
+                  "type": "dir",
+                  "children": [
+                    {
+                      "name": "references",
+                      "path": "optional-skills/mlops/huggingface-tokenizers/references",
+                      "type": "dir",
+                      "children": [
+                        {
+                          "name": "algorithms.md",
+                          "path": "optional-skills/mlops/huggingface-tokenizers/references/algorithms.md",
+                          "type": "file",
+                          "size": 15835
+                        },
+                        {
+                          "name": "integration.md",
+                          "path": "optional-skills/mlops/huggingface-tokenizers/references/integration.md",
+                          "type": "file",
+                          "size": 16026
+                        },
+                        {
+                          "name": "pipeline.md",
+                          "path": "optional-skills/mlops/huggingface-tokenizers/references/pipeline.md",
+                          "type": "file",
+                          "size": 17469
+                        },
+                        {
+                          "name": "training.md",
+                          "path": "optional-skills/mlops/huggingface-tokenizers/references/training.md",
+                          "type": "file",
+                          "size": 15124
+                        }
+                      ]
+                    },
+                    {
+                      "name": "SKILL.md",
+                      "path": "optional-skills/mlops/huggingface-tokenizers/SKILL.md",
+                      "type": "file",
+                      "size": 14218
+                    }
+                  ]
+                },
+                {
+                  "name": "instructor",
+                  "path": "optional-skills/mlops/instructor",
+                  "type": "dir",
+                  "children": [
+                    {
+                      "name": "references",
+                      "path": "optional-skills/mlops/instructor/references",
+                      "type": "dir",
+                      "children": [
+                        {
+                          "name": "examples.md",
+                          "path": "optional-skills/mlops/instructor/references/examples.md",
+                          "type": "file",
+                          "size": 2427
+                        },
+                        {
+                          "name": "providers.md",
+                          "path": "optional-skills/mlops/instructor/references/providers.md",
+                          "type": "file",
+                          "size": 1399
+                        },
+                        {
+                          "name": "validation.md",
+                          "path": "optional-skills/mlops/instructor/references/validation.md",
+                          "type": "file",
+                          "size": 15912
+                        }
+                      ]
+                    },
+                    {
+                      "name": "SKILL.md",
+                      "path": "optional-skills/mlops/instructor/SKILL.md",
+                      "type": "file",
+                      "size": 17595
+                    }
+                  ]
+                },
+                {
+                  "name": "lambda-labs",
+                  "path": "optional-skills/mlops/lambda-labs",
+                  "type": "dir",
+                  "children": [
+                    {
+                      "name": "references",
+                      "path": "optional-skills/mlops/lambda-labs/references",
+                      "type": "dir",
+                      "children": [
+                        {
+                          "name": "advanced-usage.md",
+                          "path": "optional-skills/mlops/lambda-labs/references/advanced-usage.md",
+                          "type": "file",
+                          "size": 15711
+                        },
+                        {
+                          "name": "troubleshooting.md",
+                          "path": "optional-skills/mlops/lambda-labs/references/troubleshooting.md",
+                          "type": "file",
+                          "size": 12213
+                        }
+                      ]
+                    },
+                    {
+                      "name": "SKILL.md",
+                      "path": "optional-skills/mlops/lambda-labs/SKILL.md",
+                      "type": "file",
+                      "size": 12726
+                    }
+                  ]
+                },
+                {
+                  "name": "llava",
+                  "path": "optional-skills/mlops/llava",
+                  "type": "dir",
+                  "children": [
+                    {
+                      "name": "references",
+                      "path": "optional-skills/mlops/llava/references",
+                      "type": "dir",
+                      "children": [
+                        {
+                          "name": "training.md",
+                          "path": "optional-skills/mlops/llava/references/training.md",
+                          "type": "file",
+                          "size": 4935
+                        }
+                      ]
+                    },
+                    {
+                      "name": "SKILL.md",
+                      "path": "optional-skills/mlops/llava/SKILL.md",
+                      "type": "file",
+                      "size": 8165
+                    }
+                  ]
+                },
+                {
+                  "name": "nemo-curator",
+                  "path": "optional-skills/mlops/nemo-curator",
+                  "type": "dir",
+                  "children": [
+                    {
+                      "name": "references",
+                      "path": "optional-skills/mlops/nemo-curator/references",
+                      "type": "dir",
+                      "children": [
+                        {
+                          "name": "deduplication.md",
+                          "path": "optional-skills/mlops/nemo-curator/references/deduplication.md",
+                          "type": "file",
+                          "size": 2229
+                        },
+                        {
+                          "name": "filtering.md",
+                          "path": "optional-skills/mlops/nemo-curator/references/filtering.md",
+                          "type": "file",
+                          "size": 2453
+                        }
+                      ]
+                    },
+                    {
+                      "name": "SKILL.md",
+                      "path": "optional-skills/mlops/nemo-curator/SKILL.md",
+                      "type": "file",
+                      "size": 9749
+                    }
+                  ]
+                },
+                {
+                  "name": "pinecone",
+                  "path": "optional-skills/mlops/pinecone",
+                  "type": "dir",
+                  "children": [
+                    {
+                      "name": "references",
+                      "path": "optional-skills/mlops/pinecone/references",
+                      "type": "dir",
+                      "children": [
+                        {
+                          "name": "deployment.md",
+                          "path": "optional-skills/mlops/pinecone/references/deployment.md",
+                          "type": "file",
+                          "size": 3738
+                        }
+                      ]
+                    },
+                    {
+                      "name": "SKILL.md",
+                      "path": "optional-skills/mlops/pinecone/SKILL.md",
+                      "type": "file",
+                      "size": 8213
+                    }
+                  ]
+                },
+                {
+                  "name": "pytorch-lightning",
+                  "path": "optional-skills/mlops/pytorch-lightning",
+                  "type": "dir",
+                  "children": [
+                    {
+                      "name": "references",
+                      "path": "optional-skills/mlops/pytorch-lightning/references",
+                      "type": "dir",
+                      "children": [
+                        {
+                          "name": "callbacks.md",
+                          "path": "optional-skills/mlops/pytorch-lightning/references/callbacks.md",
+                          "type": "file",
+                          "size": 12467
+                        },
+                        {
+                          "name": "distributed.md",
+                          "path": "optional-skills/mlops/pytorch-lightning/references/distributed.md",
+                          "type": "file",
+                          "size": 11308
+                        },
+                        {
+                          "name": "hyperparameter-tuning.md",
+                          "path": "optional-skills/mlops/pytorch-lightning/references/hyperparameter-tuning.md",
+                          "type": "file",
+                          "size": 13073
+                        }
+                      ]
+                    },
+                    {
+                      "name": "SKILL.md",
+                      "path": "optional-skills/mlops/pytorch-lightning/SKILL.md",
+                      "type": "file",
+                      "size": 9495
+                    }
+                  ]
+                },
+                {
+                  "name": "qdrant",
+                  "path": "optional-skills/mlops/qdrant",
+                  "type": "dir",
+                  "children": [
+                    {
+                      "name": "references",
+                      "path": "optional-skills/mlops/qdrant/references",
+                      "type": "dir",
+                      "children": [
+                        {
+                          "name": "advanced-usage.md",
+                          "path": "optional-skills/mlops/qdrant/references/advanced-usage.md",
+                          "type": "file",
+                          "size": 15617
+                        },
+                        {
+                          "name": "troubleshooting.md",
+                          "path": "optional-skills/mlops/qdrant/references/troubleshooting.md",
+                          "type": "file",
+                          "size": 13313
+                        }
+                      ]
+                    },
+                    {
+                      "name": "SKILL.md",
+                      "path": "optional-skills/mlops/qdrant/SKILL.md",
+                      "type": "file",
+                      "size": 13972
+                    }
+                  ]
+                },
+                {
+                  "name": "saelens",
+                  "path": "optional-skills/mlops/saelens",
+                  "type": "dir",
+                  "children": [
+                    {
+                      "name": "references",
+                      "path": "optional-skills/mlops/saelens/references",
+                      "type": "dir",
+                      "children": [
+                        {
+                          "name": "api.md",
+                          "path": "optional-skills/mlops/saelens/references/api.md",
+                          "type": "file",
+                          "size": 7301
+                        },
+                        {
+                          "name": "README.md",
+                          "path": "optional-skills/mlops/saelens/references/README.md",
+                          "type": "file",
+                          "size": 2225
+                        },
+                        {
+                          "name": "tutorials.md",
+                          "path": "optional-skills/mlops/saelens/references/tutorials.md",
+                          "type": "file",
+                          "size": 9701
+                        }
+                      ]
+                    },
+                    {
+                      "name": "SKILL.md",
+                      "path": "optional-skills/mlops/saelens/SKILL.md",
+                      "type": "file",
+                      "size": 13168
+                    }
+                  ]
+                },
+                {
+                  "name": "simpo",
+                  "path": "optional-skills/mlops/simpo",
+                  "type": "dir",
+                  "children": [
+                    {
+                      "name": "references",
+                      "path": "optional-skills/mlops/simpo/references",
+                      "type": "dir",
+                      "children": [
+                        {
+                          "name": "datasets.md",
+                          "path": "optional-skills/mlops/simpo/references/datasets.md",
+                          "type": "file",
+                          "size": 11367
+                        },
+                        {
+                          "name": "hyperparameters.md",
+                          "path": "optional-skills/mlops/simpo/references/hyperparameters.md",
+                          "type": "file",
+                          "size": 8954
+                        },
+                        {
+                          "name": "loss-functions.md",
+                          "path": "optional-skills/mlops/simpo/references/loss-functions.md",
+                          "type": "file",
+                          "size": 7417
+                        }
+                      ]
+                    },
+                    {
+                      "name": "SKILL.md",
+                      "path": "optional-skills/mlops/simpo/SKILL.md",
+                      "type": "file",
+                      "size": 6163
+                    }
+                  ]
+                },
+                {
+                  "name": "slime",
+                  "path": "optional-skills/mlops/slime",
+                  "type": "dir",
+                  "children": [
+                    {
+                      "name": "references",
+                      "path": "optional-skills/mlops/slime/references",
+                      "type": "dir",
+                      "children": [
+                        {
+                          "name": "api-reference.md",
+                          "path": "optional-skills/mlops/slime/references/api-reference.md",
+                          "type": "file",
+                          "size": 12299
+                        },
+                        {
+                          "name": "troubleshooting.md",
+                          "path": "optional-skills/mlops/slime/references/troubleshooting.md",
+                          "type": "file",
+                          "size": 7607
+                        }
+                      ]
+                    },
+                    {
+                      "name": "SKILL.md",
+                      "path": "optional-skills/mlops/slime/SKILL.md",
+                      "type": "file",
+                      "size": 12092
+                    }
+                  ]
+                },
+                {
+                  "name": "tensorrt-llm",
+                  "path": "optional-skills/mlops/tensorrt-llm",
+                  "type": "dir",
+                  "children": [
+                    {
+                      "name": "references",
+                      "path": "optional-skills/mlops/tensorrt-llm/references",
+                      "type": "dir",
+                      "children": [
+                        {
+                          "name": "multi-gpu.md",
+                          "path": "optional-skills/mlops/tensorrt-llm/references/multi-gpu.md",
+                          "type": "file",
+                          "size": 6997
+                        },
+                        {
+                          "name": "optimization.md",
+                          "path": "optional-skills/mlops/tensorrt-llm/references/optimization.md",
+                          "type": "file",
+                          "size": 5855
+                        },
+                        {
+                          "name": "serving.md",
+                          "path": "optional-skills/mlops/tensorrt-llm/references/serving.md",
+                          "type": "file",
+                          "size": 10268
+                        }
+                      ]
+                    },
+                    {
+                      "name": "SKILL.md",
+                      "path": "optional-skills/mlops/tensorrt-llm/SKILL.md",
+                      "type": "file",
+                      "size": 5254
+                    }
+                  ]
+                },
+                {
+                  "name": "torchtitan",
+                  "path": "optional-skills/mlops/torchtitan",
+                  "type": "dir",
+                  "children": [
+                    {
+                      "name": "references",
+                      "path": "optional-skills/mlops/torchtitan/references",
+                      "type": "dir",
+                      "children": [
+                        {
+                          "name": "checkpoint.md",
+                          "path": "optional-skills/mlops/torchtitan/references/checkpoint.md",
+                          "type": "file",
+                          "size": 4397
+                        },
+                        {
+                          "name": "custom-models.md",
+                          "path": "optional-skills/mlops/torchtitan/references/custom-models.md",
+                          "type": "file",
+                          "size": 7641
+                        },
+                        {
+                          "name": "float8.md",
+                          "path": "optional-skills/mlops/torchtitan/references/float8.md",
+                          "type": "file",
+                          "size": 4188
+                        },
+                        {
+                          "name": "fsdp.md",
+                          "path": "optional-skills/mlops/torchtitan/references/fsdp.md",
+                          "type": "file",
+                          "size": 4014
+                        }
+                      ]
+                    },
+                    {
+                      "name": "SKILL.md",
+                      "path": "optional-skills/mlops/torchtitan/SKILL.md",
+                      "type": "file",
+                      "size": 9313
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "productivity",
+              "path": "optional-skills/productivity",
+              "type": "dir",
+              "children": [
+                {
+                  "name": "canvas",
+                  "path": "optional-skills/productivity/canvas",
+                  "type": "dir",
+                  "children": [
+                    {
+                      "name": "scripts",
+                      "path": "optional-skills/productivity/canvas/scripts",
+                      "type": "dir",
+                      "children": [
+                        {
+                          "name": "canvas_api.py",
+                          "path": "optional-skills/productivity/canvas/scripts/canvas_api.py",
+                          "type": "file",
+                          "size": 5254
+                        }
+                      ]
+                    },
+                    {
+                      "name": "SKILL.md",
+                      "path": "optional-skills/productivity/canvas/SKILL.md",
+                      "type": "file",
+                      "size": 3316
+                    }
+                  ]
+                },
+                {
+                  "name": "memento-flashcards",
+                  "path": "optional-skills/productivity/memento-flashcards",
+                  "type": "dir",
+                  "children": [
+                    {
+                      "name": "scripts",
+                      "path": "optional-skills/productivity/memento-flashcards/scripts",
+                      "type": "dir",
+                      "children": [
+                        {
+                          "name": "memento_cards.py",
+                          "path": "optional-skills/productivity/memento-flashcards/scripts/memento_cards.py",
+                          "type": "file",
+                          "size": 11802
+                        },
+                        {
+                          "name": "youtube_quiz.py",
+                          "path": "optional-skills/productivity/memento-flashcards/scripts/youtube_quiz.py",
+                          "type": "file",
+                          "size": 2437
+                        }
+                      ]
+                    },
+                    {
+                      "name": "SKILL.md",
+                      "path": "optional-skills/productivity/memento-flashcards/SKILL.md",
+                      "type": "file",
+                      "size": 13510
+                    }
+                  ]
+                },
+                {
+                  "name": "siyuan",
+                  "path": "optional-skills/productivity/siyuan",
+                  "type": "dir",
+                  "children": [
+                    {
+                      "name": "SKILL.md",
+                      "path": "optional-skills/productivity/siyuan/SKILL.md",
+                      "type": "file",
+                      "size": 9557
+                    }
+                  ]
+                },
+                {
+                  "name": "telephony",
+                  "path": "optional-skills/productivity/telephony",
+                  "type": "dir",
+                  "children": [
+                    {
+                      "name": "scripts",
+                      "path": "optional-skills/productivity/telephony/scripts",
+                      "type": "dir",
+                      "children": [
+                        {
+                          "name": "telephony.py",
+                          "path": "optional-skills/productivity/telephony/scripts/telephony.py",
+                          "type": "file",
+                          "size": 47718
+                        }
+                      ]
+                    },
+                    {
+                      "name": "SKILL.md",
+                      "path": "optional-skills/productivity/telephony/SKILL.md",
+                      "type": "file",
+                      "size": 13294
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "research",
+              "path": "optional-skills/research",
+              "type": "dir",
+              "children": [
+                {
+                  "name": "bioinformatics",
+                  "path": "optional-skills/research/bioinformatics",
+                  "type": "dir",
+                  "children": [
+                    {
+                      "name": "SKILL.md",
+                      "path": "optional-skills/research/bioinformatics/SKILL.md",
+                      "type": "file",
+                      "size": 14158
+                    }
+                  ]
+                },
+                {
+                  "name": "domain-intel",
+                  "path": "optional-skills/research/domain-intel",
+                  "type": "dir",
+                  "children": [
+                    {
+                      "name": "scripts",
+                      "path": "optional-skills/research/domain-intel/scripts",
+                      "type": "dir",
+                      "children": [
+                        {
+                          "name": "domain_intel.py",
+                          "path": "optional-skills/research/domain-intel/scripts/domain_intel.py",
+                          "type": "file",
+                          "size": 16107
+                        }
+                      ]
+                    },
+                    {
+                      "name": "SKILL.md",
+                      "path": "optional-skills/research/domain-intel/SKILL.md",
+                      "type": "file",
+                      "size": 4613
+                    }
+                  ]
+                },
+                {
+                  "name": "drug-discovery",
+                  "path": "optional-skills/research/drug-discovery",
+                  "type": "dir",
+                  "children": [
+                    {
+                      "name": "references",
+                      "path": "optional-skills/research/drug-discovery/references",
+                      "type": "dir",
+                      "children": [
+                        {
+                          "name": "ADMET_REFERENCE.md",
+                          "path": "optional-skills/research/drug-discovery/references/ADMET_REFERENCE.md",
+                          "type": "file",
+                          "size": 1986
+                        }
+                      ]
+                    },
+                    {
+                      "name": "scripts",
+                      "path": "optional-skills/research/drug-discovery/scripts",
+                      "type": "dir",
+                      "children": [
+                        {
+                          "name": "chembl_target.py",
+                          "path": "optional-skills/research/drug-discovery/scripts/chembl_target.py",
+                          "type": "file",
+                          "size": 2270
+                        },
+                        {
+                          "name": "ro5_screen.py",
+                          "path": "optional-skills/research/drug-discovery/scripts/ro5_screen.py",
+                          "type": "file",
+                          "size": 2102
+                        }
+                      ]
+                    },
+                    {
+                      "name": "SKILL.md",
+                      "path": "optional-skills/research/drug-discovery/SKILL.md",
+                      "type": "file",
+                      "size": 9487
+                    }
+                  ]
+                },
+                {
+                  "name": "duckduckgo-search",
+                  "path": "optional-skills/research/duckduckgo-search",
+                  "type": "dir",
+                  "children": [
+                    {
+                      "name": "scripts",
+                      "path": "optional-skills/research/duckduckgo-search/scripts",
+                      "type": "dir",
+                      "children": [
+                        {
+                          "name": "duckduckgo.sh",
+                          "path": "optional-skills/research/duckduckgo-search/scripts/duckduckgo.sh",
+                          "type": "file",
+                          "size": 649
+                        }
+                      ]
+                    },
+                    {
+                      "name": "SKILL.md",
+                      "path": "optional-skills/research/duckduckgo-search/SKILL.md",
+                      "type": "file",
+                      "size": 8659
+                    }
+                  ]
+                },
+                {
+                  "name": "gitnexus-explorer",
+                  "path": "optional-skills/research/gitnexus-explorer",
+                  "type": "dir",
+                  "children": [
+                    {
+                      "name": "scripts",
+                      "path": "optional-skills/research/gitnexus-explorer/scripts",
+                      "type": "dir",
+                      "children": [
+                        {
+                          "name": "proxy.mjs",
+                          "path": "optional-skills/research/gitnexus-explorer/scripts/proxy.mjs",
+                          "type": "file",
+                          "size": 2809
+                        }
+                      ]
+                    },
+                    {
+                      "name": "SKILL.md",
+                      "path": "optional-skills/research/gitnexus-explorer/SKILL.md",
+                      "type": "file",
+                      "size": 7369
+                    }
+                  ]
+                },
+                {
+                  "name": "parallel-cli",
+                  "path": "optional-skills/research/parallel-cli",
+                  "type": "dir",
+                  "children": [
+                    {
+                      "name": "SKILL.md",
+                      "path": "optional-skills/research/parallel-cli/SKILL.md",
+                      "type": "file",
+                      "size": 11329
+                    }
+                  ]
+                },
+                {
+                  "name": "qmd",
+                  "path": "optional-skills/research/qmd",
+                  "type": "dir",
+                  "children": [
+                    {
+                      "name": "SKILL.md",
+                      "path": "optional-skills/research/qmd/SKILL.md",
+                      "type": "file",
+                      "size": 13503
+                    }
+                  ]
+                },
+                {
+                  "name": "scrapling",
+                  "path": "optional-skills/research/scrapling",
+                  "type": "dir",
+                  "children": [
+                    {
+                      "name": "SKILL.md",
+                      "path": "optional-skills/research/scrapling/SKILL.md",
+                      "type": "file",
+                      "size": 9367
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "security",
+              "path": "optional-skills/security",
+              "type": "dir",
+              "children": [
+                {
+                  "name": "1password",
+                  "path": "optional-skills/security/1password",
+                  "type": "dir",
+                  "children": [
+                    {
+                      "name": "references",
+                      "path": "optional-skills/security/1password/references",
+                      "type": "dir",
+                      "children": [
+                        {
+                          "name": "cli-examples.md",
+                          "path": "optional-skills/security/1password/references/cli-examples.md",
+                          "type": "file",
+                          "size": 581
+                        },
+                        {
+                          "name": "get-started.md",
+                          "path": "optional-skills/security/1password/references/get-started.md",
+                          "type": "file",
+                          "size": 548
+                        }
+                      ]
+                    },
+                    {
+                      "name": "SKILL.md",
+                      "path": "optional-skills/security/1password/SKILL.md",
+                      "type": "file",
+                      "size": 4815
+                    }
+                  ]
+                },
+                {
+                  "name": "DESCRIPTION.md",
+                  "path": "optional-skills/security/DESCRIPTION.md",
+                  "type": "file",
+                  "size": 102
+                },
+                {
+                  "name": "oss-forensics",
+                  "path": "optional-skills/security/oss-forensics",
+                  "type": "dir",
+                  "children": [
+                    {
+                      "name": "references",
+                      "path": "optional-skills/security/oss-forensics/references",
+                      "type": "dir",
+                      "children": [
+                        {
+                          "name": "evidence-types.md",
+                          "path": "optional-skills/security/oss-forensics/references/evidence-types.md",
+                          "type": "file",
+                          "size": 5202
+                        },
+                        {
+                          "name": "github-archive-guide.md",
+                          "path": "optional-skills/security/oss-forensics/references/github-archive-guide.md",
+                          "type": "file",
+                          "size": 6180
+                        },
+                        {
+                          "name": "investigation-templates.md",
+                          "path": "optional-skills/security/oss-forensics/references/investigation-templates.md",
+                          "type": "file",
+                          "size": 5684
+                        },
+                        {
+                          "name": "recovery-techniques.md",
+                          "path": "optional-skills/security/oss-forensics/references/recovery-techniques.md",
+                          "type": "file",
+                          "size": 5931
+                        }
+                      ]
+                    },
+                    {
+                      "name": "scripts",
+                      "path": "optional-skills/security/oss-forensics/scripts",
+                      "type": "dir",
+                      "children": [
+                        {
+                          "name": "evidence-store.py",
+                          "path": "optional-skills/security/oss-forensics/scripts/evidence-store.py",
+                          "type": "file",
+                          "size": 12421
+                        }
+                      ]
+                    },
+                    {
+                      "name": "SKILL.md",
+                      "path": "optional-skills/security/oss-forensics/SKILL.md",
+                      "type": "file",
+                      "size": 20347
+                    },
+                    {
+                      "name": "templates",
+                      "path": "optional-skills/security/oss-forensics/templates",
+                      "type": "dir",
+                      "children": [
+                        {
+                          "name": "forensic-report.md",
+                          "path": "optional-skills/security/oss-forensics/templates/forensic-report.md",
+                          "type": "file",
+                          "size": 4977
+                        },
+                        {
+                          "name": "malicious-package-report.md",
+                          "path": "optional-skills/security/oss-forensics/templates/malicious-package-report.md",
+                          "type": "file",
+                          "size": 1400
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "name": "sherlock",
+                  "path": "optional-skills/security/sherlock",
+                  "type": "dir",
+                  "children": [
+                    {
+                      "name": "SKILL.md",
+                      "path": "optional-skills/security/sherlock/SKILL.md",
+                      "type": "file",
+                      "size": 6221
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "package-lock.json",
+          "path": "package-lock.json",
+          "type": "file",
+          "size": 223824
+        },
+        {
+          "name": "package.json",
+          "path": "package.json",
+          "type": "file",
+          "size": 811
+        },
+        {
+          "name": "packaging",
+          "path": "packaging",
+          "type": "dir",
+          "children": [
+            {
+              "name": "homebrew",
+              "path": "packaging/homebrew",
+              "type": "dir",
+              "children": [
+                {
+                  "name": "hermes-agent.rb",
+                  "path": "packaging/homebrew/hermes-agent.rb",
+                  "type": "file",
+                  "size": 1633
+                },
+                {
+                  "name": "README.md",
+                  "path": "packaging/homebrew/README.md",
+                  "type": "file",
+                  "size": 893
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "plans",
+          "path": "plans",
+          "type": "dir",
+          "children": [
+            {
+              "name": "gemini-oauth-provider.md",
+              "path": "plans/gemini-oauth-provider.md",
+              "type": "file",
+              "size": 4364
+            }
+          ]
+        },
+        {
+          "name": "plugins",
+          "path": "plugins",
+          "type": "dir",
+          "children": [
+            {
+              "name": "context_engine",
+              "path": "plugins/context_engine",
+              "type": "dir",
+              "children": [
+                {
+                  "name": "__init__.py",
+                  "path": "plugins/context_engine/__init__.py",
+                  "type": "file",
+                  "size": 7796
+                }
+              ]
+            },
+            {
+              "name": "memory",
+              "path": "plugins/memory",
+              "type": "dir",
+              "children": [
+                {
+                  "name": "byterover",
+                  "path": "plugins/memory/byterover",
+                  "type": "dir",
+                  "children": [
+                    {
+                      "name": "plugin.yaml",
+                      "path": "plugins/memory/byterover/plugin.yaml",
+                      "type": "file",
+                      "size": 289
+                    },
+                    {
+                      "name": "README.md",
+                      "path": "plugins/memory/byterover/README.md",
+                      "type": "file",
+                      "size": 975
+                    },
+                    {
+                      "name": "__init__.py",
+                      "path": "plugins/memory/byterover/__init__.py",
+                      "type": "file",
+                      "size": 13757
+                    }
+                  ]
+                },
+                {
+                  "name": "hindsight",
+                  "path": "plugins/memory/hindsight",
+                  "type": "dir",
+                  "children": [
+                    {
+                      "name": "plugin.yaml",
+                      "path": "plugins/memory/hindsight/plugin.yaml",
+                      "type": "file",
+                      "size": 248
+                    },
+                    {
+                      "name": "README.md",
+                      "path": "plugins/memory/hindsight/README.md",
+                      "type": "file",
+                      "size": 5644
+                    },
+                    {
+                      "name": "__init__.py",
+                      "path": "plugins/memory/hindsight/__init__.py",
+                      "type": "file",
+                      "size": 43184
+                    }
+                  ]
+                },
+                {
+                  "name": "holographic",
+                  "path": "plugins/memory/holographic",
+                  "type": "dir",
+                  "children": [
+                    {
+                      "name": "holographic.py",
+                      "path": "plugins/memory/holographic/holographic.py",
+                      "type": "file",
+                      "size": 6847
+                    },
+                    {
+                      "name": "plugin.yaml",
+                      "path": "plugins/memory/holographic/plugin.yaml",
+                      "type": "file",
+                      "size": 198
+                    },
+                    {
+                      "name": "README.md",
+                      "path": "plugins/memory/holographic/README.md",
+                      "type": "file",
+                      "size": 1031
+                    },
+                    {
+                      "name": "retrieval.py",
+                      "path": "plugins/memory/holographic/retrieval.py",
+                      "type": "file",
+                      "size": 21976
+                    },
+                    {
+                      "name": "store.py",
+                      "path": "plugins/memory/holographic/store.py",
+                      "type": "file",
+                      "size": 20824
+                    },
+                    {
+                      "name": "__init__.py",
+                      "path": "plugins/memory/holographic/__init__.py",
+                      "type": "file",
+                      "size": 17500
+                    }
+                  ]
+                },
+                {
+                  "name": "honcho",
+                  "path": "plugins/memory/honcho",
+                  "type": "dir",
+                  "children": [
+                    {
+                      "name": "cli.py",
+                      "path": "plugins/memory/honcho/cli.py",
+                      "type": "file",
+                      "size": 53397
+                    },
+                    {
+                      "name": "client.py",
+                      "path": "plugins/memory/honcho/client.py",
+                      "type": "file",
+                      "size": 21765
+                    },
+                    {
+                      "name": "plugin.yaml",
+                      "path": "plugins/memory/honcho/plugin.yaml",
+                      "type": "file",
+                      "size": 229
+                    },
+                    {
+                      "name": "README.md",
+                      "path": "plugins/memory/honcho/README.md",
+                      "type": "file",
+                      "size": 9451
+                    },
+                    {
+                      "name": "session.py",
+                      "path": "plugins/memory/honcho/session.py",
+                      "type": "file",
+                      "size": 42992
+                    },
+                    {
+                      "name": "__init__.py",
+                      "path": "plugins/memory/honcho/__init__.py",
+                      "type": "file",
+                      "size": 30250
+                    }
+                  ]
+                },
+                {
+                  "name": "mem0",
+                  "path": "plugins/memory/mem0",
+                  "type": "dir",
+                  "children": [
+                    {
+                      "name": "plugin.yaml",
+                      "path": "plugins/memory/mem0/plugin.yaml",
+                      "type": "file",
+                      "size": 178
+                    },
+                    {
+                      "name": "README.md",
+                      "path": "plugins/memory/mem0/README.md",
+                      "type": "file",
+                      "size": 931
+                    },
+                    {
+                      "name": "__init__.py",
+                      "path": "plugins/memory/mem0/__init__.py",
+                      "type": "file",
+                      "size": 14589
+                    }
+                  ]
+                },
+                {
+                  "name": "openviking",
+                  "path": "plugins/memory/openviking",
+                  "type": "dir",
+                  "children": [
+                    {
+                      "name": "plugin.yaml",
+                      "path": "plugins/memory/openviking/plugin.yaml",
+                      "type": "file",
+                      "size": 289
+                    },
+                    {
+                      "name": "README.md",
+                      "path": "plugins/memory/openviking/README.md",
+                      "type": "file",
+                      "size": 1227
+                    },
+                    {
+                      "name": "__init__.py",
+                      "path": "plugins/memory/openviking/__init__.py",
+                      "type": "file",
+                      "size": 24675
+                    }
+                  ]
+                },
+                {
+                  "name": "retaindb",
+                  "path": "plugins/memory/retaindb",
+                  "type": "dir",
+                  "children": [
+                    {
+                      "name": "plugin.yaml",
+                      "path": "plugins/memory/retaindb/plugin.yaml",
+                      "type": "file",
+                      "size": 187
+                    },
+                    {
+                      "name": "README.md",
+                      "path": "plugins/memory/retaindb/README.md",
+                      "type": "file",
+                      "size": 1072
+                    },
+                    {
+                      "name": "__init__.py",
+                      "path": "plugins/memory/retaindb/__init__.py",
+                      "type": "file",
+                      "size": 33565
+                    }
+                  ]
+                },
+                {
+                  "name": "supermemory",
+                  "path": "plugins/memory/supermemory",
+                  "type": "dir",
+                  "children": [
+                    {
+                      "name": "plugin.yaml",
+                      "path": "plugins/memory/supermemory/plugin.yaml",
+                      "type": "file",
+                      "size": 206
+                    },
+                    {
+                      "name": "README.md",
+                      "path": "plugins/memory/supermemory/README.md",
+                      "type": "file",
+                      "size": 3785
+                    },
+                    {
+                      "name": "__init__.py",
+                      "path": "plugins/memory/supermemory/__init__.py",
+                      "type": "file",
+                      "size": 34208
+                    }
+                  ]
+                },
+                {
+                  "name": "__init__.py",
+                  "path": "plugins/memory/__init__.py",
+                  "type": "file",
+                  "size": 11358
+                }
+              ]
+            },
+            {
+              "name": "__init__.py",
+              "path": "plugins/__init__.py",
+              "type": "file",
+              "size": 26
+            }
+          ]
+        },
+        {
+          "name": "pyproject.toml",
+          "path": "pyproject.toml",
+          "type": "file",
+          "size": 4860
+        },
+        {
+          "name": "README.md",
+          "path": "README.md",
+          "type": "file",
+          "size": 11241
+        },
+        {
+          "name": "RELEASE_v0.2.0.md",
+          "path": "RELEASE_v0.2.0.md",
+          "type": "file",
+          "size": 32768
+        },
+        {
+          "name": "RELEASE_v0.3.0.md",
+          "path": "RELEASE_v0.3.0.md",
+          "type": "file",
+          "size": 36101
+        },
+        {
+          "name": "RELEASE_v0.4.0.md",
+          "path": "RELEASE_v0.4.0.md",
+          "type": "file",
+          "size": 45848
+        },
+        {
+          "name": "RELEASE_v0.5.0.md",
+          "path": "RELEASE_v0.5.0.md",
+          "type": "file",
+          "size": 33113
+        },
+        {
+          "name": "RELEASE_v0.6.0.md",
+          "path": "RELEASE_v0.6.0.md",
+          "type": "file",
+          "size": 26386
+        },
+        {
+          "name": "RELEASE_v0.7.0.md",
+          "path": "RELEASE_v0.7.0.md",
+          "type": "file",
+          "size": 34285
+        },
+        {
+          "name": "RELEASE_v0.8.0.md",
+          "path": "RELEASE_v0.8.0.md",
+          "type": "file",
+          "size": 36429
+        },
+        {
+          "name": "RELEASE_v0.9.0.md",
+          "path": "RELEASE_v0.9.0.md",
+          "type": "file",
+          "size": 32801
+        },
+        {
+          "name": "requirements.txt",
+          "path": "requirements.txt",
+          "type": "file",
+          "size": 669
+        },
+        {
+          "name": "rl_cli.py",
+          "path": "rl_cli.py",
+          "type": "file",
+          "size": 16732
+        },
+        {
+          "name": "run_agent.py",
+          "path": "run_agent.py",
+          "type": "file",
+          "size": 562014
+        },
+        {
+          "name": "scripts",
+          "path": "scripts",
+          "type": "dir",
+          "children": [
+            {
+              "name": "build_skills_index.py",
+              "path": "scripts/build_skills_index.py",
+              "type": "file",
+              "size": 11741
+            },
+            {
+              "name": "contributor_audit.py",
+              "path": "scripts/contributor_audit.py",
+              "type": "file",
+              "size": 16956
+            },
+            {
+              "name": "discord-voice-doctor.py",
+              "path": "scripts/discord-voice-doctor.py",
+              "type": "file",
+              "size": 12990
+            },
+            {
+              "name": "hermes-gateway",
+              "path": "scripts/hermes-gateway",
+              "type": "file",
+              "size": 12444
+            },
+            {
+              "name": "install.cmd",
+              "path": "scripts/install.cmd",
+              "type": "file",
+              "size": 1278
+            },
+            {
+              "name": "install.ps1",
+              "path": "scripts/install.ps1",
+              "type": "file",
+              "size": 36702
+            },
+            {
+              "name": "install.sh",
+              "path": "scripts/install.sh",
+              "type": "file",
+              "size": 55442
+            },
+            {
+              "name": "kill_modal.sh",
+              "path": "scripts/kill_modal.sh",
+              "type": "file",
+              "size": 1104
+            },
+            {
+              "name": "release.py",
+              "path": "scripts/release.py",
+              "type": "file",
+              "size": 28940
+            },
+            {
+              "name": "sample_and_compress.py",
+              "path": "scripts/sample_and_compress.py",
+              "type": "file",
+              "size": 13769
+            },
+            {
+              "name": "whatsapp-bridge",
+              "path": "scripts/whatsapp-bridge",
+              "type": "dir",
+              "children": [
+                {
+                  "name": "allowlist.js",
+                  "path": "scripts/whatsapp-bridge/allowlist.js",
+                  "type": "file",
+                  "size": 2129
+                },
+                {
+                  "name": "allowlist.test.mjs",
+                  "path": "scripts/whatsapp-bridge/allowlist.test.mjs",
+                  "type": "file",
+                  "size": 2621
+                },
+                {
+                  "name": "bridge.js",
+                  "path": "scripts/whatsapp-bridge/bridge.js",
+                  "type": "file",
+                  "size": 21794
+                },
+                {
+                  "name": "package-lock.json",
+                  "path": "scripts/whatsapp-bridge/package-lock.json",
+                  "type": "file",
+                  "size": 79417
+                },
+                {
+                  "name": "package.json",
+                  "path": "scripts/whatsapp-bridge/package.json",
+                  "type": "file",
+                  "size": 418
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "setup-hermes.sh",
+          "path": "setup-hermes.sh",
+          "type": "file",
+          "size": 15152
+        },
+        {
+          "name": "skills",
+          "path": "skills",
+          "type": "dir",
+          "children": [
+            {
+              "name": "apple",
+              "path": "skills/apple",
+              "type": "dir",
+              "children": [
+                {
+                  "name": "apple-notes",
+                  "path": "skills/apple/apple-notes",
+                  "type": "dir",
+                  "children": [
+                    {
+                      "name": "SKILL.md",
+                      "path": "skills/apple/apple-notes/SKILL.md",
+                      "type": "file",
+                      "size": 2277
+                    }
+                  ]
+                },
+                {
+                  "name": "apple-reminders",
+                  "path": "skills/apple/apple-reminders",
+                  "type": "dir",
+                  "children": [
+                    {
+                      "name": "SKILL.md",
+                      "path": "skills/apple/apple-reminders/SKILL.md",
+                      "type": "file",
+                      "size": 2646
+                    }
+                  ]
+                },
+                {
+                  "name": "DESCRIPTION.md",
+                  "path": "skills/apple/DESCRIPTION.md",
+                  "type": "file",
+                  "size": 155
+                },
+                {
+                  "name": "findmy",
+                  "path": "skills/apple/findmy",
+                  "type": "dir",
+                  "children": [
+                    {
+                      "name": "SKILL.md",
+                      "path": "skills/apple/findmy/SKILL.md",
+                      "type": "file",
+                      "size": 3879
+                    }
+                  ]
+                },
+                {
+                  "name": "imessage",
+                  "path": "skills/apple/imessage",
+                  "type": "dir",
+                  "children": [
+                    {
+                      "name": "SKILL.md",
+                      "path": "skills/apple/imessage/SKILL.md",
+                      "type": "file",
+                      "size": 2544
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "autonomous-ai-agents",
+              "path": "skills/autonomous-ai-agents",
+              "type": "dir",
+              "children": [
+                {
+                  "name": "claude-code",
+                  "path": "skills/autonomous-ai-agents/claude-code",
+                  "type": "dir",
+                  "children": [
+                    {
+                      "name": "SKILL.md",
+                      "path": "skills/autonomous-ai-agents/claude-code/SKILL.md",
+                      "type": "file",
+                      "size": 35114
+                    }
+                  ]
+                },
+                {
+                  "name": "codex",
+                  "path": "skills/autonomous-ai-agents/codex",
+                  "type": "dir",
+                  "children": [
+                    {
+                      "name": "SKILL.md",
+                      "path": "skills/autonomous-ai-agents/codex/SKILL.md",
+                      "type": "file",
+                      "size": 4214
+                    }
+                  ]
+                },
+                {
+                  "name": "DESCRIPTION.md",
+                  "path": "skills/autonomous-ai-agents/DESCRIPTION.md",
+                  "type": "file",
+                  "size": 214
+                },
+                {
+                  "name": "hermes-agent",
+                  "path": "skills/autonomous-ai-agents/hermes-agent",
+                  "type": "dir",
+                  "children": [
+                    {
+                      "name": "SKILL.md",
+                      "path": "skills/autonomous-ai-agents/hermes-agent/SKILL.md",
+                      "type": "file",
+                      "size": 28793
+                    }
+                  ]
+                },
+                {
+                  "name": "opencode",
+                  "path": "skills/autonomous-ai-agents/opencode",
+                  "type": "dir",
+                  "children": [
+                    {
+                      "name": "SKILL.md",
+                      "path": "skills/autonomous-ai-agents/opencode/SKILL.md",
+                      "type": "file",
+                      "size": 7574
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "creative",
+              "path": "skills/creative",
+              "type": "dir",
+              "children": [
+                {
+                  "name": "ascii-art",
+                  "path": "skills/creative/ascii-art",
+                  "type": "dir",
+                  "children": [
+                    {
+                      "name": "SKILL.md",
+                      "path": "skills/creative/ascii-art/SKILL.md",
+                      "type": "file",
+                      "size": 10952
+                    }
+                  ]
+                },
+                {
+                  "name": "ascii-video",
+                  "path": "skills/creative/ascii-video",
+                  "type": "dir",
+                  "children": [
+                    {
+                      "name": "README.md",
+                      "path": "skills/creative/ascii-video/README.md",
+                      "type": "file",
+                      "size": 16730
+                    },
+                    {
+                      "name": "references",
+                      "path": "skills/creative/ascii-video/references",
+                      "type": "dir",
+                      "children": [
+                        {
+                          "name": "architecture.md",
+                          "path": "skills/creative/ascii-video/references/architecture.md",
+                          "type": "file",
+                          "size": 33806
+                        },
+                        {
+                          "name": "composition.md",
+                          "path": "skills/creative/ascii-video/references/composition.md",
+                          "type": "file",
+                          "size": 35834
+                        },
+                        {
+                          "name": "effects.md",
+                          "path": "skills/creative/ascii-video/references/effects.md",
+                          "type": "file",
+                          "size": 74793
+                        },
+                        {
+                          "name": "inputs.md",
+                          "path": "skills/creative/ascii-video/references/inputs.md",
+                          "type": "file",
+                          "size": 25260
+                        },
+                        {
+                          "name": "optimization.md",
+                          "path": "skills/creative/ascii-video/references/optimization.md",
+                          "type": "file",
+                          "size": 24953
+                        },
+                        {
+                          "name": "scenes.md",
+                          "path": "skills/creative/ascii-video/references/scenes.md",
+                          "type": "file",
+                          "size": 38498
+                        },
+                        {
+                          "name": "shaders.md",
+                          "path": "skills/creative/ascii-video/references/shaders.md",
+                          "type": "file",
+                          "size": 51820
+                        },
+                        {
+                          "name": "troubleshooting.md",
+                          "path": "skills/creative/ascii-video/references/troubleshooting.md",
+                          "type": "file",
+                          "size": 13613
+                        }
+                      ]
+                    },
+                    {
+                      "name": "SKILL.md",
+                      "path": "skills/creative/ascii-video/SKILL.md",
+                      "type": "file",
+                      "size": 14966
+                    }
+                  ]
+                },
+                {
+                  "name": "creative-ideation",
+                  "path": "skills/creative/creative-ideation",
+                  "type": "dir",
+                  "children": [
+                    {
+                      "name": "references",
+                      "path": "skills/creative/creative-ideation/references",
+                      "type": "dir",
+                      "children": [
+                        {
+                          "name": "full-prompt-library.md",
+                          "path": "skills/creative/creative-ideation/references/full-prompt-library.md",
+                          "type": "file",
+                          "size": 4325
+                        }
+                      ]
+                    },
+                    {
+                      "name": "SKILL.md",
+                      "path": "skills/creative/creative-ideation/SKILL.md",
+                      "type": "file",
+                      "size": 6417
+                    }
+                  ]
+                },
+                {
+                  "name": "DESCRIPTION.md",
+                  "path": "skills/creative/DESCRIPTION.md",
+                  "type": "file",
+                  "size": 119
+                },
+                {
+                  "name": "excalidraw",
+                  "path": "skills/creative/excalidraw",
+                  "type": "dir",
+                  "children": [
+                    {
+                      "name": "references",
+                      "path": "skills/creative/excalidraw/references",
+                      "type": "dir",
+                      "children": [
+                        {
+                          "name": "colors.md",
+                          "path": "skills/creative/excalidraw/references/colors.md",
+                          "type": "file",
+                          "size": 1821
+                        },
+                        {
+                          "name": "dark-mode.md",
+                          "path": "skills/creative/excalidraw/references/dark-mode.md",
+                          "type": "file",
+                          "size": 2350
+                        },
+                        {
+                          "name": "examples.md",
+                          "path": "skills/creative/excalidraw/references/examples.md",
+                          "type": "file",
+                          "size": 14367
+                        }
+                      ]
+                    },
+                    {
+                      "name": "scripts",
+                      "path": "skills/creative/excalidraw/scripts",
+                      "type": "dir",
+                      "children": [
+                        {
+                          "name": "upload.py",
+                          "path": "skills/creative/excalidraw/scripts/upload.py",
+                          "type": "file",
+                          "size": 3950
+                        }
+                      ]
+                    },
+                    {
+                      "name": "SKILL.md",
+                      "path": "skills/creative/excalidraw/SKILL.md",
+                      "type": "file",
+                      "size": 7446
+                    }
+                  ]
+                },
+                {
+                  "name": "manim-video",
+                  "path": "skills/creative/manim-video",
+                  "type": "dir",
+                  "children": [
+                    {
+                      "name": "README.md",
+                      "path": "skills/creative/manim-video/README.md",
+                      "type": "file",
+                      "size": 909
+                    },
+                    {
+                      "name": "references",
+                      "path": "skills/creative/manim-video/references",
+                      "type": "dir",
+                      "children": [
+                        {
+                          "name": "animation-design-thinking.md",
+                          "path": "skills/creative/manim-video/references/animation-design-thinking.md",
+                          "type": "file",
+                          "size": 7366
+                        },
+                        {
+                          "name": "animations.md",
+                          "path": "skills/creative/manim-video/references/animations.md",
+                          "type": "file",
+                          "size": 9118
+                        },
+                        {
+                          "name": "camera-and-3d.md",
+                          "path": "skills/creative/manim-video/references/camera-and-3d.md",
+                          "type": "file",
+                          "size": 4267
+                        },
+                        {
+                          "name": "decorations.md",
+                          "path": "skills/creative/manim-video/references/decorations.md",
+                          "type": "file",
+                          "size": 5208
+                        },
+                        {
+                          "name": "equations.md",
+                          "path": "skills/creative/manim-video/references/equations.md",
+                          "type": "file",
+                          "size": 6302
+                        },
+                        {
+                          "name": "graphs-and-data.md",
+                          "path": "skills/creative/manim-video/references/graphs-and-data.md",
+                          "type": "file",
+                          "size": 4791
+                        },
+                        {
+                          "name": "mobjects.md",
+                          "path": "skills/creative/manim-video/references/mobjects.md",
+                          "type": "file",
+                          "size": 10072
+                        },
+                        {
+                          "name": "paper-explainer.md",
+                          "path": "skills/creative/manim-video/references/paper-explainer.md",
+                          "type": "file",
+                          "size": 9588
+                        },
+                        {
+                          "name": "production-quality.md",
+                          "path": "skills/creative/manim-video/references/production-quality.md",
+                          "type": "file",
+                          "size": 6094
+                        },
+                        {
+                          "name": "rendering.md",
+                          "path": "skills/creative/manim-video/references/rendering.md",
+                          "type": "file",
+                          "size": 5560
+                        },
+                        {
+                          "name": "scene-planning.md",
+                          "path": "skills/creative/manim-video/references/scene-planning.md",
+                          "type": "file",
+                          "size": 2869
+                        },
+                        {
+                          "name": "troubleshooting.md",
+                          "path": "skills/creative/manim-video/references/troubleshooting.md",
+                          "type": "file",
+                          "size": 4454
+                        },
+                        {
+                          "name": "updaters-and-trackers.md",
+                          "path": "skills/creative/manim-video/references/updaters-and-trackers.md",
+                          "type": "file",
+                          "size": 8760
+                        },
+                        {
+                          "name": "visual-design.md",
+                          "path": "skills/creative/manim-video/references/visual-design.md",
+                          "type": "file",
+                          "size": 4886
+                        }
+                      ]
+                    },
+                    {
+                      "name": "scripts",
+                      "path": "skills/creative/manim-video/scripts",
+                      "type": "dir",
+                      "children": [
+                        {
+                          "name": "setup.sh",
+                          "path": "skills/creative/manim-video/scripts/setup.sh",
+                          "type": "file",
+                          "size": 935
+                        }
+                      ]
+                    },
+                    {
+                      "name": "SKILL.md",
+                      "path": "skills/creative/manim-video/SKILL.md",
+                      "type": "file",
+                      "size": 12247
+                    }
+                  ]
+                },
+                {
+                  "name": "p5js",
+                  "path": "skills/creative/p5js",
+                  "type": "dir",
+                  "children": [
+                    {
+                      "name": "README.md",
+                      "path": "skills/creative/p5js/README.md",
+                      "type": "file",
+                      "size": 3380
+                    },
+                    {
+                      "name": "references",
+                      "path": "skills/creative/p5js/references",
+                      "type": "dir",
+                      "children": [
+                        {
+                          "name": "animation.md",
+                          "path": "skills/creative/p5js/references/animation.md",
+                          "type": "file",
+                          "size": 10895
+                        },
+                        {
+                          "name": "color-systems.md",
+                          "path": "skills/creative/p5js/references/color-systems.md",
+                          "type": "file",
+                          "size": 8999
+                        },
+                        {
+                          "name": "core-api.md",
+                          "path": "skills/creative/p5js/references/core-api.md",
+                          "type": "file",
+                          "size": 10251
+                        },
+                        {
+                          "name": "export-pipeline.md",
+                          "path": "skills/creative/p5js/references/export-pipeline.md",
+                          "type": "file",
+                          "size": 16177
+                        },
+                        {
+                          "name": "interaction.md",
+                          "path": "skills/creative/p5js/references/interaction.md",
+                          "type": "file",
+                          "size": 8743
+                        },
+                        {
+                          "name": "shapes-and-geometry.md",
+                          "path": "skills/creative/p5js/references/shapes-and-geometry.md",
+                          "type": "file",
+                          "size": 7513
+                        },
+                        {
+                          "name": "troubleshooting.md",
+                          "path": "skills/creative/p5js/references/troubleshooting.md",
+                          "type": "file",
+                          "size": 13573
+                        },
+                        {
+                          "name": "typography.md",
+                          "path": "skills/creative/p5js/references/typography.md",
+                          "type": "file",
+                          "size": 7081
+                        },
+                        {
+                          "name": "visual-effects.md",
+                          "path": "skills/creative/p5js/references/visual-effects.md",
+                          "type": "file",
+                          "size": 24351
+                        },
+                        {
+                          "name": "webgl-and-3d.md",
+                          "path": "skills/creative/p5js/references/webgl-and-3d.md",
+                          "type": "file",
+                          "size": 9316
+                        }
+                      ]
+                    },
+                    {
+                      "name": "scripts",
+                      "path": "skills/creative/p5js/scripts",
+                      "type": "dir",
+                      "children": [
+                        {
+                          "name": "export-frames.js",
+                          "path": "skills/creative/p5js/scripts/export-frames.js",
+                          "type": "file",
+                          "size": 5577
+                        },
+                        {
+                          "name": "render.sh",
+                          "path": "skills/creative/p5js/scripts/render.sh",
+                          "type": "file",
+                          "size": 3019
+                        },
+                        {
+                          "name": "serve.sh",
+                          "path": "skills/creative/p5js/scripts/serve.sh",
+                          "type": "file",
+                          "size": 861
+                        },
+                        {
+                          "name": "setup.sh",
+                          "path": "skills/creative/p5js/scripts/setup.sh",
+                          "type": "file",
+                          "size": 2562
+                        }
+                      ]
+                    },
+                    {
+                      "name": "SKILL.md",
+                      "path": "skills/creative/p5js/SKILL.md",
+                      "type": "file",
+                      "size": 27919
+                    },
+                    {
+                      "name": "templates",
+                      "path": "skills/creative/p5js/templates",
+                      "type": "dir",
+                      "children": [
+                        {
+                          "name": "viewer.html",
+                          "path": "skills/creative/p5js/templates/viewer.html",
+                          "type": "file",
+                          "size": 11252
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "name": "popular-web-designs",
+                  "path": "skills/creative/popular-web-designs",
+                  "type": "dir",
+                  "children": [
+                    {
+                      "name": "SKILL.md",
+                      "path": "skills/creative/popular-web-designs/SKILL.md",
+                      "type": "file",
+                      "size": 9650
+                    },
+                    {
+                      "name": "templates",
+                      "path": "skills/creative/popular-web-designs/templates",
+                      "type": "dir",
+                      "children": [
+                        {
+                          "name": "airbnb.md",
+                          "path": "skills/creative/popular-web-designs/templates/airbnb.md",
+                          "type": "file",
+                          "size": 15083
+                        },
+                        {
+                          "name": "airtable.md",
+                          "path": "skills/creative/popular-web-designs/templates/airtable.md",
+                          "type": "file",
+                          "size": 4402
+                        },
+                        {
+                          "name": "apple.md",
+                          "path": "skills/creative/popular-web-designs/templates/apple.md",
+                          "type": "file",
+                          "size": 21448
+                        },
+                        {
+                          "name": "bmw.md",
+                          "path": "skills/creative/popular-web-designs/templates/bmw.md",
+                          "type": "file",
+                          "size": 10778
+                        },
+                        {
+                          "name": "cal.md",
+                          "path": "skills/creative/popular-web-designs/templates/cal.md",
+                          "type": "file",
+                          "size": 18854
+                        },
+                        {
+                          "name": "claude.md",
+                          "path": "skills/creative/popular-web-designs/templates/claude.md",
+                          "type": "file",
+                          "size": 21403
+                        },
+                        {
+                          "name": "clay.md",
+                          "path": "skills/creative/popular-web-designs/templates/clay.md",
+                          "type": "file",
+                          "size": 18422
+                        },
+                        {
+                          "name": "clickhouse.md",
+                          "path": "skills/creative/popular-web-designs/templates/clickhouse.md",
+                          "type": "file",
+                          "size": 16474
+                        },
+                        {
+                          "name": "cohere.md",
+                          "path": "skills/creative/popular-web-designs/templates/cohere.md",
+                          "type": "file",
+                          "size": 15822
+                        },
+                        {
+                          "name": "coinbase.md",
+                          "path": "skills/creative/popular-web-designs/templates/coinbase.md",
+                          "type": "file",
+                          "size": 5923
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "dependencies": [
+        "agent-browser",
+        "@askjo/camofox-browser",
+        "openai",
+        "python-dotenv",
+        "fire",
+        "httpx",
+        "rich",
+        "tenacity",
+        "prompt_toolkit",
+        "pyyaml",
+        "requests",
+        "jinja2",
+        "pydantic",
+        "PyJWT",
+        "debugpy",
+        "firecrawl-py",
+        "parallel-web",
+        "fal-client",
+        "edge-tts",
+        "croniter",
+        "python-telegram-bot",
+        "discord.py",
+        "aiohttp",
+        "requires",
+        "build-backend",
+        "name",
+        "version",
+        "description",
+        "readme",
+        "requires-python",
+        "authors",
+        "license",
+        "dependencies",
+        "modal",
+        "daytona",
+        "dev",
+        "messaging",
+        "cron",
+        "slack",
+        "matrix",
+        "cli",
+        "tts-premium",
+        "voice",
+        "pty",
+        "honcho",
+        "mcp",
+        "homeassistant",
+        "sms",
+        "acp",
+        "mistral",
+        "termux",
+        "dingtalk",
+        "feishu",
+        "web",
+        "rl",
+        "yc-bench",
+        "all",
+        "hermes",
+        "hermes-agent",
+        "hermes-acp",
+        "py-modules",
+        "hermes_cli",
+        "include",
+        "testpaths",
+        "markers",
+        "addopts"
+      ],
+      "entryPoints": [],
+      "directories": [
+        {
+          "path": "docker",
+          "fileCount": 2,
+          "dominantExtension": ".sh",
+          "role": "infrastructure"
+        },
+        {
+          "path": "docs",
+          "fileCount": 7,
+          "dominantExtension": ".md",
+          "role": "docs"
+        },
+        {
+          "path": "docs/migration",
+          "fileCount": 1,
+          "dominantExtension": ".md",
+          "role": "docs"
+        },
+        {
+          "path": "docs/plans",
+          "fileCount": 1,
+          "dominantExtension": ".md",
+          "role": "docs"
+        },
+        {
+          "path": "docs/skins",
+          "fileCount": 1,
+          "dominantExtension": ".yaml",
+          "role": "docs"
+        },
+        {
+          "path": "docs/specs",
+          "fileCount": 1,
+          "dominantExtension": ".md",
+          "role": "docs"
+        }
+      ],
+      "totalFiles": 500,
+      "totalLines": 38333,
+      "keyFileContents": {
+        "README.md": "<p align=\"center\">\r\n  <img src=\"assets/banner.png\" alt=\"Hermes Agent\" width=\"100%\">\r\n</p>\r\n\r\n# Hermes Agent ☤\r\n\r\n<p align=\"center\">\r\n  <a href=\"https://hermes-agent.nousresearch.com/docs/\"><img src=\"https://img.shields.io/badge/Docs-hermes--agent.nousresearch.com-FFD700?style=for-the-badge\" alt=\"Documentation\"></a>\r\n  <a href=\"https://discord.gg/NousResearch\"><img src=\"https://img.shields.io/badge/Discord-5865F2?style=for-the-badge&logo=discord&logoColor=white\" alt=\"Discord\"></a>\r\n  <a href=\"https://github.com/NousResearch/hermes-agent/blob/main/LICENSE\"><img src=\"https://img.shields.io/badge/License-MIT-green?style=for-the-badge\" alt=\"License: MIT\"></a>\r\n  <a href=\"https://nousresearch.com\"><img src=\"https://img.shields.io/badge/Built%20by-Nous%20Research-blueviolet?style=for-the-badge\" alt=\"Built by Nous Research\"></a>\r\n</p>\r\n\r\n**The self-improving AI agent built by [Nous Research](https://nousresearch.com).** It's the only agent with a built-in learning loop — it creates skills from experience, improves them during use, nudges itself to persist knowledge, searches its own past conversations, and builds a deepening model of who you are across sessions. Run it on a $5 VPS, a GPU cluster, or serverless infrastructure that costs nearly nothing when idle. It's not tied to your laptop — talk to it from Telegram while it works on a cloud VM.\r\n\r\nUse any model you want — [Nous Portal](https://portal.nousresearch.com), [OpenRouter](https://openrouter.ai) (200+ models), [Xiaomi MiMo](https://platform.xiaomimimo.com), [z.ai/GLM](https://z.ai), [Kimi/Moonshot](https://platform.moonshot.ai), [MiniMax](https://www.minimax.io), [Hugging Face](https://huggingface.co), OpenAI, or your own endpoint. Switch with `hermes model` — no code changes, no lock-in.\r\n\r\n<table>\r\n<tr><td><b>A real terminal interface</b></td><td>Full TUI with multiline editing, slash-command autocomplete, conversation history, interrupt-and-redirect, and streaming tool output.</td></tr>\r\n<tr><td><b>Lives where you do</b></td><td>Telegram, Discord, Slack, WhatsApp, Signal, and CLI — all from a single gateway process. Voice memo transcription, cross-platform conversation continuity.</td></tr>\r\n<tr><td><b>A closed learning loop</b></td><td>Agent-curated memory with periodic nudges. Autonomous skill creation after complex tasks. Skills self-improve during use. FTS5 session search with LLM summarization for cross-session recall. <a href=\"https://github.com/plastic-labs/honcho\">Honcho</a> dialectic user modeling. Compatible with the <a href=\"https://agentskills.io\">agentskills.io</a> open standard.</td></tr>\r\n<tr><td><b>Scheduled automations</b></td><td>Built-in cron scheduler with delivery to any platform. Daily reports, nightly backups, weekly audits — all in natural language, running unattended.</td></tr>\r\n<tr><td><b>Delegates and parallelizes</b></td><td>Spawn isolated subagents for parallel workstreams. Write Python scripts that call tools via RPC, collapsing multi-step pipelines into zero-context-cost turns.</td></tr>\r\n<tr><td><b>Runs anywhere, not just your laptop</b></td><td>Six terminal backends — local, Docker, SSH, Daytona, Singularity, and Modal. Daytona and Modal offer serverless persistence — your agent's environment hibernates when idle and wakes on demand, costing nearly nothing between sessions. Run it on a $5 VPS or a GPU cluster.</td></tr>\r\n<tr><td><b>Research-ready</b></td><td>Batch trajectory generation, Atropos RL environments, trajectory compression for training the next generation of tool-calling models.</td></tr>\r\n</table>\r\n\r\n---\r\n\r\n## Quick Install\r\n\r\n```bash\r\ncurl -fsSL https://raw.githubusercontent.com/NousResearch/hermes-agent/main/scripts/install.sh | bash\r\n```\r\n\r\nWorks on Linux, macOS, WSL2, and Android via Termux. The installer handles the platform-specific setup for you.\r\n\r\n> **Android / Termux:** The tested manual path is documented in the [Termux guide](https://hermes-agent.nousresearch.com/docs/getting-started/termux). On Termux, Hermes installs a curated `.[termux]` extra because the full `.[all]` extra currently pulls Android-incompatible voice dependencies.\r\n>\r\n> **Windows:** Native Windows is not supported. Please install [WSL2](https://learn.microsoft.com/en-us/windows/wsl/install) and run the command above.\r\n\r\nAfter installation:\r\n\r\n```bash\r\nsource ~/.bashrc    # reload shell (or: source ~/.zshrc)\r\nhermes              # start chatting!\r\n```\r\n\r\n---\r\n\r\n## Getting Started\r\n\r\n```bash\r\nhermes              # Interactive CLI — start a conversation\r\nhermes model        # Choose your LLM provider and model\r\nhermes tools        # Configure which tools are enabled\r\nhermes config set   # Set individual config values\r\nhermes gateway      # Start the messaging gateway (Telegram, Discord, etc.)\r\nhermes setup        # Run the full setup wizard (configures everything at once)\r\nhermes claw migrate # Migrate from OpenClaw (if coming from OpenClaw)\r\nhermes update       # Update to the latest version\r\nhermes doctor       # Diagnose any issues\r\n```\r\n\r\n📖 **[Full documentation →](https://hermes-agent.nousresearch.com/docs/)**\r\n\r\n## CLI vs Messaging Quick Re",
+        "package.json": "{\r\n  \"name\": \"hermes-agent\",\r\n  \"version\": \"1.0.0\",\r\n  \"description\": \"An AI agent with advanced tool-calling capabilities, featuring a flexible toolsets system for organizing and managing tools.\",\r\n  \"private\": true,\r\n  \"scripts\": {\r\n    \"postinstall\": \"echo '✅ Browser tools ready. Run: python run_agent.py --help'\"\r\n  },\r\n  \"repository\": {\r\n    \"type\": \"git\",\r\n    \"url\": \"git+https://github.com/NousResearch/Hermes-Agent.git\"\r\n  },\r\n  \"license\": \"MIT\",\r\n  \"bugs\": {\r\n    \"url\": \"https://github.com/NousResearch/Hermes-Agent/issues\"\r\n  },\r\n  \"homepage\": \"https://github.com/NousResearch/Hermes-Agent#readme\",\r\n  \"dependencies\": {\r\n    \"agent-browser\": \"^0.13.0\",\r\n    \"@askjo/camofox-browser\": \"^1.5.2\"\r\n  },\r\n  \"overrides\": {\r\n    \"lodash\": \"4.18.1\"\r\n  },\r\n  \"engines\": {\r\n    \"node\": \">=20.0.0\"\r\n  }\r\n}\r\n",
+        "pyproject.toml": "[build-system]\r\nrequires = [\"setuptools>=61.0\"]\r\nbuild-backend = \"setuptools.build_meta\"\r\n\r\n[project]\r\nname = \"hermes-agent\"\r\nversion = \"0.9.0\"\r\ndescription = \"The self-improving AI agent — creates skills from experience, improves them during use, and runs anywhere\"\r\nreadme = \"README.md\"\r\nrequires-python = \">=3.11\"\r\nauthors = [{ name = \"Nous Research\" }]\r\nlicense = { text = \"MIT\" }\r\ndependencies = [\r\n  # Core — pinned to known-good ranges to limit supply chain attack surface\r\n  \"openai>=2.21.0,<3\",\r\n  \"anthropic>=0.39.0,<1\",\r\n  \"python-dotenv>=1.2.1,<2\",\r\n  \"fire>=0.7.1,<1\",\r\n  \"httpx[socks]>=0.28.1,<1\",\r\n  \"rich>=14.3.3,<15\",\r\n  \"tenacity>=9.1.4,<10\",\r\n  \"pyyaml>=6.0.2,<7\",\r\n  \"requests>=2.33.0,<3\",  # CVE-2026-25645\r\n  \"jinja2>=3.1.5,<4\",\r\n  \"pydantic>=2.12.5,<3\",\r\n  # Interactive CLI (prompt_toolkit is used directly by cli.py)\r\n  \"prompt_toolkit>=3.0.52,<4\",\r\n  # Tools\r\n  \"exa-py>=2.9.0,<3\",\r\n  \"firecrawl-py>=4.16.0,<5\",\r\n  \"parallel-web>=0.4.2,<1\",\r\n  \"fal-client>=0.13.1,<1\",\r\n  # Text-to-speech (Edge TTS is free, no API key needed)\r\n  \"edge-tts>=7.2.7,<8\",\r\n  # Skills Hub (GitHub App JWT auth — optional, only needed for bot identity)\r\n  \"PyJWT[crypto]>=2.12.0,<3\",  # CVE-2026-32597\r\n]\r\n\r\n[project.optional-dependencies]\r\nmodal = [\"modal>=1.0.0,<2\"]\r\ndaytona = [\"daytona>=0.148.0,<1\"]\r\ndev = [\"debugpy>=1.8.0,<2\", \"pytest>=9.0.2,<10\", \"pytest-asyncio>=1.3.0,<2\", \"pytest-xdist>=3.0,<4\", \"mcp>=1.2.0,<2\"]\r\nmessaging = [\"python-telegram-bot[webhooks]>=22.6,<23\", \"discord.py[voice]>=2.7.1,<3\", \"aiohttp>=3.13.3,<4\", \"slack-bolt>=1.18.0,<2\", \"slack-sdk>=3.27.0,<4\"]\r\ncron = [\"croniter>=6.0.0,<7\"]\r\nslack = [\"slack-bolt>=1.18.0,<2\", \"slack-sdk>=3.27.0,<4\"]\r\nmatrix = [\"mautrix[encryption]>=0.20,<1\", \"Markdown>=3.6,<4\", \"aiosqlite>=0.20\", \"asyncpg>=0.29\"]\r\ncli = [\"simple-term-menu>=1.0,<2\"]\r\ntts-premium = [\"elevenlabs>=1.0,<2\"]\r\nvoice = [\r\n  # Local STT pulls in wheel-only transitive deps (ctranslate2, onnxruntime),\r\n  # so keep it out of the base install for source-build packagers like Homebrew.\r\n  \"faster-whisper>=1.0.0,<2\",\r\n  \"sounddevice>=0.4.6,<1\",\r\n  \"numpy>=1.24.0,<3\",\r\n]\r\npty = [\r\n  \"ptyprocess>=0.7.0,<1; sys_platform != 'win32'\",\r\n  \"pywinpty>=2.0.0,<3; sys_platform == 'win32'\",\r\n]\r\nhoncho = [\"honcho-ai>=2.0.1,<3\"]\r\nmcp = [\"mcp>=1.2.0,<2\"]\r\nhomeassistant = [\"aiohttp>=3.9.0,<4\"]\r\nsms = [\"aiohttp>=3.9.0,<4\"]\r\nacp = [\"agent-client-protocol>=0.9.0,<1.0\"]\r\nmistral = [\"mistralai>=2.3.0,<3\"]\r\ntermux = [\r\n  # Tested Android / Termux path: keeps the core CLI feature-rich while\r\n  # avoiding extras that currently depend on non-Android wheels (notably\r\n  # faster-whisper -> ctranslate2 via the voice extra).\r\n  \"hermes-agent[cron]\",\r\n  \"hermes-agent[cli]\",\r\n  \"hermes-agent[pty]\",\r\n  \"hermes-agent[mcp]\",\r\n  \"hermes-agent[honcho]\",\r\n  \"hermes-agent[acp]\",\r\n]\r\ndingtalk = [\"dingtalk-stream>=0.1.0,<1\"]\r\nfeishu = [\"lark-oapi>=1.5.3,<2\"]\r\nweb = [\"fastapi>=0.104.0,<1\", \"uvicorn[standard]>=0.24.0,<1\"]\r\nrl = [\r\n  \"atroposlib @ git+https://github.com/NousResearch/atropos.git\",\r\n  \"tinker @ git+https://github.com/thinking-machines-lab/tinker.git\",\r\n  \"fastapi>=0.104.0,<1\",\r\n  \"uvicorn[standard]>=0.24.0,<1\",\r\n  \"wandb>=0.15.0,<1\",\r\n]\r\nyc-bench = [\"yc-bench @ git+https://github.com/collinear-ai/yc-bench.git ; python_version >= '3.12'\"]\r\nall = [\r\n  \"hermes-agent[modal]\",\r\n  \"hermes-agent[daytona]\",\r\n  \"hermes-agent[messaging]\",\r\n  # matrix: python-olm (required by matrix-nio[e2e]) is upstream-broken on\r\n  # modern macOS (archived libolm, C++ errors with Clang 21+).  On Linux the\r\n  # [matrix] extra's own marker pulls in the [e2e] variant automatically.\r\n  \"hermes-agent[matrix]; sys_platform == 'linux'\",\r\n  \"hermes-agent[cron]\",\r\n  \"hermes-agent[cli]\",\r\n  \"hermes-agent[dev]\",\r\n  \"hermes-agent[tts-premium]\",\r\n  \"hermes-agent[slack]\",\r\n  \"hermes-agent[pty]\",\r\n  \"hermes-agent[honcho]\",\r\n  \"hermes-agent[mcp]\",\r\n  \"hermes-agent[homeassistant]\",\r\n  \"hermes-agent[sms]\",\r\n  \"hermes-agent[acp]\",\r\n  \"hermes-agent[voice]\",\r\n  \"hermes-agent[dingtalk]\",\r\n  \"hermes-agent[feishu]\",\r\n  \"hermes-agent[mistral]\",\r\n  \"hermes-agent[web]\",\r\n]\r\n\r\n[project.scripts]\r\nhermes = \"hermes_cli.main:main\"\r\nhermes-agent = \"run_agent:main\"\r\nhermes-acp = \"acp_adapter.entry:main\"\r\n\r\n[tool.setuptools]\r\npy-modules = [\"run_agent\", \"model_tools\", \"toolsets\", \"batch_runner\", \"trajectory_compressor\", \"toolset_distributions\", \"cli\", \"hermes_constants\", \"hermes_state\", \"hermes_time\", \"hermes_logging\", \"rl_cli\", \"utils\"]\r\n\r\n[tool.setuptools.package-data]\r\nhermes_cli = [\"web_dist/**/*\"]\r\n\r\n[tool.setuptools.packages.find]\r\ninclude = [\"agent\", \"tools\", \"tools.*\", \"hermes_cli\", \"gateway\", \"gateway.*\", \"cron\", \"acp_adapter\", \"plugins\", \"plugins.*\"]\r\n\r\n[tool.pytest.ini_options]\r\ntestpaths = [\"tests\"]\r\nmarkers = [\r\n    \"integration: marks tests requiring external services (API keys, Modal, etc.)\",\r\n]\r\naddopts = \"-m 'not integration' -n auto\"\r\n"
+      },
+      "truncated": true,
+      "importGraph": {
+        "edges": [
+          {
+            "sourceFile": "scripts/whatsapp-bridge/bridge.js",
+            "targetFile": "scripts/whatsapp-bridge/allowlist.js",
+            "importType": "static",
+            "symbols": [
+              "matchesAllowedUser",
+              "parseAllowedUsers"
+            ]
+          }
+        ],
+        "parseTimeMs": 94
+      }
+    }
+  },
+  "enhance": {
+    "events": [
+      {
+        "type": "started",
+        "agentId": "project-enhance-1776190793009-0"
+      },
+      {
+        "type": "progress",
+        "status": "running"
+      },
+      {
+        "type": "progress",
+        "status": "running"
+      },
+      {
+        "type": "progress",
+        "status": "running"
+      },
+      {
+        "type": "progress",
+        "status": "running"
+      },
+      {
+        "type": "progress",
+        "status": "running"
+      },
+      {
+        "type": "progress",
+        "status": "running"
+      },
+      {
+        "type": "progress",
+        "status": "running"
+      },
+      {
+        "type": "progress",
+        "status": "running"
+      },
+      {
+        "type": "progress",
+        "status": "running"
+      },
+      {
+        "type": "progress",
+        "status": "running"
+      },
+      {
+        "type": "progress",
+        "status": "running"
+      },
+      {
+        "type": "progress",
+        "status": "running"
+      },
+      {
+        "type": "progress",
+        "status": "running"
+      },
+      {
+        "type": "progress",
+        "status": "running"
+      },
+      {
+        "type": "progress",
+        "status": "running"
+      },
+      {
+        "type": "progress",
+        "status": "running"
+      },
+      {
+        "type": "progress",
+        "status": "running"
+      },
+      {
+        "type": "progress",
+        "status": "running"
+      },
+      {
+        "type": "progress",
+        "status": "running"
+      },
+      {
+        "type": "progress",
+        "status": "running"
+      },
+      {
+        "type": "progress",
+        "status": "running"
+      },
+      {
+        "type": "progress",
+        "status": "running"
+      },
+      {
+        "type": "enhanced",
+        "canvas": {
+          "nodes": [
+            {
+              "id": "container-client",
+              "type": "container",
+              "position": {
+                "x": 0,
+                "y": 0
+              },
+              "style": {
+                "width": 400,
+                "height": 300
+              },
+              "data": {
+                "name": "客户端与消息网关",
+                "color": "blue",
+                "collapsed": false
+              }
+            },
+            {
+              "id": "block-cli",
+              "type": "block",
+              "position": {
+                "x": 24,
+                "y": 72
+              },
+              "parentId": "container-client",
+              "extent": "parent",
+              "data": {
+                "name": "Hermes CLI / TUI",
+                "description": "交互式终端界面，支持多行编辑、斜杠命令自动补全、流式工具输出和会话历史",
+                "status": "idle",
+                "techStack": "Python + prompt_toolkit + rich"
+              }
+            },
+            {
+              "id": "block-landing",
+              "type": "block",
+              "position": {
+                "x": 24,
+                "y": 72
+              },
+              "parentId": "container-client",
+              "extent": "parent",
+              "data": {
+                "name": "落地页",
+                "description": "项目官网和文档入口静态页面",
+                "status": "idle",
+                "techStack": "HTML/CSS/JS"
+              }
+            },
+            {
+              "id": "block-web-server",
+              "type": "block",
+              "position": {
+                "x": 24,
+                "y": 72
+              },
+              "parentId": "container-client",
+              "extent": "parent",
+              "data": {
+                "name": "Web 控制台",
+                "description": "hermes_cli 内置的 Web 服务器，提供浏览器端配置与状态查看",
+                "status": "idle",
+                "techStack": "FastAPI + Uvicorn"
+              }
+            },
+            {
+              "id": "block-acp-adapter",
+              "type": "block",
+              "position": {
+                "x": 24,
+                "y": 72
+              },
+              "parentId": "container-client",
+              "extent": "parent",
+              "data": {
+                "name": "ACP 适配器",
+                "description": "Agent Client Protocol 适配层，暴露会话、工具、权限和事件接口",
+                "status": "idle",
+                "techStack": "Python + agent-client-protocol"
+              }
+            },
+            {
+              "id": "container-gateway",
+              "type": "container",
+              "position": {
+                "x": 0,
+                "y": 0
+              },
+              "style": {
+                "width": 400,
+                "height": 300
+              },
+              "data": {
+                "name": "多平台消息网关",
+                "color": "purple",
+                "collapsed": false
+              }
+            },
+            {
+              "id": "block-gateway-core",
+              "type": "block",
+              "position": {
+                "x": 24,
+                "y": 72
+              },
+              "parentId": "container-gateway",
+              "extent": "parent",
+              "data": {
+                "name": "网关核心",
+                "description": "统一的会话路由、配对、镜像与投递调度中心",
+                "status": "idle",
+                "techStack": "Python asyncio"
+              }
+            },
+            {
+              "id": "block-platform-adapters",
+              "type": "block",
+              "position": {
+                "x": 24,
+                "y": 72
+              },
+              "parentId": "container-gateway",
+              "extent": "parent",
+              "data": {
+                "name": "平台适配器集群",
+                "description": "Telegram、Discord、Slack、WhatsApp、Signal、iMessage、Matrix、钉钉、飞书、企业微信、邮件、SMS、Webhook 等通道适配",
+                "status": "idle",
+                "techStack": "python-telegram-bot, discord.py, slack-bolt, mautrix"
+              }
+            },
+            {
+              "id": "block-whatsapp-bridge",
+              "type": "block",
+              "position": {
+                "x": 24,
+                "y": 72
+              },
+              "parentId": "container-gateway",
+              "extent": "parent",
+              "data": {
+                "name": "WhatsApp 桥接服务",
+                "description": "独立 Node.js 进程，桥接 WhatsApp Web 协议到网关",
+                "status": "idle",
+                "techStack": "Node.js"
+              }
+            },
+            {
+              "id": "block-sticker-cache",
+              "type": "block",
+              "position": {
+                "x": 24,
+                "y": 72
+              },
+              "parentId": "container-gateway",
+              "extent": "parent",
+              "data": {
+                "name": "贴纸/媒体缓存",
+                "description": "平台贴纸与附件的本地缓存层",
+                "status": "idle",
+                "techStack": "Python"
+              }
+            },
+            {
+              "id": "container-agent",
+              "type": "container",
+              "position": {
+                "x": 0,
+                "y": 0
+              },
+              "style": {
+                "width": 400,
+                "height": 300
+              },
+              "data": {
+                "name": "Agent 核心运行时",
+                "color": "green",
+                "collapsed": false
+              }
+            },
+            {
+              "id": "block-agent-loop",
+              "type": "block",
+              "position": {
+                "x": 24,
+                "y": 72
+              },
+              "parentId": "container-agent",
+              "extent": "parent",
+              "data": {
+                "name": "Agent 主循环",
+                "description": "核心推理循环，负责工具调用编排、轨迹记录与错误恢复",
+                "status": "idle",
+                "techStack": "Python"
+              }
+            },
+            {
+              "id": "block-context-engine",
+              "type": "block",
+              "position": {
+                "x": 24,
+                "y": 72
+              },
+              "parentId": "container-agent",
+              "extent": "parent",
+              "data": {
+                "name": "上下文引擎",
+                "description": "上下文构建、压缩、引用管理与手动压缩反馈",
+                "status": "idle",
+                "techStack": "Python"
+              }
+            },
+            {
+              "id": "block-prompt-builder",
+              "type": "block",
+              "position": {
+                "x": 24,
+                "y": 72
+              },
+              "parentId": "container-agent",
+              "extent": "parent",
+              "data": {
+                "name": "Prompt 构建与缓存",
+                "description": "提示词装配、子目录提示、标题生成与 prompt caching 优化",
+                "status": "idle",
+                "techStack": "Jinja2 + Anthropic cache"
+              }
+            },
+            {
+              "id": "block-model-router",
+              "type": "block",
+              "position": {
+                "x": 24,
+                "y": 72
+              },
+              "parentId": "container-agent",
+              "extent": "parent",
+              "data": {
+                "name": "智能模型路由",
+                "description": "根据任务、成本、速率限制和凭证池选择最优 LLM",
+                "status": "idle",
+                "techStack": "Python + tenacity"
+              }
+            },
+            {
+              "id": "block-llm-adapters",
+              "type": "block",
+              "position": {
+                "x": 24,
+                "y": 72
+              },
+              "parentId": "container-agent",
+              "extent": "parent",
+              "data": {
+                "name": "LLM 适配层",
+                "description": "Anthropic、OpenAI、辅助客户端、Copilot ACP 客户端的统一适配",
+                "status": "idle",
+                "techStack": "anthropic, openai, mistralai SDK"
+              }
+            },
+            {
+              "id": "block-tool-parsers",
+              "type": "block",
+              "position": {
+                "x": 24,
+                "y": 72
+              },
+              "parentId": "container-agent",
+              "extent": "parent",
+              "data": {
+                "name": "工具调用解析器",
+                "description": "Hermes/Qwen/DeepSeek/GLM/Kimi/Llama/Mistral 等多模型工具调用格式解析",
+                "status": "idle",
+                "techStack": "Python"
+              }
+            },
+            {
+              "id": "block-memory-manager",
+              "type": "block",
+              "position": {
+                "x": 24,
+                "y": 72
+              },
+              "parentId": "container-agent",
+              "extent": "parent",
+              "data": {
+                "name": "记忆管理器",
+                "description": "Agent 策划的长期记忆、周期性提醒与跨会话召回",
+                "status": "idle",
+                "techStack": "Python + SQLite FTS5"
+              }
+            },
+            {
+              "id": "container-skills",
+              "type": "container",
+              "position": {
+                "x": 0,
+                "y": 0
+              },
+              "style": {
+                "width": 400,
+                "height": 300
+              },
+              "data": {
+                "name": "技能与插件系统",
+                "color": "amber",
+                "collapsed": false
+              }
+            },
+            {
+              "id": "block-skills-hub",
+              "type": "block",
+              "position": {
+                "x": 24,
+                "y": 72
+              },
+              "parentId": "container-skills",
+              "extent": "parent",
+              "data": {
+                "name": "Skills Hub",
+                "description": "技能发现、安装与索引构建，兼容 agentskills.io 开放标准",
+                "status": "idle",
+                "techStack": "Python + PyJWT (GitHub App)"
+              }
+            },
+            {
+              "id": "block-skills-lib",
+              "type": "block",
+              "position": {
+                "x": 24,
+                "y": 72
+              },
+              "parentId": "container-skills",
+              "extent": "parent",
+              "data": {
+                "name": "内置/可选技能库",
+                "description": "Apple、创意、MLOps、研究、安全、区块链等数十类 SKILL.md 技能",
+                "status": "idle",
+                "techStack": "Markdown + Python scripts"
+              }
+            },
+            {
+              "id": "block-memory-plugins",
+              "type": "block",
+              "position": {
+                "x": 24,
+                "y": 72
+              },
+              "parentId": "container-skills",
+              "extent": "parent",
+              "data": {
+                "name": "记忆插件",
+                "description": "Byterover、Honcho、Holographic、Mem0、Supermemory 等记忆后端",
+                "status": "idle",
+                "techStack": "Python plugin API"
+              }
+            },
+            {
+              "id": "block-mcp-server",
+              "type": "block",
+              "position": {
+                "x": 24,
+                "y": 72
+              },
+              "parentId": "container-skills",
+              "extent": "parent",
+              "data": {
+                "name": "MCP 服务",
+                "description": "Model Context Protocol 服务端，暴露工具给外部客户端",
+                "status": "idle",
+                "techStack": "Python MCP SDK"
+              }
+            },
+            {
+              "id": "container-environments",
+              "type": "container",
+              "position": {
+                "x": 0,
+                "y": 0
+              },
+              "style": {
+                "width": 400,
+                "height": 300
+              },
+              "data": {
+                "name": "执行环境与 RL",
+                "color": "rose",
+                "collapsed": false
+              }
+            },
+            {
+              "id": "block-terminal-backends",
+              "type": "block",
+              "position": {
+                "x": 24,
+                "y": 72
+              },
+              "parentId": "container-environments",
+              "extent": "parent",
+              "data": {
+                "name": "终端执行后端",
+                "description": "本地、Docker、SSH、Daytona、Singularity、Modal 六种终端后端",
+                "status": "idle",
+                "techStack": "modal, daytona, ptyprocess"
+              }
+            },
+            {
+              "id": "block-rl-envs",
+              "type": "block",
+              "position": {
+                "x": 24,
+                "y": 72
+              },
+              "parentId": "container-environments",
+              "extent": "parent",
+              "data": {
+                "name": "RL 训练环境",
+                "description": "Atropos RL、TerminalBench、YC-Bench、SWE 等基准与轨迹生成环境",
+                "status": "idle",
+                "techStack": "atroposlib, tinker, wandb"
+              }
+            },
+            {
+              "id": "block-batch-runner",
+              "type": "block",
+              "position": {
+                "x": 24,
+                "y": 72
+              },
+              "parentId": "container-environments",
+              "extent": "parent",
+              "data": {
+                "name": "批量轨迹生成器",
+                "description": "批量运行任务生成训练轨迹与压缩样本",
+                "status": "idle",
+                "techStack": "Python"
+              }
+            },
+            {
+              "id": "block-cron",
+              "type": "block",
+              "position": {
+                "x": 24,
+                "y": 72
+              },
+              "parentId": "container-environments",
+              "extent": "parent",
+              "data": {
+                "name": "Cron 调度器",
+                "description": "内置定时任务，向任意平台投递日报、备份、审计等自动化",
+                "status": "idle",
+                "techStack": "croniter"
+              }
+            },
+            {
+              "id": "container-external",
+              "type": "container",
+              "position": {
+                "x": 0,
+                "y": 0
+              },
+              "style": {
+                "width": 400,
+                "height": 300
+              },
+              "data": {
+                "name": "外部服务与基础设施",
+                "color": "slate",
+                "collapsed": false
+              }
+            },
+            {
+              "id": "block-llm-providers",
+              "type": "block",
+              "position": {
+                "x": 24,
+                "y": 72
+              },
+              "parentId": "container-external",
+              "extent": "parent",
+              "data": {
+                "name": "LLM 提供商",
+                "description": "Nous Portal、OpenRouter、OpenAI、Anthropic、Xiaomi MiMo、z.ai、Moonshot、MiniMax、HuggingFace 等",
+                "status": "idle",
+                "techStack": "HTTPS APIs"
+              }
+            },
+            {
+              "id": "block-browser-tools",
+              "type": "block",
+              "position": {
+                "x": 24,
+                "y": 72
+              },
+              "parentId": "container-external",
+              "extent": "parent",
+              "data": {
+                "name": "浏览器与搜索工具",
+                "description": "agent-browser、Camofox、Firecrawl、Exa、Parallel Web、DuckDuckGo 等抓取与检索",
+                "status": "idle",
+                "techStack": "Node.js + Python httpx"
+              }
+            },
+            {
+              "id": "block-tts-stt",
+              "type": "block",
+              "position": {
+                "x": 24,
+                "y": 72
+              },
+              "parentId": "container-external",
+              "extent": "parent",
+              "data": {
+                "name": "语音服务",
+                "description": "Edge TTS、ElevenLabs、Faster-Whisper 本地 STT",
+                "status": "idle",
+                "techStack": "edge-tts, elevenlabs, faster-whisper"
+              }
+            },
+            {
+              "id": "block-honcho",
+              "type": "block",
+              "position": {
+                "x": 24,
+                "y": 72
+              },
+              "parentId": "container-external",
+              "extent": "parent",
+              "data": {
+                "name": "Honcho 用户建模",
+                "description": "辩证式用户画像与跨会话身份持久化",
+                "status": "idle",
+                "techStack": "honcho-ai"
+              }
+            },
+            {
+              "id": "block-deploy",
+              "type": "block",
+              "position": {
+                "x": 24,
+                "y": 72
+              },
+              "parentId": "container-external",
+              "extent": "parent",
+              "data": {
+                "name": "部署与打包",
+                "description": "Docker、Nix、Homebrew、安装脚本与 Termux 分发",
+                "status": "idle",
+                "techStack": "Docker, Nix, Homebrew"
+              }
+            }
+          ],
+          "edges": [
+            {
+              "id": "edge-cli-agent",
+              "source": "block-cli",
+              "target": "block-agent-loop",
+              "type": "bidirectional",
+              "label": "命令/流式输出"
+            },
+            {
+              "id": "edge-webserver-agent",
+              "source": "block-web-server",
+              "target": "block-agent-loop",
+              "type": "sync",
+              "label": "HTTP 控制"
+            },
+            {
+              "id": "edge-acp-agent",
+              "source": "block-acp-adapter",
+              "target": "block-agent-loop",
+              "type": "bidirectional",
+              "label": "ACP 会话"
+            },
+            {
+              "id": "edge-adapters-core",
+              "source": "block-platform-adapters",
+              "target": "block-gateway-core",
+              "type": "bidirectional",
+              "label": "消息收发"
+            },
+            {
+              "id": "edge-whatsapp-core",
+              "source": "block-whatsapp-bridge",
+              "target": "block-gateway-core",
+              "type": "bidirectional",
+              "label": "Bridge RPC"
+            },
+            {
+              "id": "edge-core-sticker",
+              "source": "block-gateway-core",
+              "target": "block-sticker-cache",
+              "type": "sync",
+              "label": "媒体缓存"
+            },
+            {
+              "id": "edge-gateway-agent",
+              "source": "block-gateway-core",
+              "target": "block-agent-loop",
+              "type": "bidirectional",
+              "label": "会话路由"
+            },
+            {
+              "id": "edge-loop-context",
+              "source": "block-agent-loop",
+              "target": "block-context-engine",
+              "type": "bidirectional",
+              "label": "上下文管理"
+            },
+            {
+              "id": "edge-context-prompt",
+              "source": "block-context-engine",
+              "target": "block-prompt-builder",
+              "type": "sync",
+              "label": "组装提示"
+            },
+            {
+              "id": "edge-loop-router",
+              "source": "block-agent-loop",
+              "target": "block-model-router",
+              "type": "sync",
+              "label": "选择模型"
+            },
+            {
+              "id": "edge-router-adapters",
+              "source": "block-model-router",
+              "target": "block-llm-adapters",
+              "type": "sync",
+              "label": "分发请求"
+            },
+            {
+              "id": "edge-adapters-providers",
+              "source": "block-llm-adapters",
+              "target": "block-llm-providers",
+              "type": "sync",
+              "label": "HTTPS API"
+            },
+            {
+              "id": "edge-adapters-parsers",
+              "source": "block-llm-adapters",
+              "target": "block-tool-parsers",
+              "type": "sync",
+              "label": "解析工具调用"
+            },
+            {
+              "id": "edge-loop-memory",
+              "source": "block-agent-loop",
+              "target": "block-memory-manager",
+              "type": "bidirectional",
+              "label": "读写记忆"
+            },
+            {
+              "id": "edge-memory-plugins",
+              "source": "block-memory-manager",
+              "target": "block-memory-plugins",
+              "type": "bidirectional",
+              "label": "后端存储"
+            },
+            {
+              "id": "edge-memory-honcho",
+              "source": "block-memory-plugins",
+              "target": "block-honcho",
+              "type": "sync",
+              "label": "用户建模"
+            },
+            {
+              "id": "edge-loop-skills",
+              "source": "block-agent-loop",
+              "target": "block-skills-hub",
+              "type": "sync",
+              "label": "加载技能"
+            },
+            {
+              "id": "edge-skillshub-lib",
+              "source": "block-skills-hub",
+              "target": "block-skills-lib",
+              "type": "sync",
+              "label": "索引技能"
+            },
+            {
+              "id": "edge-loop-mcp",
+              "source": "block-agent-loop",
+              "target": "block-mcp-server",
+              "type": "bidirectional",
+              "label": "MCP 工具"
+            },
+            {
+              "id": "edge-loop-terminal",
+              "source": "block-agent-loop",
+              "target": "block-terminal-backends",
+              "type": "sync",
+              "label": "执行命令"
+            },
+            {
+              "id": "edge-loop-browser",
+              "source": "block-agent-loop",
+              "target": "block-browser-tools",
+              "type": "sync",
+              "label": "网页抓取"
+            },
+            {
+              "id": "edge-loop-tts",
+              "source": "block-agent-loop",
+              "target": "block-tts-stt",
+              "type": "sync",
+              "label": "语音合成/识别"
+            },
+            {
+              "id": "edge-cron-gateway",
+              "source": "block-cron",
+              "target": "block-gateway-core",
+              "type": "async",
+              "label": "定时投递"
+            },
+            {
+              "id": "edge-cron-agent",
+              "source": "block-cron",
+              "target": "block-agent-loop",
+              "type": "async",
+              "label": "触发任务"
+            },
+            {
+              "id": "edge-batch-envs",
+              "source": "block-batch-runner",
+              "target": "block-rl-envs",
+              "type": "sync",
+              "label": "运行环境"
+            },
+            {
+              "id": "edge-batch-loop",
+              "source": "block-batch-runner",
+              "target": "block-agent-loop",
+              "type": "sync",
+              "label": "生成轨迹"
+            },
+            {
+              "id": "edge-rl-terminal",
+              "source": "block-rl-envs",
+              "target": "block-terminal-backends",
+              "type": "sync",
+              "label": "沙箱执行"
+            },
+            {
+              "id": "edge-deploy-cli",
+              "source": "block-deploy",
+              "target": "block-cli",
+              "type": "sync",
+              "label": "分发"
+            },
+            {
+              "id": "edge-deploy-gateway",
+              "source": "block-deploy",
+              "target": "block-gateway-core",
+              "type": "sync",
+              "label": "分发"
+            }
+          ]
+        }
+      }
+    ],
+    "finalCanvas": {
+      "nodes": [],
+      "edges": [],
+      "projectName": null
+    },
+    "errors": []
+  },
+  "durations": {
+    "scanMs": 576,
+    "enhanceMs": 68126
+  },
+  "success": true,
+  "completedAt": "2026-04-14T18:21:00.995Z"
+}

@@ -70,14 +70,15 @@ export function parseOptions(content: string): ParsedOptions | null {
   if (actualOptions.length < 2) return null
 
   // Strip markdown formatting from option text for cleaner card display
-  const cleanOptions = actualOptions.map(o => ({
-    number: o.number,
-    text: o.text
+  const cleanOptions = actualOptions.map(o => {
+    const cleaned = o.text
       .replace(/\*\*(.+?)\*\*/g, '$1')  // remove bold
       .replace(/\s*[—–-]\s*.*$/, '')     // remove description after em dash (keep label only)
       .trim()
-      .slice(0, 60),  // max 60 chars for card text
-  }))
+    // max 60 chars for card text; add ellipsis when truncated so it doesn't look like a render bug
+    const text = cleaned.length > 60 ? cleaned.slice(0, 59) + '\u2026' : cleaned
+    return { number: o.number, text }
+  })
 
   return { options: cleanOptions, textBefore, textAfter }
 }

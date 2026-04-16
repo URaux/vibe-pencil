@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   Background,
   BackgroundVariant,
@@ -37,6 +37,8 @@ import type {
   CanvasNodeData,
   ContainerColor,
   ContainerNodeData,
+  SchemaColumn,
+  SchemaTable,
   VPNodeType,
 } from '@/lib/types'
 
@@ -135,6 +137,301 @@ function getDropTargetContainer(
     .at(-1)
 }
 
+function isDataLayerName(name: string) {
+  return /data|数据|database|db/i.test(name)
+}
+
+function mergeSchemas(schemas: BlockSchema[]) {
+  const tables: SchemaTable[] = []
+  const seen = new Set<string>()
+
+  for (const schema of schemas) {
+    for (const table of schema.tables ?? []) {
+      const key = table.name.trim().toLowerCase()
+      if (!key || seen.has(key)) {
+        continue
+      }
+      seen.add(key)
+      tables.push(table)
+    }
+  }
+
+  return tables.length > 0 ? { tables } : undefined
+}
+
+function normalizeTableKey(name: string | undefined) {
+  return typeof name === 'string' ? name.trim().toLowerCase() : ''
+}
+
+function normalizeColumnKey(name: string | undefined) {
+  return typeof name === 'string' ? name.trim().toLowerCase() : ''
+}
+
+function buildNormalizedFieldRefMap(fieldRefs: Record<string, string[]> | undefined) {
+  if (!fieldRefs) {
+    return undefined
+  }
+
+  const normalized = new Map<string, Set<string>>()
+
+  for (const [tableName, fields] of Object.entries(fieldRefs)) {
+    const tableKey = normalizeTableKey(tableName)
+    if (!tableKey) {
+      continue
+    }
+
+    const fieldSet = normalized.get(tableKey) ?? new Set<string>()
+    for (const fieldName of fields) {
+      const fieldKey = normalizeColumnKey(fieldName)
+      if (fieldKey) {
+        fieldSet.add(fieldKey)
+      }
+    }
+
+    if (fieldSet.size > 0) {
+      normalized.set(tableKey, fieldSet)
+    }
+  }
+
+  return normalized.size > 0 ? normalized : undefined
+}
+
+function getSchemaRefsFromTables(schema: BlockSchema | undefined) {
+  if (!schema) {
+    return []
+  }
+
+  const refs: string[] = []
+  const seen = new Set<string>()
+
+  for (const table of schema.tables) {
+    const name = table.name.trim()
+    const key = normalizeTableKey(name)
+    if (!key || seen.has(key)) {
+      continue
+    }
+
+    seen.add(key)
+    refs.push(name)
+  }
+
+  return refs
+}
+
+function getSchemaFieldRefsFromTables(schema: BlockSchema | undefined) {
+  if (!schema) {
+    return undefined
+  }
+
+  const refs: Record<string, string[]> = {}
+  const seenTables = new Set<string>()
+
+  for (const table of schema.tables) {
+    const tableName = table.name.trim()
+    const tableKey = normalizeTableKey(tableName)
+    if (!tableKey || seenTables.has(tableKey)) {
+      continue
+    }
+
+    const columns: string[] = []
+    const seenColumns = new Set<string>()
+
+    for (const column of table.columns) {
+      const columnName = column.name.trim()
+      const columnKey = normalizeColumnKey(columnName)
+      if (!columnKey || seenColumns.has(columnKey)) {
+        continue
+      }
+
+      seenColumns.add(columnKey)
+      columns.push(columnName)
+    }
+
+    if (columns.length > 0) {
+      refs[tableName] = columns
+      seenTables.add(tableKey)
+    }
+  }
+
+  return Object.keys(refs).length > 0 ? refs : undefined
+}
+
+function pickSchemaByRefs(
+  schema: BlockSchema | undefined,
+  refs: string[] | undefined,
+  fieldRefs: Record<string, string[]> | undefined
+) {
+  if (!schema || !refs || refs.length === 0) {
+    return undefined
+  }
+
+  const refSet = new Set(refs.map(normalizeTableKey))
+  const normalizedFieldRefs = buildNormalizedFieldRefMap(fieldRefs)
+  const tables = schema.tables
+    .filter((table) => refSet.has(normalizeTableKey(table.name)))
+    .map((table) => {
+      if (!normalizedFieldRefs) {
+        return table
+      }
+
+      const fieldSet = normalizedFieldRefs.get(normalizeTableKey(table.name))
+      if (!fieldSet || fieldSet.size === 0) {
+        return { ...table, columns: [] }
+      }
+
+      const columns = table.columns.filter((col) => fieldSet.has(normalizeColumnKey(col.name)))
+      return { ...table, columns }
+    })
+    .filter((table) => table.columns.length > 0)
+
+  return tables.length > 0 ? { tables } : undefined
+}
+
+function mergeSchemaTables(
+  base: BlockSchema | undefined,
+  updates: BlockSchema | undefined
+): BlockSchema | undefined {
+  if (!updates || updates.tables.length === 0) {
+    return base
+  }
+
+  const nextTables: SchemaTable[] = []
+  const seen = new Set<string>()
+
+  const baseTables = base?.tables ?? []
+  const updateMap = new Map(
+    updates.tables.map((table) => [normalizeTableKey(table.name), table])
+  )
+
+  for (const table of baseTables) {
+    const key = normalizeTableKey(table.name)
+    const nextTable = updateMap.get(key) ?? table
+    if (!seen.has(key) && key) {
+      seen.add(key)
+      nextTables.push(nextTable)
+    }
+  }
+
+  for (const [key, table] of updateMap.entries()) {
+    if (!seen.has(key) && key) {
+      seen.add(key)
+      nextTables.push(table)
+    }
+  }
+
+  return nextTables.length > 0 ? { tables: nextTables } : undefined
+}
+
+function mergeColumns(
+  baseColumns: SchemaColumn[],
+  updates: SchemaColumn[]
+) {
+  if (updates.length === 0) {
+    return baseColumns
+  }
+
+  const next: SchemaColumn[] = []
+  const seen = new Set<string>()
+  const updateMap = new Map(
+    updates.map((column) => [normalizeColumnKey(column.name), column])
+  )
+
+  for (const column of baseColumns) {
+    const key = normalizeColumnKey(column.name)
+    const nextColumn = updateMap.get(key) ?? column
+    if (!seen.has(key) && key) {
+      seen.add(key)
+      next.push(nextColumn)
+    }
+  }
+
+  for (const [key, column] of updateMap.entries()) {
+    if (!seen.has(key) && key) {
+      seen.add(key)
+      next.push(column)
+    }
+  }
+
+  return next
+}
+
+function mergeIndexes(
+  baseIndexes: SchemaTable['indexes'] | undefined,
+  updates: SchemaTable['indexes'] | undefined
+) {
+  const base = baseIndexes ?? []
+  const up = updates ?? []
+  if (up.length === 0) {
+    return baseIndexes
+  }
+
+  const next: NonNullable<SchemaTable['indexes']> = []
+  const seen = new Set<string>()
+  const updateMap = new Map(
+    up.map((index) => [normalizeTableKey(index.name), index])
+  )
+
+  for (const index of base) {
+    const key = normalizeTableKey(index.name)
+    const nextIndex = updateMap.get(key) ?? index
+    if (!seen.has(key) && key) {
+      seen.add(key)
+      next.push(nextIndex)
+    }
+  }
+
+  for (const [key, index] of updateMap.entries()) {
+    if (!seen.has(key) && key) {
+      seen.add(key)
+      next.push(index)
+    }
+  }
+
+  return next
+}
+
+function mergeSchemaTablesWithColumns(
+  base: BlockSchema | undefined,
+  updates: BlockSchema | undefined
+): BlockSchema | undefined {
+  if (!updates || updates.tables.length === 0) {
+    return base
+  }
+
+  const nextTables: SchemaTable[] = []
+  const seen = new Set<string>()
+  const updateMap = new Map(
+    updates.tables.map((table) => [normalizeTableKey(table.name), table])
+  )
+
+  const baseTables = base?.tables ?? []
+
+  for (const table of baseTables) {
+    const key = normalizeTableKey(table.name)
+    const updateTable = updateMap.get(key)
+    const nextTable = updateTable
+      ? {
+          ...table,
+          columns: mergeColumns(table.columns, updateTable.columns),
+          indexes: mergeIndexes(table.indexes, updateTable.indexes),
+        }
+      : table
+    if (!seen.has(key) && key) {
+      seen.add(key)
+      nextTables.push(nextTable)
+    }
+  }
+
+  for (const [key, table] of updateMap.entries()) {
+    if (!seen.has(key) && key) {
+      seen.add(key)
+      nextTables.push(table)
+    }
+  }
+
+  return nextTables.length > 0 ? { tables: nextTables } : undefined
+}
+
 export function Canvas({ onOpenImportDialog }: CanvasProps) {
   const nodes = useAppStore((state) => state.nodes)
   const edges = useAppStore((state) => state.edges)
@@ -158,6 +455,47 @@ export function Canvas({ onOpenImportDialog }: CanvasProps) {
   const [draftTechStack, setDraftTechStack] = useState('')
   const [draftSchema, setDraftSchema] = useState<BlockSchema | undefined>(undefined)
   const [draftColor, setDraftColor] = useState<ContainerColor>('blue')
+
+  const dataLayerInfo = useMemo(() => {
+    const containerNames = new Map(
+      nodes
+        .filter((node): node is Node<ContainerNodeData> => node.type === 'container')
+        .map((container) => [container.id, container.data.name ?? ''])
+    )
+    const dataLayerBlockIds = new Set<string>()
+    const schemaSources: string[] = []
+    const schemas: BlockSchema[] = []
+    const dataLayerBlocks: Node<BlockNodeData>[] = []
+
+    for (const node of nodes) {
+      if (node.type !== 'block' || !node.parentId) {
+        continue
+      }
+      const parentName = containerNames.get(node.parentId) ?? ''
+      if (!isDataLayerName(parentName)) {
+        continue
+      }
+      dataLayerBlockIds.add(node.id)
+      dataLayerBlocks.push(node as Node<BlockNodeData>)
+      const blockData = node.data as BlockNodeData
+      if (blockData.schema) {
+        schemas.push(blockData.schema)
+        schemaSources.push(blockData.name || node.id)
+      }
+    }
+
+    const primarySchemaBlock =
+      dataLayerBlocks.find((block) => Boolean((block.data as BlockNodeData).schema)) ??
+      dataLayerBlocks[0] ??
+      null
+
+    return {
+      dataLayerBlockIds,
+      sharedSchema: mergeSchemas(schemas),
+      schemaSources,
+      primarySchemaBlock,
+    }
+  }, [nodes])
 
   const toggleContainerCollapse = useCallback(
     async (nodeId: string) => {
@@ -397,9 +735,15 @@ export function Canvas({ onOpenImportDialog }: CanvasProps) {
       setDraftSchema(undefined)
     } else {
       const blockData = node.data as BlockNodeData
+      const isDataLayer = dataLayerInfo.dataLayerBlockIds.has(node.id)
       setDraftDescription(blockData.description)
       setDraftTechStack(blockData.techStack ?? '')
-      setDraftSchema(blockData.schema)
+      const linkedSchema = pickSchemaByRefs(
+        dataLayerInfo.sharedSchema,
+        blockData.schemaRefs,
+        blockData.schemaFieldRefs
+      )
+      setDraftSchema(isDataLayer ? blockData.schema : linkedSchema)
       setDraftColor('blue')
     }
 
@@ -434,12 +778,33 @@ export function Canvas({ onOpenImportDialog }: CanvasProps) {
         color: draftColor,
       })
     } else {
-      updateNodeData(editingNodeId, {
+      const isDataLayer = dataLayerInfo.dataLayerBlockIds.has(node.id)
+      const nextNodeData: Partial<BlockNodeData> = {
         name: draftName.trim(),
         description: draftDescription.trim(),
         techStack: draftTechStack.trim(),
-        schema: draftSchema,
-      })
+      }
+
+      if (isDataLayer) {
+        nextNodeData.schema = draftSchema
+      } else {
+        const nextRefs = getSchemaRefsFromTables(draftSchema)
+        const nextFieldRefs = getSchemaFieldRefsFromTables(draftSchema)
+        nextNodeData.schemaRefs = nextRefs
+        nextNodeData.schemaFieldRefs = nextFieldRefs
+
+        const primaryBlock = dataLayerInfo.primarySchemaBlock
+        if (primaryBlock) {
+          const primaryData = primaryBlock.data as BlockNodeData
+          const mergedSchema = mergeSchemaTablesWithColumns(primaryData.schema, draftSchema)
+          updateNodeData(primaryBlock.id, { schema: mergedSchema })
+        } else if (draftSchema) {
+          // Fallback: no data layer found, persist locally to avoid losing edits.
+          nextNodeData.schema = draftSchema
+        }
+      }
+
+      updateNodeData(editingNodeId, nextNodeData)
     }
 
     closeNodeEditor()
@@ -602,100 +967,134 @@ export function Canvas({ onOpenImportDialog }: CanvasProps) {
         </div>
       ) : null}
       {editingNode ? (
-        <div className="vp-dialog-backdrop fixed inset-0 z-50 flex items-center justify-center p-6">
-          <div className="vp-dialog-card max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-[2rem] p-6">
-            <div className="mb-5 flex items-start justify-between gap-4">
-              <div>
-                <h2 className="text-lg font-semibold text-slate-900">{t('edit_node')}</h2>
-                <p className="mt-1 text-sm text-slate-500">
-                  {t('update_node_copy', { type: getNodeTypeLabel(editingNode.type) })}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={closeNodeEditor}
-                className="vp-button-secondary rounded-full px-3 py-1 text-xs uppercase tracking-[0.2em]"
-              >
-                {t('close')}
-              </button>
-            </div>
-
-            <form onSubmit={saveNodeEdits} className="space-y-4">
-              <label className="block">
-                <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
-                  {t('name')}
-                </span>
-                <input
-                  type="text"
-                  value={draftName}
-                  onChange={(event) => setDraftName(event.target.value)}
-                  placeholder={editingNode.type === 'container' ? t('container') : t('block')}
-                  className="vp-input rounded-2xl px-4 py-3 text-sm"
-                />
-              </label>
-
-              {editingNode.type === 'container' ? (
-                <label className="block">
-                  <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
-                    {t('color')}
-                  </span>
-                  <select
-                    value={draftColor}
-                    onChange={(event) => setDraftColor(event.target.value as ContainerColor)}
-                    className="vp-input w-full rounded-2xl px-4 py-3 text-sm"
-                  >
-                    {CONTAINER_COLOR_OPTIONS.map((color) => (
-                      <option key={color} value={color}>
-                        {formatContainerColorLabel(color)}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              ) : (
-                <>
-                  <label className="block">
-                    <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
-                      {t('description')}
-                    </span>
-                    <textarea
-                      value={draftDescription}
-                      onChange={(event) => setDraftDescription(event.target.value)}
-                      rows={4}
-                      placeholder={t('node_desc_placeholder')}
-                      className="vp-input rounded-2xl px-4 py-3 text-sm"
-                    />
-                  </label>
-
-                  <label className="block">
-                    <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
-                      {t('tech_stack')}
-                    </span>
-                    <input
-                      type="text"
-                      value={draftTechStack}
-                      onChange={(event) => setDraftTechStack(event.target.value)}
-                      placeholder="React 19 + Next.js 16"
-                      className="vp-input rounded-2xl px-4 py-3 text-sm"
-                    />
-                  </label>
-
-                  <SchemaEditor schema={draftSchema} onChange={setDraftSchema} />
-                </>
-              )}
-
-              <div className="flex justify-end gap-2">
+        <div
+          className="vp-dialog-backdrop fixed inset-0 z-50 flex items-center justify-center p-6"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) {
+              closeNodeEditor()
+            }
+          }}
+        >
+          <div
+            className={`vp-dialog-card flex max-h-[90vh] w-full flex-col overflow-hidden rounded-[2rem] ${
+              editingNode.type === 'block' ? 'max-w-5xl' : 'max-w-lg'
+            }`}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="border-b border-slate-200/80 bg-white/95 px-6 py-4 backdrop-blur">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h2 className="text-lg font-semibold text-slate-900">{t('edit_node')}</h2>
+                  <p className="mt-1 text-sm text-slate-500">
+                    {t('update_node_copy', { type: getNodeTypeLabel(editingNode.type) })}
+                  </p>
+                </div>
                 <button
                   type="button"
                   onClick={closeNodeEditor}
-                  className="vp-button-secondary rounded-xl px-4 py-2 text-sm"
+                  aria-label={t('close')}
+                  className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-700"
                 >
-                  {t('cancel')}
-                </button>
-                <button type="submit" className="vp-button-primary rounded-xl px-4 py-2 text-sm font-medium">
-                  {t('save')}
+                  <svg className="h-4 w-4" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                    <path
+                      d="M4 4L12 12M12 4L4 12"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                    />
+                  </svg>
                 </button>
               </div>
-            </form>
+            </div>
+
+            <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-6 pt-5">
+              <form onSubmit={saveNodeEdits} className="space-y-4">
+                <label className="block">
+                  <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+                    {t('name')}
+                  </span>
+                  <input
+                    type="text"
+                    value={draftName}
+                    onChange={(event) => setDraftName(event.target.value)}
+                    placeholder={editingNode.type === 'container' ? t('container') : t('block')}
+                    className="vp-input rounded-2xl px-4 py-3 text-sm"
+                  />
+                </label>
+
+                {editingNode.type === 'container' ? (
+                  <label className="block">
+                    <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+                      {t('color')}
+                    </span>
+                    <select
+                      value={draftColor}
+                      onChange={(event) => setDraftColor(event.target.value as ContainerColor)}
+                      className="vp-input w-full rounded-2xl px-4 py-3 text-sm"
+                    >
+                      {CONTAINER_COLOR_OPTIONS.map((color) => (
+                        <option key={color} value={color}>
+                          {formatContainerColorLabel(color)}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ) : (
+                  <>
+                    <label className="block">
+                      <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+                        {t('description')}
+                      </span>
+                      <textarea
+                        value={draftDescription}
+                        onChange={(event) => setDraftDescription(event.target.value)}
+                        rows={4}
+                        placeholder={t('node_desc_placeholder')}
+                        className="vp-input rounded-2xl px-4 py-3 text-sm"
+                      />
+                    </label>
+
+                    <label className="block">
+                      <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+                        {t('tech_stack')}
+                      </span>
+                      <input
+                        type="text"
+                        value={draftTechStack}
+                        onChange={(event) => setDraftTechStack(event.target.value)}
+                        placeholder="React 19 + Next.js 16"
+                        className="vp-input rounded-2xl px-4 py-3 text-sm"
+                      />
+                    </label>
+
+                    <SchemaEditor
+                      schema={draftSchema}
+                      onChange={setDraftSchema}
+                      hint={
+                        !dataLayerInfo.dataLayerBlockIds.has(editingNode.id)
+                          ? dataLayerInfo.schemaSources.length > 0
+                            ? `Edits sync to data layer. This module only links to selected tables. Sources: ${dataLayerInfo.schemaSources.join(', ')}`
+                            : 'Edits sync to data layer. This module only links to selected tables.'
+                          : undefined
+                      }
+                    />
+                  </>
+                )}
+
+                <div className="flex justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={closeNodeEditor}
+                    className="vp-button-secondary rounded-xl px-4 py-2 text-sm"
+                  >
+                    {t('cancel')}
+                  </button>
+                  <button type="submit" className="vp-button-primary rounded-xl px-4 py-2 text-sm font-medium">
+                    {t('save')}
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
         </div>
       ) : null}

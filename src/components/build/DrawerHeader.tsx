@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useAppStore } from '@/lib/store'
 import { getRandomLoadingMessage } from '@/lib/loading-messages'
+import { t } from '@/lib/i18n'
 
 interface DrawerHeaderProps {
   onStopAll: () => void
@@ -12,6 +13,7 @@ interface DrawerHeaderProps {
 
 export function DrawerHeader({ onStopAll, onCollapse, loadingMessage }: DrawerHeaderProps) {
   const buildState = useAppStore((state) => state.buildState)
+  useAppStore((state) => state.locale)
   const [message, setMessage] = useState(loadingMessage)
 
   // Rotate loading message every 5 seconds while build is active
@@ -34,8 +36,7 @@ export function DrawerHeader({ onStopAll, onCollapse, loadingMessage }: DrawerHe
     <div className="flex items-center justify-between border-b border-slate-200/80 px-4 py-2.5">
       {/* Left: title + whimsical message */}
       <div className="min-w-0 flex-1">
-        {/* TODO: i18n — "Build Progress" */}
-        <span className="text-sm font-semibold text-slate-700">Build Progress</span>
+        <span className="text-sm font-semibold text-slate-700">{t('build_progress')}</span>
         {buildState.active && (
           <span className="ml-2 truncate text-xs italic text-slate-400">{message}</span>
         )}
@@ -44,8 +45,7 @@ export function DrawerHeader({ onStopAll, onCollapse, loadingMessage }: DrawerHe
       {/* Center: wave indicator */}
       {totalWaves > 0 && (
         <div className="mx-4 flex shrink-0 items-center gap-1 text-xs font-medium text-slate-500">
-          {/* TODO: i18n — "Wave" */}
-          <span>Wave</span>
+          <span>{t('wave_label')}</span>
           <span className="tabular-nums text-slate-700">
             {currentWave}/{totalWaves}
           </span>
@@ -60,8 +60,7 @@ export function DrawerHeader({ onStopAll, onCollapse, loadingMessage }: DrawerHe
             onClick={onStopAll}
             className="rounded-full border border-red-200 bg-red-50 px-3 py-1 text-xs font-medium text-red-600 transition-colors hover:bg-red-100"
           >
-            {/* TODO: i18n — "Stop All" */}
-            Stop All
+            {t('stop_all')}
           </button>
         )}
         <button
