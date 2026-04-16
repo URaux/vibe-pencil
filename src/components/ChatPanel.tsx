@@ -779,6 +779,40 @@ export function ChatPanel() {
   }
 
   /**
+   * Stage a draft selection for a card without marking it as answered.
+   * Called by OptionCards onStage as the user picks/unpicks while navigating
+   * via arrows. The draft persists across card navigation; when the user
+   * finally presses 提交 on ANY card, handleFormSubmission merges this
+   * staging state with the click payload and decides whether the full turn
+   * has been answered.
+   */
+  function stagePendingSelection(
+    messageIndex: number,
+    choiceIndex: number,
+    payload: { selections: string[]; ordered: boolean } | null,
+  ) {
+    setPendingSubmissions((prev) => {
+      const currentTurn = prev[messageIndex] ?? {}
+      if (payload === null) {
+        if (!(choiceIndex in currentTurn)) return prev
+        const turn = { ...currentTurn }
+        delete turn[choiceIndex]
+        return { ...prev, [messageIndex]: turn }
+      }
+      const existing = currentTurn[choiceIndex]
+      if (
+        existing &&
+        existing.ordered === payload.ordered &&
+        existing.selections.length === payload.selections.length &&
+        existing.selections.every((s, i) => s === payload.selections[i])
+      ) {
+        return prev
+      }
+      return { ...prev, [messageIndex]: { ...currentTurn, [choiceIndex]: payload } }
+    })
+  }
+
+  /**
    * Multi-select form submission from an OptionCards block.
    *
    * **Single-card turn** (totalCards === 1): fires /api/chat immediately, same
@@ -1426,6 +1460,11 @@ export function ChatPanel() {
                               const persistedTrace = entry.choiceSelections?.[ci]
                               const isAnswered = !!persistedTrace
                               const isMultiCardTurn = userChoices.length > 1
+                              const advanceAfterSubmit = () => {
+                                if (ci < userChoices.length - 1) {
+                                  setCarouselIndices(prev => ({ ...prev, [messageIndex]: ci + 1 }))
+                                }
+                              }
                               return (
                                 <OptionCards
                                   options={choice.options.map((opt, oi) => ({ number: String(oi + 1), text: opt }))}
@@ -1438,16 +1477,21 @@ export function ChatPanel() {
                                   max={choice.max}
                                   allowCustom={choice.allowCustom}
                                   allowIndifferent={choice.allowIndifferent}
+                                  onStage={isMultiCardTurn ? (payload) => stagePendingSelection(messageIndex, ci, payload) : undefined}
                                   onSelect={(text) => {
                                     if (isMultiCardTurn) {
                                       // Route single-select clicks through the batch staging pipeline
                                       // so they don't fire a solo /api/chat and drop other cards' pending answers.
                                       void handleFormSubmission(messageIndex, ci, { selections: [text], ordered: false }, userChoices.length)
+                                      advanceAfterSubmit()
                                     } else {
                                       void handleOptionSelect(text)
                                     }
                                   }}
-                                  onSubmitMulti={(payload) => { void handleFormSubmission(messageIndex, ci, payload, userChoices.length) }}
+                                  onSubmitMulti={(payload) => {
+                                    void handleFormSubmission(messageIndex, ci, payload, userChoices.length)
+                                    advanceAfterSubmit()
+                                  }}
                                 />
                               )
                             }
@@ -1456,7 +1500,9 @@ export function ChatPanel() {
                                 <div key={ci}>{renderChoice(choice, ci)}</div>
                               ))
                             }
-                            const answeredCount = userChoices.filter((_, i) => !!entry.choiceSelections?.[i]).length
+                            const turnPending = pendingSubmissions[messageIndex] ?? {}
+                            const hasAnswerAt = (i: number) => !!entry.choiceSelections?.[i] || !!turnPending[i]
+                            const answeredCount = userChoices.filter((_, i) => hasAnswerAt(i)).length
                             const currentCardIdx = carouselIndices[messageIndex] ?? 0
                             const gotoCard = (nextIdx: number) => {
                               const clamped = Math.max(0, Math.min(userChoices.length - 1, nextIdx))
@@ -1496,8 +1542,7 @@ export function ChatPanel() {
                                 {/* card stack — only the current card is visible; others kept mounted via `hidden` so their internal state persists across navigation */}
                                 <div className="pb-2">
                                   {userChoices.map((choice, ci) => {
-                                    const persistedTrace = entry.choiceSelections?.[ci]
-                                    const isAnswered = !!persistedTrace
+                                    const showAnsweredBadge = hasAnswerAt(ci)
                                     const isActive = ci === currentCardIdx
                                     return (
                                       <div
@@ -1509,12 +1554,12 @@ export function ChatPanel() {
                                           <div className="mb-1 flex items-center gap-2 text-xs font-medium text-slate-600">
                                             <span
                                               className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold ${
-                                                isAnswered
+                                                showAnsweredBadge
                                                   ? 'bg-orange-100 text-orange-600'
                                                   : 'bg-slate-100 text-slate-500'
                                               }`}
                                             >
-                                              {isAnswered ? '✓' : ci + 1}
+                                              {showAnsweredBadge ? '✓' : ci + 1}
                                             </span>
                                             <span className="flex-1 truncate">{choice.question}</span>
                                           </div>
