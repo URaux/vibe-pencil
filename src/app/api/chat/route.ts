@@ -487,8 +487,12 @@ async function handlePersistentChat(
   // prompt), and the skill supplies the canvas-action contract only when
   // the user actually asks to edit the diagram.
   const reqId = `chat-${Date.now().toString(36).slice(-6)}`
-  const log = (stage: string, extra?: Record<string, unknown>) =>
-    console.log('[chat]', reqId, stage, extra ? JSON.stringify(extra) : '')
+  // Use process.stdout.write with explicit UTF-8 to avoid Windows GBK console
+  // re-encoding Chinese characters from CC stderr into mojibake (Bug #2).
+  const log = (stage: string, extra?: Record<string, unknown>) => {
+    const line = `[chat] ${reqId} ${stage}${extra ? ' ' + JSON.stringify(extra) : ''}\n`
+    process.stdout.write(Buffer.from(line, 'utf8'))
+  }
 
   const workDir = backend === 'claude-code'
     ? await ensureCanvasChatScaffold()
@@ -749,8 +753,9 @@ export async function POST(request: Request) {
 
   if (finalStatus.status === 'error') {
     const rawErr = finalStatus.errorMessage ? stripAnsi(finalStatus.errorMessage) : ''
-    console.error('[chat] CC agent error:', rawErr.slice(0, 500))
-    console.error('[chat] CC agent output:', stripAnsi(finalStatus.output ?? '').slice(0, 500))
+    // Write via process.stderr with explicit UTF-8 to avoid Windows GBK mojibake on Chinese error text.
+    process.stderr.write(Buffer.from(`[chat] CC agent error: ${rawErr.slice(0, 500)}\n`, 'utf8'))
+    process.stderr.write(Buffer.from(`[chat] CC agent output: ${stripAnsi(finalStatus.output ?? '').slice(0, 500)}\n`, 'utf8'))
     const errorMsg = rawErr
       ? `Backend error: ${rawErr.slice(0, 200)}`
       : 'The AI backend encountered an error.'

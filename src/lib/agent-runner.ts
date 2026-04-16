@@ -70,14 +70,20 @@ export interface CustomApiConfig {
 function getCommand(backend: AgentBackend, prompt: string, model?: string, ccSessionId?: string, systemPrompt?: string) {
   if (backend === 'codex') {
     if (ccSessionId) {
-      // Resume existing Codex session
-      const args = ['resume', ccSessionId, prompt]
+      // Resume existing Codex session.
+      // IMPORTANT: Do NOT pass the prompt as a positional argv argument — on
+      // Windows the shell word-splits the text (especially multi-byte/CJK with
+      // spaces) and codex receives individual tokens as separate args, causing
+      // "unexpected argument '本次' found" errors.
+      // Pass the prompt via stdin instead (pipeStdin: true), matching the
+      // same stdin-pipe path used by the first-turn `exec` branch.
+      const args = ['resume', ccSessionId]
       if (model) args.push('--config', `model=${model}`)
-      return { command: 'codex', args, pipeStdin: false, useShell: undefined }
+      return { command: 'codex', args, pipeStdin: true, useShell: false }
     }
     const args = ['exec', '--full-auto', '--json', '-']
     if (model) args.push('--model', model)
-    return { command: 'codex', args, pipeStdin: true, useShell: undefined }
+    return { command: 'codex', args, pipeStdin: true, useShell: false }
   }
 
   if (backend === 'gemini') {

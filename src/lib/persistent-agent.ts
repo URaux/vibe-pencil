@@ -104,10 +104,16 @@ class PersistentAgent extends EventEmitter {
       // Surface CC child stderr live — without this, a silent process hang is
       // invisible and we can only see "[chat] phase" with no follow-up logs.
       // Throttle to the first 4 chunks so a storm doesn't flood the server log.
+      // Use process.stderr.write with explicit UTF-8 encoding rather than
+      // console.warn — on Windows the default console codepage (GBK/cp936)
+      // will re-encode the already-decoded UTF-8 string and produce mojibake
+      // for any Chinese characters (e.g. "上下文太长" → "������̫����").
       if (!this.stderrLogCount) this.stderrLogCount = 0
       if (this.stderrLogCount < 4) {
         this.stderrLogCount++
-        console.warn('[persistent-agent]', this.process?.pid, 'stderr', JSON.stringify(text.slice(0, 500)))
+        const pid = this.process?.pid
+        const snippet = JSON.stringify(text.slice(0, 500))
+        process.stderr.write(Buffer.from(`[persistent-agent] ${pid} stderr ${snippet}\n`, 'utf8'))
       }
       this.stderrTail = (this.stderrTail + text).slice(-16_384)
     })
