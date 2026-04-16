@@ -85,10 +85,16 @@ export function extractVisibleChatText(content: string) {
     }
   }
 
-  // Strip hidden title/progress tags and user-choice blocks before returning
+  // Strip hidden control comments and user-choice blocks before returning.
+  // `[\s\S]*?` inside the comments matches multi-line v2 payloads (decisions,
+  // externalDeps, state-pointer) up to the nearest `-->`.
   return dedupeRepeatedResponse(visible)
-    .replace(/<!--\s*title:\s*.+?\s*-->/g, '')
-    .replace(/<!--\s*progress:\s*.+?\s*-->/g, '')
+    .replace(/<!--\s*title:[\s\S]*?-->/g, '')
+    .replace(/<!--\s*progress:[\s\S]*?-->/g, '')
+    .replace(/<!--\s*decisions:[\s\S]*?-->/g, '')
+    .replace(/<!--\s*externalDeps:[\s\S]*?-->/g, '')
+    .replace(/<!--\s*state-pointer:[\s\S]*?-->/g, '')
+    .replace(/<!--\s*mode:[\s\S]*?-->/g, '')
     .replace(/```json:user-choice[\s\S]*?```/gi, '')
     .trim()
 }
