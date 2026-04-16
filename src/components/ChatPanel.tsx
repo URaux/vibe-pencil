@@ -304,6 +304,14 @@ export function ChatPanel() {
   const [carouselIndices, setCarouselIndices] = useState<Record<number, number>>({})
   const carouselScrollRefs = useRef<Record<number, HTMLDivElement | null>>({})
   const carouselCardRefs = useRef<Record<string, HTMLDivElement | null>>({})
+  /**
+   * Staging area for batched multi-card form submissions.
+   * Shape: { [messageIndex]: { [choiceIndex]: { selections, ordered } } }
+   * Populated one card at a time; cleared when the batch fires to /api/chat.
+   */
+  const [pendingSubmissions, setPendingSubmissions] = useState<
+    Record<number, Record<number, { selections: string[]; ordered: boolean }>>
+  >({})
 
   const activeSession = chatSessions.find((s) => s.id === activeChatSessionId)
   const activeMessages = activeSession?.messages ?? []
@@ -775,29 +783,25 @@ export function ChatPanel() {
   /**
    * Multi-select form submission from an OptionCards block.
    *
-   * Unlike handleOptionSelect, this does NOT push a visible user message into
-   * the chat transcript. Instead:
-   *   1. The structured selections are persisted on the *assistant* message
-   *      (via choiceSelections[choiceIndex]) so the OptionCards re-render in
-   *      "trace" mode on revisit.
-   *   2. The selections are serialized into a synthetic [form-submission]
-   *      block that is appended to the history payload sent to the API, AND
-   *      passed structurally via the `formSubmission` field on the request
-   *      body (for the server to materialize into the latest user turn).
-   *   3. The next assistant turn streams normally.
+   * **Single-card turn** (totalCards === 1): fires /api/chat immediately, same
+   * as the old per-card behaviour.
+   *
+   * **Multi-card turn** (totalCards > 1): stages the selection in
+   * `pendingSubmissions[assistantMessageIndex][choiceIndex]`. The UI reflects
+   * each card as answered immediately. Once ALL cards in the turn have a pending
+   * selection the batch fires as a single /api/chat call carrying
+   * `formSubmissions: FormSubmission[]` so the server sees all decisions at once
+   * and the next LLM turn advances past the entire batch.
    */
   async function handleFormSubmission(
     assistantMessageIndex: number,
     choiceIndex: number,
-    payload: { selections: string[]; ordered: boolean }
+    payload: { selections: string[]; ordered: boolean },
+    totalCards: number,
   ) {
     if (isSending || sendLockRef.current) return
-    sendLockRef.current = true
 
-    const sessionId = activeChatSessionId ?? createChatSession()
-
-    // 1. Persist trace on the assistant message so a future re-render shows
-    //    selections as highlighted (disabled state).
+    // Always persist trace immediately so the card flips to "answered" in the UI.
     updateActiveChatMessages((current) => {
       const next = [...current]
       const target = next[assistantMessageIndex]
@@ -810,12 +814,116 @@ export function ChatPanel() {
       return next
     })
 
-    const syntheticUserText =
-      `[form-submission${payload.ordered ? ' (ordered)' : ''}] ` +
-      `selections: ${JSON.stringify(payload.selections)}`
+    // --- SINGLE-CARD FAST PATH ---
+    if (totalCards <= 1) {
+      sendLockRef.current = true
+      const sessionId = activeChatSessionId ?? createChatSession()
 
-    // History sent to API: include the synthetic user turn so the model has
-    // full context. The frontend transcript itself does NOT show this.
+      const syntheticUserText =
+        `[form-submission${payload.ordered ? ' (ordered)' : ''}] ` +
+        `selections: ${JSON.stringify(payload.selections)}`
+
+      const historyForApi = [
+        ...activeMessages,
+        { role: 'user' as const, content: syntheticUserText },
+      ]
+
+      setError(null)
+      setIsSending(true)
+      updateActiveChatMessages((current) => [...current, { role: 'assistant', content: '' }])
+
+      remediationAppliedRef.current = new Set()
+      const chatBody = {
+        message: syntheticUserText,
+        formSubmission: {
+          selections: payload.selections,
+          ordered: payload.ordered,
+        },
+        history: historyForApi,
+        nodeContext,
+        codeContext: codeContext ?? undefined,
+        architecture_yaml: canvasToYaml(nodes, edges, projectName),
+        backend,
+        model,
+        locale,
+        phase: activeSession?.phase ?? 'brainstorm',
+        sessionId,
+        buildSummaryContext: formatBuildContext(
+          useAppStore.getState().buildState,
+          useAppStore.getState().nodes,
+          useAppStore.getState().buildOutputLog
+        ) ?? undefined,
+        customApiBase,
+        customApiKey,
+        customApiModel,
+        ccSessionId: activeSession?.ccSessionId,
+      } as Record<string, unknown>
+
+      try {
+        const response = await fetchChatWithRetry(
+          '/api/chat',
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(chatBody),
+          },
+          {
+            remediate: buildRemediate(chatBody),
+            onRemediate: (_err, note) => onRemediateMessage(note),
+          },
+        )
+        await drainChatResponse(response, sessionId)
+      } catch (sendError) {
+        handleSendError(sendError)
+      } finally {
+        setIsSending(false)
+        sendLockRef.current = false
+      }
+      return
+    }
+
+    // --- MULTI-CARD STAGING PATH ---
+    // Merge this card's selection into the pending map.
+    const updatedPending = {
+      ...pendingSubmissions,
+      [assistantMessageIndex]: {
+        ...(pendingSubmissions[assistantMessageIndex] ?? {}),
+        [choiceIndex]: payload,
+      },
+    }
+    const turnPending = updatedPending[assistantMessageIndex]
+    const allAnswered = Object.keys(turnPending).length >= totalCards
+
+    if (!allAnswered) {
+      // Not all cards answered yet — just update staging state and return.
+      setPendingSubmissions(updatedPending)
+      return
+    }
+
+    // All cards answered: acquire lock and fire batch call.
+    if (isSending || sendLockRef.current) {
+      // Edge case: send already in flight (double-click). Stage and bail.
+      setPendingSubmissions(updatedPending)
+      return
+    }
+    sendLockRef.current = true
+    // Clear staging for this turn.
+    setPendingSubmissions((prev) => {
+      const next = { ...prev }
+      delete next[assistantMessageIndex]
+      return next
+    })
+
+    const sessionId = activeChatSessionId ?? createChatSession()
+
+    // Build ordered list of submissions (card 0, 1, 2, …).
+    const orderedSubs = Array.from({ length: totalCards }, (_, i) => turnPending[i]).filter(Boolean)
+
+    // Joined synthetic text so the history entry is human-readable.
+    const syntheticUserText = orderedSubs
+      .map((sub, i) => `[form-submission${sub.ordered ? ' (ordered)' : ''}] card:${i} selections: ${JSON.stringify(sub.selections)}`)
+      .join('\n')
+
     const historyForApi = [
       ...activeMessages,
       { role: 'user' as const, content: syntheticUserText },
@@ -823,17 +931,13 @@ export function ChatPanel() {
 
     setError(null)
     setIsSending(true)
-    // Append a placeholder assistant message for the streaming reply, but
-    // skip the visible user bubble entirely.
     updateActiveChatMessages((current) => [...current, { role: 'assistant', content: '' }])
 
     remediationAppliedRef.current = new Set()
     const chatBody = {
       message: syntheticUserText,
-      formSubmission: {
-        selections: payload.selections,
-        ordered: payload.ordered,
-      },
+      // Array form — server accepts formSubmissions[] as batch.
+      formSubmissions: orderedSubs,
       history: historyForApi,
       nodeContext,
       codeContext: codeContext ?? undefined,
@@ -867,66 +971,74 @@ export function ChatPanel() {
           onRemediate: (_err, note) => onRemediateMessage(note),
         },
       )
-
-      let fullAssistantText = ''
-      const contentType = response.headers.get('content-type') ?? ''
-      if (contentType.includes('application/json')) {
-        const data = await response.json() as { content?: string; ccSessionId?: string; error?: string }
-        if (data.error) throw new Error(data.error)
-        fullAssistantText = data.content ?? ''
-        if (data.ccSessionId) {
-          updateChatSession(sessionId, { ccSessionId: data.ccSessionId })
-        }
-      } else {
-        if (!response.body) throw new Error(t('chat_start_failed'))
-        const reader = response.body.getReader()
-        const decoder = new TextDecoder()
-        let buffer = ''
-        let visibleAssistantText = ''
-        while (true) {
-          const { value, done } = await reader.read()
-          if (done) break
-          buffer += decoder.decode(value, { stream: true })
-          const { events, rest } = parseStreamEvents(buffer)
-          buffer = rest
-          for (const streamEvent of events) {
-            if (streamEvent.type === 'session' && streamEvent.ccSessionId) {
-              updateChatSession(sessionId, { ccSessionId: streamEvent.ccSessionId })
-              continue
-            }
-            if (streamEvent.type === 'chunk' && streamEvent.text) {
-              fullAssistantText += streamEvent.text
-              const nextVisibleText = extractVisibleChatText(fullAssistantText)
-              if (nextVisibleText !== visibleAssistantText) {
-                visibleAssistantText = nextVisibleText
-                updateAssistantMessage(visibleAssistantText)
-              }
-              continue
-            }
-            if (streamEvent.type === 'error') {
-              throw new Error(streamEvent.error ?? t('chat_failed'))
-            }
-          }
-        }
-      }
-
-      const actionBlocks = extractActionBlocks(fullAssistantText)
-      updateAssistantMessage(fullAssistantText, actionBlocks)
+      await drainChatResponse(response, sessionId)
     } catch (sendError) {
-      const cfe = sendError as Partial<ChatFetchError>
-      const message = cfe.kind
-        ? describeChatFetchError(sendError as ChatFetchError, locale === 'zh' ? 'zh' : 'en')
-        : sendError instanceof Error ? sendError.message : t('send_failed')
-      setError(message)
-      updateActiveChatMessages((current) => {
-        const last = current.at(-1)
-        if (!last || last.role !== 'assistant' || last.content.trim()) return current
-        return current.slice(0, -1)
-      })
+      handleSendError(sendError)
     } finally {
       setIsSending(false)
       sendLockRef.current = false
     }
+  }
+
+  /** Shared stream-draining logic used by both single-card and batch form submission paths. */
+  async function drainChatResponse(response: Response, sessionId: string) {
+    let fullAssistantText = ''
+    const contentType = response.headers.get('content-type') ?? ''
+    if (contentType.includes('application/json')) {
+      const data = await response.json() as { content?: string; ccSessionId?: string; error?: string }
+      if (data.error) throw new Error(data.error)
+      fullAssistantText = data.content ?? ''
+      if (data.ccSessionId) {
+        updateChatSession(sessionId, { ccSessionId: data.ccSessionId })
+      }
+    } else {
+      if (!response.body) throw new Error(t('chat_start_failed'))
+      const reader = response.body.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ''
+      let visibleAssistantText = ''
+      while (true) {
+        const { value, done } = await reader.read()
+        if (done) break
+        buffer += decoder.decode(value, { stream: true })
+        const { events, rest } = parseStreamEvents(buffer)
+        buffer = rest
+        for (const streamEvent of events) {
+          if (streamEvent.type === 'session' && streamEvent.ccSessionId) {
+            updateChatSession(sessionId, { ccSessionId: streamEvent.ccSessionId })
+            continue
+          }
+          if (streamEvent.type === 'chunk' && streamEvent.text) {
+            fullAssistantText += streamEvent.text
+            const nextVisibleText = extractVisibleChatText(fullAssistantText)
+            if (nextVisibleText !== visibleAssistantText) {
+              visibleAssistantText = nextVisibleText
+              updateAssistantMessage(visibleAssistantText)
+            }
+            continue
+          }
+          if (streamEvent.type === 'error') {
+            throw new Error(streamEvent.error ?? t('chat_failed'))
+          }
+        }
+      }
+    }
+    const actionBlocks = extractActionBlocks(fullAssistantText)
+    updateAssistantMessage(fullAssistantText, actionBlocks)
+  }
+
+  /** Shared error handler for form submission catch blocks. */
+  function handleSendError(sendError: unknown) {
+    const cfe = sendError as Partial<ChatFetchError>
+    const message = cfe.kind
+      ? describeChatFetchError(sendError as ChatFetchError, locale === 'zh' ? 'zh' : 'en')
+      : sendError instanceof Error ? sendError.message : t('send_failed')
+    setError(message)
+    updateActiveChatMessages((current) => {
+      const last = current.at(-1)
+      if (!last || last.role !== 'assistant' || last.content.trim()) return current
+      return current.slice(0, -1)
+    })
   }
 
   async function handleOptionSelect(text: string) {
@@ -1311,7 +1423,7 @@ export function ChatPanel() {
                                   allowCustom={choice.allowCustom}
                                   allowIndifferent={choice.allowIndifferent}
                                   onSelect={(text) => { void handleOptionSelect(text) }}
-                                  onSubmitMulti={(payload) => { void handleFormSubmission(messageIndex, ci, payload) }}
+                                  onSubmitMulti={(payload) => { void handleFormSubmission(messageIndex, ci, payload, userChoices.length) }}
                                 />
                               )
                             }
@@ -1330,39 +1442,34 @@ export function ChatPanel() {
                             }
                             return (
                               <div className="mt-3">
-                                {/* nav bar: arrows + counter + swipe hint */}
-                                <div className="mb-2 flex items-center gap-2 text-[10px] text-slate-400">
+                                {/* nav bar: left arrow · counter+progress · right arrow */}
+                                <div className="mb-2 flex items-center justify-between gap-2 text-[10px] text-slate-400">
                                   <button
                                     type="button"
                                     aria-label={locale === 'zh' ? '上一张' : 'Previous card'}
                                     onClick={() => gotoCard(currentCardIdx - 1)}
                                     disabled={currentCardIdx === 0}
-                                    className="flex h-5 w-5 items-center justify-center rounded-full border border-slate-200 bg-white transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-30"
+                                    className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-30"
                                   >
                                     <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
                                   </button>
-                                  <span className="font-semibold tabular-nums">
-                                    {currentCardIdx + 1} / {userChoices.length}
-                                  </span>
-                                  <span className="text-slate-300">
-                                    {locale === 'zh'
-                                      ? `已答 ${answeredCount}/${userChoices.length}`
-                                      : `${answeredCount}/${userChoices.length} answered`}
+                                  <span className="flex-1 text-center tabular-nums">
+                                    <span className="font-semibold">{currentCardIdx + 1} / {userChoices.length}</span>
+                                    <span className="ml-2 text-slate-300">
+                                      {locale === 'zh'
+                                        ? `已答 ${answeredCount}/${userChoices.length}`
+                                        : `${answeredCount}/${userChoices.length} answered`}
+                                    </span>
                                   </span>
                                   <button
                                     type="button"
                                     aria-label={locale === 'zh' ? '下一张' : 'Next card'}
                                     onClick={() => gotoCard(currentCardIdx + 1)}
                                     disabled={currentCardIdx === userChoices.length - 1}
-                                    className="flex h-5 w-5 items-center justify-center rounded-full border border-slate-200 bg-white transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-30"
+                                    className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-30"
                                   >
                                     <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
                                   </button>
-                                  {userChoices.length > 1 ? (
-                                    <span className="ml-auto text-[10px] normal-case tracking-normal text-slate-300">
-                                      {locale === 'zh' ? '左右滑动' : 'swipe →'}
-                                    </span>
-                                  ) : null}
                                 </div>
                                 {/* card scroll track */}
                                 <div

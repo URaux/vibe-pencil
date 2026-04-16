@@ -47,8 +47,16 @@ interface ChatRequest {
    * ("[form] question: ... | selections: [...]") and uses it as the latest
    * user input. The frontend should NOT push the raw selections into its
    * visible chat transcript.
+   *
+   * Use `formSubmission` for a single card; `formSubmissions` for batched
+   * multi-card turns. Both are accepted; `formSubmissions` takes priority.
    */
   formSubmission?: FormSubmission
+  /**
+   * Batched multi-card form submissions emitted when all cards in a turn are
+   * answered at once. Takes priority over the singular `formSubmission` alias.
+   */
+  formSubmissions?: FormSubmission[]
   history?: ChatMessage[]
   nodeContext?: string
   selectedNodeId?: string
@@ -643,9 +651,13 @@ async function handlePersistentChat(
 }
 
 /**
- * Convert a structured FormSubmission into the synthetic user message the
- * model will see. Kept deterministic so the model can detect "this came from
- * a UI form" and respond accordingly (e.g., not echo back the choices).
+ * Convert one or more structured FormSubmission(s) into the synthetic user
+ * message the model will see. Kept deterministic so the model can detect
+ * "this came from a UI form" and respond accordingly.
+ *
+ * - Single submission: same format as before (`[form-submission] …`).
+ * - Multiple submissions: each card gets its own block, separated by a blank
+ *   line, so the model sees all card answers in one user turn.
  */
 function renderFormSubmission(sub: FormSubmission, fallbackMessage: string): string {
   const orderedTag = sub.ordered ? ' (ordered)' : ''
@@ -658,13 +670,31 @@ function renderFormSubmission(sub: FormSubmission, fallbackMessage: string): str
   return lines.join('\n')
 }
 
+function renderFormSubmissions(subs: FormSubmission[], fallbackMessage: string): string {
+  if (subs.length === 1) return renderFormSubmission(subs[0], fallbackMessage)
+  return subs
+    .map((sub, i) => {
+      const orderedTag = sub.ordered ? ' (ordered)' : ''
+      const lines = [
+        `[form-submission${orderedTag} card:${i}]`,
+        sub.questionId ? `question_id: ${sub.questionId}` : null,
+        `selections: ${JSON.stringify(sub.selections)}`,
+      ].filter(Boolean)
+      return lines.join('\n')
+    })
+    .join('\n\n')
+}
+
 export async function POST(request: Request) {
   const payload = (await request.json()) as ChatRequest
 
   // Materialize structured form submissions into a synthetic user message
   // BEFORE the empty-message guard, so multi-select cards can submit without
   // any chat-text payload.
-  if (payload.formSubmission && Array.isArray(payload.formSubmission.selections)) {
+  // `formSubmissions` (array) takes priority over singular `formSubmission`.
+  if (Array.isArray(payload.formSubmissions) && payload.formSubmissions.length > 0) {
+    payload.message = renderFormSubmissions(payload.formSubmissions, payload.message ?? '')
+  } else if (payload.formSubmission && Array.isArray(payload.formSubmission.selections)) {
     payload.message = renderFormSubmission(payload.formSubmission, payload.message ?? '')
   }
 
