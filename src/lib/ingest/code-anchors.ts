@@ -325,10 +325,14 @@ function buildOneAnchor(args: BuildOneAnchorArgs): BuiltAnchor {
     finalPrimary = undefined
   }
 
+  // Only count as "orphaned" when a primary was expected but got lost; the
+  // maxFilesPerCluster=0 case is a deliberate caller choice to suppress files
+  // entirely and must not trip this diagnostic. (reviewer S2.)
   const orphanedPrimary =
     cluster.memberIds.length > 0 &&
     primaryFilePath !== '' &&
-    finalPrimary === undefined
+    finalPrimary === undefined &&
+    (maxFilesPerCluster ?? Infinity) > 0
 
   const anchor: CodeAnchor =
     finalPrimary !== undefined

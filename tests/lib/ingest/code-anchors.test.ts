@@ -265,6 +265,24 @@ describe('buildCodeAnchors — maxFilesPerCluster cap', () => {
     expect(paths.slice(1).sort()).toEqual(['src/hub1.ts', 'src/hub2.ts'])
     expect(anchor.primary_entry).toBe('src/primary.ts')
   })
+
+  it('maxFilesPerCluster=0 suppresses files AND does not trip orphanedPrimaryEntries (reviewer S2)', () => {
+    const mods: FixtureModule[] = [
+      { filePath: 'src/a.ts', symbols: [{ name: 'a' }] },
+      { filePath: 'src/b.ts', symbols: [{ name: 'b' }] },
+    ]
+    const graph = makeGraph(mods)
+    const cluster = makeCluster('cluster:zero-files', ['src/a.ts', 'src/b.ts'], 'src/a.ts')
+    const result = buildCodeAnchors(
+      graph,
+      makeClusterResult([cluster]),
+      { maxFilesPerCluster: 0 },
+    )
+    expect(result.entries[0]!.anchor.files).toEqual([])
+    expect(result.entries[0]!.anchor.primary_entry).toBeUndefined()
+    // Deliberate suppression — not a diagnostic false alarm.
+    expect(result.diagnostics.orphanedPrimaryEntries).toBe(0)
+  })
 })
 
 // ---------------------------------------------------------------------------

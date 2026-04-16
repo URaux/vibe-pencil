@@ -61,9 +61,10 @@ describe('cluster — verification on archviber/src', () => {
     const ids = new Set(result.clusters.map((c) => c.id))
     expect(ids.size).toBe(result.clusters.length)
 
-    // Determinism invariant on the real graph.
+    // Determinism invariant on the real graph — full FactCluster shape (reviewer S1).
     const again = clusterFactGraph(graph)
-    expect(again.clusters.map((c) => c.id)).toEqual(result.clusters.map((c) => c.id))
-    expect(again.clusters.map((c) => c.memberIds)).toEqual(result.clusters.map((c) => c.memberIds))
+    expect(again.clusters).toEqual(result.clusters)
+    expect(again.modularity).toBe(result.modularity)
+    expect(again.diagnostics).toEqual(result.diagnostics)
   }, 60_000)
 })

@@ -162,6 +162,10 @@ export async function isCacheValid(
   cached: CachedFactGraph,
   projectRoot: string,
 ): Promise<boolean> {
+  // Note: cached.projectRoot is intentionally NOT consulted. If the project
+  // directory moved, every `path.join(projectRoot, relPath)` below will fail
+  // to stat → we return false and the cache correctly invalidates. The
+  // cached.projectRoot is kept on disk for diagnostics only. (reviewer S3.)
   const entries = Object.entries(cached.mtimes)
   for (const [relPath, expectedMtime] of entries) {
     const absPath = path.join(projectRoot, relPath)

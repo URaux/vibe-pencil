@@ -532,6 +532,10 @@ export function loadTsconfigPathAliases(projectRoot: string): PathAliasMap | nul
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null
     throw error
   }
+  // Strip UTF-8 BOM — editors like VS Code on Windows sometimes save with BOM;
+  // JSON.parse rejects it, which would silently fall through to null and
+  // disable every path alias. (reviewer B1.)
+  if (raw.charCodeAt(0) === 0xfeff) raw = raw.slice(1)
   // Attempt strict parse first — most tsconfig.json files are valid JSON. Fall
   // back to a light JSONC-tolerant pass that strips only // line comments and
   // trailing commas. We deliberately do NOT strip /* */ block comments because

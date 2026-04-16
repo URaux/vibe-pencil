@@ -7,6 +7,7 @@ import {
   buildFactGraph,
   isModuleNode,
   isSymbolNode,
+  loadTsconfigPathAliases,
   type FactInputModule,
   type FactGraph,
 } from '../../../src/lib/ingest/facts'
@@ -412,8 +413,37 @@ describe('buildFactGraph', () => {
 })
 
 // ---------------------------------------------------------------------------
-// Cache tests (real temp dir; never the repo)
+// loadTsconfigPathAliases
 // ---------------------------------------------------------------------------
+
+describe('loadTsconfigPathAliases', () => {
+  let tmpRoot: string
+
+  beforeEach(async () => {
+    tmpRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'archviber-tsconfig-'))
+  })
+
+  afterEach(async () => {
+    try {
+      await fs.rm(tmpRoot, { recursive: true, force: true })
+    } catch {
+      /* swallow */
+    }
+  })
+
+  it('strips a UTF-8 BOM prefix and still parses the tsconfig', async () => {
+    // VS Code on Windows writes BOM when configured "UTF-8 with BOM". Before
+    // this fix, JSON.parse rejected the BOM and aliases silently disabled.
+    const withBom = '\uFEFF' + JSON.stringify({ compilerOptions: { paths: { '@/*': ['./src/*'] } } })
+    await fs.writeFile(path.join(tmpRoot, 'tsconfig.json'), withBom, 'utf8')
+    const aliases = loadTsconfigPathAliases(tmpRoot)
+    expect(aliases).toEqual({ '@/*': ['./src/*'] })
+  })
+
+  it('returns null when tsconfig is missing (no throw)', () => {
+    expect(loadTsconfigPathAliases(tmpRoot)).toBeNull()
+  })
+})
 
 describe('facts-cache', () => {
   let tmpDir: string
@@ -559,6 +589,23 @@ describe('facts-cache', () => {
     const cached = await readCachedFactGraph(cachePath)
     expect(cached).not.toBeNull()
     const valid = await isCacheValid(cached!, projectRoot)
+    expect(valid).toBe(false)
+  })
+
+  it('isCacheValid returns false when projectRoot is moved (reviewer S3)', async () => {
+    const { projectRoot, mtimes } = await seedProject({
+      'src/a.ts': 'export const a = 1',
+    })
+    const graph = buildSmallGraph(projectRoot)
+    const cachePath = defaultFactsCachePath(projectRoot)
+    await writeCachedFactGraph(cachePath, graph, mtimes)
+    const cached = await readCachedFactGraph(cachePath)
+    expect(cached).not.toBeNull()
+    // Simulate: caller passes a different projectRoot than the one that wrote
+    // the cache — e.g. repo cloned to a new location. Every stat() misses.
+    const movedRoot = path.join(tmpDir, 'moved-somewhere-else')
+    await fs.mkdir(movedRoot, { recursive: true })
+    const valid = await isCacheValid(cached!, movedRoot)
     expect(valid).toBe(false)
   })
 
