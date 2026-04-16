@@ -176,12 +176,13 @@ description: Use when the user starts a new architecture discussion or has not y
 
 ### 字段规则
 
-- **默认 \`multi: true, ordered: true\`** — 大多数需求梳理题都是"按重要度/相关度排序选几个"，排序本身就是信号。单选仅用于真正互斥的题（是/否、二选一的技术栈、严格互斥的模式）。
+- **默认 \`multi: true, ordered: true\`** — 大多数需求梳理题都是"按重要度/相关度排序选几个"，排序本身就是信号。功能、偏好、集成、库选择、技术栈组成题都应保持多选，不要因为存在一个主选项就硬压成单选。单选仅用于真正互斥的题（是/否、非此即彼、严格互斥的模式）。
 - \`multi\`: false → radio（仅用于互斥题）；true → checkbox 列表
 - \`ordered: true\` → 多选项带序号 ①②③，代表用户按重要度/优先级排的顺序；**绝大多数多选题都该开**
 - \`min\`: 软提示；\`max\`: 硬上限（前端校验，超出禁止提交）
 - \`allowCustom: true\` → 追加「其他（自己填）」文本输入；选项不可能穷举时用
 - \`allowIndifferent: true\` → 追加「无所谓」选项（置底）；维度题用户可能没偏好时用
+- 如果题目在问功能、偏好、集成、库、技术栈部件，优先显式写 \`multi: true\`
 - 选项里禁止再嵌问题；问题写在 \`question\`
 - 每张卡建议至少 1 个「不懂，请解释」或「其他」兜底项（NOVICE 必带）
 

@@ -29,6 +29,27 @@ interface StreamEvent {
   ccSessionId?: string
 }
 
+type ChoiceTrace = { selections: string[]; ordered: boolean }
+
+export function resolveChoiceCardState({
+  isSending,
+  isLastAssistant,
+  isMultiCardTurn,
+  persistedTrace,
+  pendingTrace,
+}: {
+  isSending: boolean
+  isLastAssistant: boolean
+  isMultiCardTurn: boolean
+  persistedTrace?: ChoiceTrace
+  pendingTrace?: ChoiceTrace
+}) {
+  const effectiveTrace = isMultiCardTurn ? (pendingTrace ?? persistedTrace) : persistedTrace
+  const isAnswered = !!effectiveTrace
+  const disabled = isSending || !isLastAssistant || (!isMultiCardTurn && isAnswered)
+  return { effectiveTrace, isAnswered, disabled }
+}
+
 function buildNodeContext(
   selectedNodeId: string | null,
   nodes: CanvasNode[],
@@ -846,21 +867,19 @@ export function ChatPanel() {
   ) {
     if (isSending || sendLockRef.current) return
 
-    // Always persist trace immediately so the card flips to "answered" in the UI.
-    updateActiveChatMessages((current) => {
-      const next = [...current]
-      const target = next[assistantMessageIndex]
-      if (!target || target.role !== 'assistant') return current
-      const existing = target.choiceSelections ?? {}
-      next[assistantMessageIndex] = {
-        ...target,
-        choiceSelections: { ...existing, [choiceIndex]: payload },
-      }
-      return next
-    })
-
     // --- SINGLE-CARD FAST PATH ---
     if (totalCards <= 1) {
+      updateActiveChatMessages((current) => {
+        const next = [...current]
+        const target = next[assistantMessageIndex]
+        if (!target || target.role !== 'assistant') return current
+        const existing = target.choiceSelections ?? {}
+        next[assistantMessageIndex] = {
+          ...target,
+          choiceSelections: { ...existing, [choiceIndex]: payload },
+        }
+        return next
+      })
       sendLockRef.current = true
       const sessionId = activeChatSessionId ?? createChatSession()
 
@@ -957,6 +976,19 @@ export function ChatPanel() {
     delete nextPending[assistantMessageIndex]
     pendingSubmissionsRef.current = nextPending
     setPendingSubmissions(nextPending)
+    updateActiveChatMessages((current) => {
+      const next = [...current]
+      const target = next[assistantMessageIndex]
+      if (!target || target.role !== 'assistant') return current
+      next[assistantMessageIndex] = {
+        ...target,
+        choiceSelections: {
+          ...(target.choiceSelections ?? {}),
+          ...turnPending,
+        },
+      }
+      return next
+    })
 
     const sessionId = activeChatSessionId ?? createChatSession()
 
@@ -1414,7 +1446,11 @@ export function ChatPanel() {
               if (userChoices.length === 0 && isAssistantWithContent) {
                 const parsed = parseOptions(strippedContent ?? '')
                 if (parsed) {
-                  userChoices = [{ question: '', options: parsed.options.map(o => o.text) }]
+                  userChoices = [{
+                    question: '',
+                    options: parsed.options.map(o => o.text),
+                    ...(parsed.multi ? { multi: true } : {}),
+                  }]
                   // Strip the numbered list from rendered content to avoid duplication with OptionCards
                   strippedContent = [parsed.textBefore, parsed.textAfter].filter(Boolean).join('\n\n')
                 }
@@ -1470,8 +1506,15 @@ export function ChatPanel() {
                               const nextUserMsg = activeMessages.slice(messageIndex + 1).find(m => m.role === 'user')
                               const fallbackSelected = nextUserMsg && !isLastAssistant ? nextUserMsg.content : undefined
                               const persistedTrace = entry.choiceSelections?.[ci]
-                              const isAnswered = !!persistedTrace
                               const isMultiCardTurn = userChoices.length > 1
+                              const pendingTrace = pendingSubmissions[messageIndex]?.[ci]
+                              const { effectiveTrace, disabled } = resolveChoiceCardState({
+                                isSending,
+                                isLastAssistant,
+                                isMultiCardTurn,
+                                persistedTrace,
+                                pendingTrace,
+                              })
                               const advanceAfterSubmit = () => {
                                 if (ci < userChoices.length - 1) {
                                   setCarouselIndices(prev => ({ ...prev, [messageIndex]: ci + 1 }))
@@ -1480,11 +1523,11 @@ export function ChatPanel() {
                               return (
                                 <OptionCards
                                   options={choice.options.map((opt, oi) => ({ number: String(oi + 1), text: opt }))}
-                                  disabled={isSending || !isLastAssistant || isAnswered}
-                                  selectedText={persistedTrace?.selections?.[0] ?? fallbackSelected}
-                                  selectedTexts={persistedTrace?.selections}
+                                  disabled={disabled}
+                                  selectedText={effectiveTrace?.selections?.[0] ?? fallbackSelected}
+                                  selectedTexts={effectiveTrace?.selections}
                                   multi={choice.multi}
-                                  ordered={choice.ordered ?? persistedTrace?.ordered}
+                                  ordered={choice.ordered ?? effectiveTrace?.ordered}
                                   min={choice.min}
                                   max={choice.max}
                                   allowCustom={choice.allowCustom}

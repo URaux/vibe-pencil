@@ -1,3 +1,5 @@
+import { inferMultiSelect } from '@/lib/choice-mode'
+
 interface ParsedOption {
   number: string
   text: string
@@ -7,6 +9,7 @@ export interface ParsedOptions {
   options: ParsedOption[]
   textBefore: string
   textAfter: string
+  multi?: boolean
 }
 
 export function parseOptions(content: string): ParsedOptions | null {
@@ -80,5 +83,10 @@ export function parseOptions(content: string): ParsedOptions | null {
     return { number: o.number, text }
   })
 
-  return { options: cleanOptions, textBefore, textAfter }
+  return {
+    options: cleanOptions,
+    textBefore,
+    textAfter,
+    multi: inferMultiSelect(textBefore, cleanOptions.map((option) => option.text)),
+  }
 }
