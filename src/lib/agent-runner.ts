@@ -4,7 +4,7 @@ import { spawn } from 'child_process'
 import { EventEmitter } from 'events'
 import type { Writable } from 'stream'
 import { StringDecoder } from 'string_decoder'
-import { getClaudeCliInvocation } from '@/lib/claude-cli'
+import { getClaudeCliInvocation, getChildIsolationArgs, scrubChildEnv } from '@/lib/claude-cli'
 import { clampMaxParallel } from '@/lib/config'
 import type { ProjectConfig } from '@/lib/types'
 
@@ -102,7 +102,7 @@ function getCommand(backend: AgentBackend, prompt: string, model?: string, ccSes
 
   // claude-code backend: use --resume <id> if session exists, otherwise let CC auto-generate a new session.
   // The session_id is extracted from the stream-json init event and returned to the client.
-  const args = ['-p', '--output-format', 'stream-json', '--verbose']
+  const args = ['-p', '--output-format', 'stream-json', '--verbose', ...getChildIsolationArgs()]
   if (ccSessionId) {
     args.push('--resume', ccSessionId)
   }
@@ -135,6 +135,7 @@ export class AgentRunner extends EventEmitter {
 
     delete env.ANTHROPIC_API_KEY  // Remove any inherited key so CC uses OAuth
     delete env.GEMINI_API_KEY
+    scrubChildEnv(env)
 
     // Relay fallback: if USE_RELAY is set, pass relay credentials to spawned agents
     if (process.env.USE_RELAY === 'true' && process.env.RELAY_API_BASE_URL) {

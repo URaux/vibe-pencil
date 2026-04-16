@@ -2,7 +2,7 @@ import { randomUUID } from 'crypto'
 import { spawn, type ChildProcess } from 'child_process'
 import { EventEmitter } from 'events'
 import { StringDecoder } from 'string_decoder'
-import { getClaudeCliInvocation } from '@/lib/claude-cli'
+import { getClaudeCliInvocation, getChildIsolationArgs, scrubChildEnv } from '@/lib/claude-cli'
 
 interface PersistentAgentConfig {
   backend: 'claude-code' | 'codex' | 'gemini'
@@ -58,12 +58,14 @@ class PersistentAgent extends EventEmitter {
       'stream-json',
       '--verbose',
       '--replay-user-messages',
+      ...getChildIsolationArgs(),
     ]
     if (this.config.resumeSessionId) args.push('--resume', this.config.resumeSessionId)
     if (this.config.model) args.push('--model', this.config.model)
 
     const env = { ...process.env }
     delete env.ANTHROPIC_API_KEY
+    scrubChildEnv(env)
     this.stdoutDecoder = new StringDecoder('utf8')
     this.stderrDecoder = new StringDecoder('utf8')
     this.outputBuffer = ''
