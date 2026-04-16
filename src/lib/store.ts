@@ -43,6 +43,12 @@ export interface ChatMessage {
    * Lets the UI re-render the cards in collapsed "trace" form on revisit.
    */
   choiceSelections?: Record<number, { selections: string[]; ordered: boolean }>
+  /**
+   * UI-only marker injected after a multi-card batch is submitted.
+   * Renders as a centered italic status line (WeChat revoke-message style).
+   * MUST be filtered out before sending history to /api/chat.
+   */
+  kind?: 'submission-marker'
 }
 
 export type SessionPhase = 'brainstorm' | 'design' | 'iterate'

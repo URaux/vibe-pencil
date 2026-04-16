@@ -65,9 +65,26 @@ const CHAT_THINKING_ZH = [
   "正在思考系统拓扑...",
 ]
 
+const SUBMISSION_FLAVOR_ZH = [
+  '已提交这一轮的选择',
+  '记录了你的偏好',
+  '拿着这些答案继续往下想',
+  '收到，下一轮接着聊',
+  '这些信号已经收到了',
+]
+
+const SUBMISSION_FLAVOR_EN = [
+  'Choices submitted for this round',
+  'Preferences noted',
+  'Taking your answers and thinking ahead',
+  'Got it — continuing to the next round',
+  'Signals received',
+]
+
 let lastIndex = -1
 let lastImportIndex = -1
 let lastChatThinkingIndex = -1
+let lastSubmissionFlavorIndex = -1
 
 function pickRandom(pool: string[], lastIdx: number): { index: number; message: string } {
   let index: number
@@ -98,5 +115,12 @@ export function getRandomChatThinkingMessage(): string {
   const pool = locale === 'zh' ? CHAT_THINKING_ZH : CHAT_THINKING_EN
   const result = pickRandom(pool, lastChatThinkingIndex)
   lastChatThinkingIndex = result.index
+  return result.message
+}
+
+export function pickSubmissionFlavor(locale: string): string {
+  const pool = locale === 'zh' ? SUBMISSION_FLAVOR_ZH : SUBMISSION_FLAVOR_EN
+  const result = pickRandom(pool, lastSubmissionFlavorIndex)
+  lastSubmissionFlavorIndex = result.index
   return result.message
 }

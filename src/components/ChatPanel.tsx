@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Edge, Node } from '@xyflow/react'
 import { t } from '@/lib/i18n'
-import { getRandomChatThinkingMessage } from '@/lib/loading-messages'
+import { getRandomChatThinkingMessage, pickSubmissionFlavor } from '@/lib/loading-messages'
 import { extractActionBlocks, extractVisibleChatText, extractUserChoices } from '@/lib/chat-actions'
 import { parseOptions } from '@/lib/option-parser'
 import { ChatMarkdown } from './ChatMarkdown'
@@ -542,7 +542,7 @@ export function ChatPanel() {
     remediationAppliedRef.current = new Set()
     const chatBody = {
       message: trimmedMessage,
-      history: nextHistory,
+      history: nextHistory.filter((m) => m.kind !== 'submission-marker'),
       nodeContext,
       codeContext: codeContext ?? undefined,
       architecture_yaml: canvasToYaml(nodes, edges, projectName),
@@ -824,7 +824,7 @@ export function ChatPanel() {
         `selections: ${JSON.stringify(payload.selections)}`
 
       const historyForApi = [
-        ...activeMessages,
+        ...activeMessages.filter((m) => m.kind !== 'submission-marker'),
         { role: 'user' as const, content: syntheticUserText },
       ]
 
@@ -925,13 +925,18 @@ export function ChatPanel() {
       .join('\n')
 
     const historyForApi = [
-      ...activeMessages,
+      ...activeMessages.filter((m) => m.kind !== 'submission-marker'),
       { role: 'user' as const, content: syntheticUserText },
     ]
 
     setError(null)
     setIsSending(true)
-    updateActiveChatMessages((current) => [...current, { role: 'assistant', content: '' }])
+    const markerText = pickSubmissionFlavor(locale)
+    updateActiveChatMessages((current) => [
+      ...current,
+      { role: 'user' as const, content: markerText, kind: 'submission-marker' as const },
+      { role: 'assistant', content: '' },
+    ])
 
     remediationAppliedRef.current = new Set()
     const chatBody = {
@@ -1071,7 +1076,7 @@ export function ChatPanel() {
     remediationAppliedRef.current = new Set()
     const chatBody = {
       message: trimmedMessage,
-      history: nextHistory,
+      history: nextHistory.filter((m) => m.kind !== 'submission-marker'),
       nodeContext,
       codeContext: codeContext ?? undefined,
       architecture_yaml: canvasToYaml(nodes, edges, projectName),
@@ -1369,6 +1374,18 @@ export function ChatPanel() {
                   // Strip the numbered list from rendered content to avoid duplication with OptionCards
                   strippedContent = [parsed.textBefore, parsed.textAfter].filter(Boolean).join('\n\n')
                 }
+              }
+
+              // Submission marker: centered italic status line, no bubble
+              if (entry.kind === 'submission-marker') {
+                return (
+                  <div
+                    key={`${activeChatSessionId}-${messageIndex}`}
+                    className="my-1 text-center text-xs italic text-slate-400"
+                  >
+                    {entry.content}
+                  </div>
+                )
               }
 
               // System messages (build events) render as slim muted banners, not bubbles
