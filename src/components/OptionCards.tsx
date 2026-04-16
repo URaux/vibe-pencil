@@ -138,7 +138,7 @@ export function OptionCards({
                 {opt.number}
               </span>
               <span
-                className={`flex-1 ${isSelected ? 'text-orange-700 font-medium' : 'text-slate-700'}`}
+                className={`min-w-0 flex-1 break-words ${isSelected ? 'text-orange-700 font-medium' : 'text-slate-700'}`}
               >
                 {renderOptionInner(opt.text)}
               </span>
@@ -274,7 +274,7 @@ export function OptionCards({
               {opt.number}
             </span>
             <span
-              className={`flex-1 ${showSelected ? 'text-orange-700 font-medium' : 'text-slate-700'}`}
+              className={`min-w-0 flex-1 break-words ${showSelected ? 'text-orange-700 font-medium' : 'text-slate-700'}`}
             >
               {renderOptionInner(opt.text)}
             </span>

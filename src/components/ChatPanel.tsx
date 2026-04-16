@@ -1278,7 +1278,7 @@ export function ChatPanel() {
               return (
                 <div
                   key={`${activeChatSessionId}-${messageIndex}`}
-                  className={`max-w-[32rem] rounded-[1.5rem] border px-4 py-3 text-sm shadow-sm ${
+                  className={`max-w-[80%] rounded-[1.5rem] border px-4 py-3 text-sm shadow-sm ${
                     entry.role === 'user'
                       ? 'ml-6 self-end border-orange-200 bg-orange-50 text-orange-900'
                       : 'mr-6 self-start border-slate-200 bg-white text-slate-700'
@@ -1367,7 +1367,7 @@ export function ChatPanel() {
                                 {/* card scroll track */}
                                 <div
                                   ref={(el) => { carouselScrollRefs.current[messageIndex] = el }}
-                                  className="-mx-4 flex snap-x snap-mandatory overflow-x-auto px-4 pb-2 [scrollbar-width:none]"
+                                  className="flex snap-x snap-mandatory overflow-x-hidden pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
                                 >
                                   {userChoices.map((choice, ci) => {
                                     const persistedTrace = entry.choiceSelections?.[ci]
@@ -1376,7 +1376,7 @@ export function ChatPanel() {
                                       <div
                                         key={ci}
                                         ref={(el) => { carouselCardRefs.current[`${messageIndex}-${ci}`] = el }}
-                                        className="w-full shrink-0 snap-center"
+                                        className="w-full min-w-0 shrink-0 snap-center overflow-hidden"
                                       >
                                         {choice.question ? (
                                           <div className="mb-1 flex items-center gap-2 text-xs font-medium text-slate-600">
