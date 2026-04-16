@@ -61,6 +61,42 @@ function getGeminiWindowsScriptPath() {
   )
 }
 
+/**
+ * Resolve the real codex JS entry so we can invoke it directly with
+ * `process.execPath` and keep `shell: false`.
+ *
+ * Why not just `spawn('codex', ...)` on Windows? Node's spawn can't find
+ * `.cmd`/`.ps1` shim files without `shell: true`, so bare `codex` fails
+ * with ENOENT — which is what surfaces to the user as "spawn codex ENOENT".
+ * We used to set shell:true as a bandaid but that re-exposes the old CJK
+ * word-splitting problem whenever any arg has spaces. Running the bundled
+ * JS with node avoids both traps.
+ */
+function getCodexScriptPath(): string | null {
+  const localCodexScript = path.join(
+    /* turbopackIgnore: true */ process.cwd(),
+    'node_modules',
+    '@openai',
+    'codex',
+    'bin',
+    'codex.js'
+  )
+  if (fs.existsSync(localCodexScript)) return localCodexScript
+
+  const npmGlobal = process.env.NPM_GLOBAL_PATH ?? 'E:/tools/npm-global'
+  const globalCodexScript = path.join(
+    /* turbopackIgnore: true */ npmGlobal,
+    'node_modules',
+    '@openai',
+    'codex',
+    'bin',
+    'codex.js'
+  )
+  if (fs.existsSync(globalCodexScript)) return globalCodexScript
+
+  return null
+}
+
 export interface CustomApiConfig {
   customApiBase: string
   customApiKey: string
@@ -69,21 +105,41 @@ export interface CustomApiConfig {
 
 function getCommand(backend: AgentBackend, prompt: string, model?: string, ccSessionId?: string, systemPrompt?: string) {
   if (backend === 'codex') {
-    if (ccSessionId) {
-      // Resume existing Codex session.
-      // IMPORTANT: Do NOT pass the prompt as a positional argv argument — on
-      // Windows the shell word-splits the text (especially multi-byte/CJK with
-      // spaces) and codex receives individual tokens as separate args, causing
-      // "unexpected argument '本次' found" errors.
-      // Pass the prompt via stdin instead (pipeStdin: true), matching the
-      // same stdin-pipe path used by the first-turn `exec` branch.
-      const args = ['resume', ccSessionId]
-      if (model) args.push('--config', `model=${model}`)
-      return { command: 'codex', args, pipeStdin: true, useShell: false }
+    // Prompt is always piped via stdin — never positional — to avoid Windows
+    // word-splitting of CJK text (see prior "unexpected argument '本次'" bug).
+    const codexArgs = ccSessionId
+      ? (() => {
+          const a = ['resume', ccSessionId]
+          if (model) a.push('--config', `model=${model}`)
+          return a
+        })()
+      : (() => {
+          const a = ['exec', '--full-auto', '--json', '-']
+          if (model) a.push('--model', model)
+          return a
+        })()
+
+    if (process.platform === 'win32') {
+      // On Windows, spawn with shell:false can't resolve the `codex.cmd` shim,
+      // which surfaces as "spawn codex ENOENT". Resolve the bundled codex.js
+      // and launch it with node directly — bypasses PATH shim lookup and
+      // keeps shell:false so no re-exposure of arg-splitting issues.
+      const codexScript = getCodexScriptPath()
+      if (codexScript) {
+        return {
+          command: process.execPath,
+          args: [codexScript, ...codexArgs],
+          pipeStdin: true,
+          useShell: false,
+        }
+      }
+      // Fall back to shell-resolved lookup if we couldn't find the script.
+      // shell:true lets Windows locate codex.cmd via PATHEXT; our args are all
+      // short ASCII flags so cmd quoting stays safe.
+      return { command: 'codex', args: codexArgs, pipeStdin: true, useShell: true }
     }
-    const args = ['exec', '--full-auto', '--json', '-']
-    if (model) args.push('--model', model)
-    return { command: 'codex', args, pipeStdin: true, useShell: false }
+
+    return { command: 'codex', args: codexArgs, pipeStdin: true, useShell: false }
   }
 
   if (backend === 'gemini') {
