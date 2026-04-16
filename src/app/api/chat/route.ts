@@ -247,7 +247,19 @@ async function buildPrompt(
   brainstormState?: BrainstormState | null,
 ): Promise<string> {
   const { system, user } = await buildSplitPrompt(payload, signal, ir, brainstormState)
-  return [system, '', 'Latest user message:', user].join('\n')
+  // CC backend ignores our system role in persistent-stream-json mode; it runs
+  // its own loop using the scaffold's CLAUDE.md + skills. Prepend an explicit
+  // phase marker + skill-invocation directive so the scaffold's phase-routing
+  // rule fires on turn 1 instead of CC defaulting to conversational reply.
+  const phaseMarker = payload.phase === 'brainstorm'
+    ? '[Phase: brainstorm — invoke `archviber-brainstorm` skill immediately; follow v2 protocol]'
+    : payload.phase === 'design' || payload.phase === 'iterate'
+      ? `[Phase: ${payload.phase} — invoke \`archviber-canvas\` skill when editing the diagram]`
+      : ''
+  const parts = [system, '']
+  if (phaseMarker) parts.push(phaseMarker, '')
+  parts.push('Latest user message:', user)
+  return parts.join('\n')
 }
 
 function stripAnsi(text: string): string {

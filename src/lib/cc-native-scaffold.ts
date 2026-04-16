@@ -18,7 +18,7 @@ import { promises as fs } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 
-const SCAFFOLD_VERSION = 6
+const SCAFFOLD_VERSION = 7
 
 // ---------------------------------------------------------------------------
 // Canvas chat — brainstorm / design / iterate with the user
@@ -31,9 +31,11 @@ const CANVAS_CLAUDE_MD = `# ArchViber 画布代理
 ## 思维
 第一性原理。奥卡姆剃刀。苏格拉底式追问。
 
-## 阶段路由
-- brainstorm：用 \`archviber-brainstorm\` 技能。
-- design / iterate：用 \`archviber-canvas\` 技能。
+## 阶段路由（强制）
+第一件事：读取 prompt 中 "Phase:" 或 brainstorm-state 注入块来确认当前阶段，然后立刻加载对应技能，不要先寒暄。
+
+- **brainstorm 阶段**：**必须立刻调用 \`archviber-brainstorm\` 技能**，按技能 v2 协议发 Batch 1 的 3 张 \`json:user-choice\` 卡 + 模式开关卡。禁止先回复"好的，让我先了解..."这种开场白——开场白本身违反协议。用户看到开场白而没看到选项卡 = 你没调用技能 = bug。
+- **design / iterate 阶段**：用 \`archviber-canvas\` 技能，按 json:canvas-action 格式输出。
 - 只讨论不编辑时不输出 JSON。
 
 ## 规则
