@@ -6,9 +6,10 @@ import { parseTsProject } from '../../../src/lib/ingest/ast-ts'
  * W2.D1 smoke test — run the AST scaffold on archviber/src itself.
  *
  * PLAN.md W2.D1 verify target: "≥ 150 modules, no parse errors".
- * Current src/ has ~109 source files (tsx/ts), so we relax the floor to
- * something that genuinely exercises the parser on this codebase. If the
- * codebase grows past 150 later, tighten it back up.
+ * Current src/ yields 108 parsed modules; the fixture hasn't grown to the
+ * 150 target yet. We set a tight floor of 98 (actual minus a 10-module
+ * buffer to absorb minor churn). Once the codebase grows past 150, raise
+ * this back to 150 to match the original PLAN target.
  */
 describe('parseTsProject — smoke on archviber/src', () => {
   const srcDir = path.resolve(__dirname, '../../../src')
@@ -23,10 +24,10 @@ describe('parseTsProject — smoke on archviber/src', () => {
     // No per-file parse failures — warnings array should be empty.
     expect(result.warnings).toEqual([])
 
-    // Floor chosen from an actual pre-run on this repo (~100 files).
-    // PLAN targets ≥ 150 eventually; enforce a conservative minimum that
-    // still proves the parser is sweeping the tree.
-    expect(result.modules.length).toBeGreaterThanOrEqual(80)
+    // Tight floor: actual run produced 108 modules, buffer of 10 absorbs
+    // minor churn while still catching regressions where the parser skips
+    // large chunks of the tree. PLAN target is ≥ 150 once src/ grows.
+    expect(result.modules.length).toBeGreaterThanOrEqual(98)
   }, 60_000)
 
   it('every non-entrypoint module exposes at least one export', async () => {
