@@ -110,7 +110,8 @@ export function OptionCards({
   // ordered implies multi
   const ordered = !!orderedProp
   const multi = !!multiProp || ordered
-  const hardMax = max ?? options.length + (allowCustom ? 1 : 0) + (allowIndifferent ? 1 : 0)
+  const hardMax =
+    max ?? options.length + (allowCustom !== false ? 1 : 0) + (allowIndifferent ? 1 : 0)
   const softMin = min ?? 1
 
   // Single-mode loose custom input (preserves legacy behaviour)
@@ -239,7 +240,7 @@ export function OptionCards({
   // card is disabled (historical / sending / already-submitted) so we don't
   // overwrite a just-committed submission with an empty draft when the
   // parent resets our internal state (see submit click below).
-  const draftKey = JSON.stringify({ i: indifferentPicked, p: picked, c: customTrim })
+  const draftKey = JSON.stringify({ i: indifferentPicked, p: picked, c: customTrim, l: indifferentLabel })
   useEffect(() => {
     if (!multi) return
     if (disabled) return

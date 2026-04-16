@@ -310,9 +310,14 @@ export function ChatPanel() {
   const [pendingSubmissions, setPendingSubmissions] = useState<
     Record<number, Record<number, { selections: string[]; ordered: boolean }>>
   >({})
+  const pendingSubmissionsRef = useRef(pendingSubmissions)
 
   const activeSession = chatSessions.find((s) => s.id === activeChatSessionId)
   const activeMessages = activeSession?.messages ?? []
+
+  useEffect(() => {
+    pendingSubmissionsRef.current = pendingSubmissions
+  }, [pendingSubmissions])
 
   // Memoized brainstorm progress from last real assistant message
   const brainstormProgress = useMemo(() => {
@@ -791,14 +796,20 @@ export function ChatPanel() {
     choiceIndex: number,
     payload: { selections: string[]; ordered: boolean } | null,
   ) {
-    setPendingSubmissions((prev) => {
-      const currentTurn = prev[messageIndex] ?? {}
-      if (payload === null) {
-        if (!(choiceIndex in currentTurn)) return prev
-        const turn = { ...currentTurn }
-        delete turn[choiceIndex]
-        return { ...prev, [messageIndex]: turn }
+    const prev = pendingSubmissionsRef.current
+    const currentTurn = prev[messageIndex] ?? {}
+    let next = prev
+    if (payload === null) {
+      if (!(choiceIndex in currentTurn)) return
+      const turn = { ...currentTurn }
+      delete turn[choiceIndex]
+      if (Object.keys(turn).length === 0) {
+        next = { ...prev }
+        delete next[messageIndex]
+      } else {
+        next = { ...prev, [messageIndex]: turn }
       }
+    } else {
       const existing = currentTurn[choiceIndex]
       if (
         existing &&
@@ -806,10 +817,12 @@ export function ChatPanel() {
         existing.selections.length === payload.selections.length &&
         existing.selections.every((s, i) => s === payload.selections[i])
       ) {
-        return prev
+        return
       }
-      return { ...prev, [messageIndex]: { ...currentTurn, [choiceIndex]: payload } }
-    })
+      next = { ...prev, [messageIndex]: { ...currentTurn, [choiceIndex]: payload } }
+    }
+    pendingSubmissionsRef.current = next
+    setPendingSubmissions(next)
   }
 
   /**
@@ -915,19 +928,18 @@ export function ChatPanel() {
     }
 
     // --- MULTI-CARD STAGING PATH ---
-    // Merge this card's selection into the pending map.
-    const updatedPending = {
-      ...pendingSubmissions,
-      [assistantMessageIndex]: {
-        ...(pendingSubmissions[assistantMessageIndex] ?? {}),
-        [choiceIndex]: payload,
-      },
+    // Merge this card's selection into the latest staged map.
+    const currentPending = pendingSubmissionsRef.current
+    const turnPending = {
+      ...(currentPending[assistantMessageIndex] ?? {}),
+      [choiceIndex]: payload,
     }
-    const turnPending = updatedPending[assistantMessageIndex]
     const allAnswered = Object.keys(turnPending).length >= totalCards
+    const updatedPending = { ...currentPending, [assistantMessageIndex]: turnPending }
 
     if (!allAnswered) {
       // Not all cards answered yet — just update staging state and return.
+      pendingSubmissionsRef.current = updatedPending
       setPendingSubmissions(updatedPending)
       return
     }
@@ -935,16 +947,16 @@ export function ChatPanel() {
     // All cards answered: acquire lock and fire batch call.
     if (isSending || sendLockRef.current) {
       // Edge case: send already in flight (double-click). Stage and bail.
+      pendingSubmissionsRef.current = updatedPending
       setPendingSubmissions(updatedPending)
       return
     }
     sendLockRef.current = true
     // Clear staging for this turn.
-    setPendingSubmissions((prev) => {
-      const next = { ...prev }
-      delete next[assistantMessageIndex]
-      return next
-    })
+    const nextPending = { ...updatedPending }
+    delete nextPending[assistantMessageIndex]
+    pendingSubmissionsRef.current = nextPending
+    setPendingSubmissions(nextPending)
 
     const sessionId = activeChatSessionId ?? createChatSession()
 
@@ -1469,7 +1481,7 @@ export function ChatPanel() {
                                 <OptionCards
                                   options={choice.options.map((opt, oi) => ({ number: String(oi + 1), text: opt }))}
                                   disabled={isSending || !isLastAssistant || isAnswered}
-                                  selectedText={fallbackSelected ?? persistedTrace?.selections?.[0]}
+                                  selectedText={persistedTrace?.selections?.[0] ?? fallbackSelected}
                                   selectedTexts={persistedTrace?.selections}
                                   multi={choice.multi}
                                   ordered={choice.ordered ?? persistedTrace?.ordered}
