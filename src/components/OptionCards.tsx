@@ -236,6 +236,13 @@ export function OptionCards({
   const onStageRef = useRef(onStage)
   useEffect(() => { onStageRef.current = onStage })
 
+  // Guard: the submit handler resets picked/indifferent/custom to empty so
+  // a re-render can't double-submit. That reset triggers the live-stage
+  // effect with an empty selection, which would otherwise fire
+  // handler(null) and wipe the just-committed pending entry in the parent.
+  // We set this flag in onSubmit and the effect skips the next empty call.
+  const skipNextStageRef = useRef(false)
+
   // Live-stage the current draft selection to the parent. Skip while the
   // card is disabled (historical / sending / already-submitted) so we don't
   // overwrite a just-committed submission with an empty draft when the
@@ -246,6 +253,10 @@ export function OptionCards({
     if (disabled) return
     const handler = onStageRef.current
     if (!handler) return
+    if (skipNextStageRef.current && effectiveSelections.length === 0) {
+      skipNextStageRef.current = false
+      return
+    }
     handler(effectiveSelections.length > 0 ? { selections: effectiveSelections, ordered } : null)
     // effectiveSelections and ordered are derived from the dep below;
     // hashing them into draftKey keeps the dep array stable-shaped.
@@ -366,6 +377,7 @@ export function OptionCards({
               if (!onSubmitMulti) return
               onSubmitMulti({ selections: effectiveSelections, ordered })
               // reset internal state after submission so re-renders don't double-submit
+              skipNextStageRef.current = true
               setPicked([])
               setIndifferentPicked(false)
               setCustomDraft('')
