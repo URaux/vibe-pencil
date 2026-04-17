@@ -39,7 +39,40 @@ function applyActionToSnapshot(
         : kebabFromName
           ? kebabFromName
           : `${type}-${typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : Date.now()}`
-    // Dedupe: if id already exists, append -2, -3 etc.
+
+    // Skip re-creation: if a node with the same id AND same type already
+    // exists, treat this as a duplicate emission (LLM often re-sends the
+    // same container/block across turns) and keep the existing one. This
+    // prevents the ghost-empty-duplicate-at-top pattern the user hit.
+    const existingSameId = currentNodes.find((n) => n.id === id)
+    const declaredName =
+      typeof rawName === 'string' && rawName
+        ? rawName
+        : ''
+    if (existingSameId && existingSameId.type === type) {
+      const existingName = (existingSameId.data as { name?: string }).name ?? ''
+      // Same id + same name → pure duplicate, skip outright.
+      // Same id + different name → LLM reused an id for a different thing,
+      // fall through to suffix-dedupe so both entities survive.
+      if (!declaredName || existingName === declaredName) {
+        return { nodes: currentNodes, edges: currentEdges }
+      }
+    }
+
+    // Also catch "same name, different id" for containers: the LLM sometimes
+    // picks a fresh English id for a container that already exists under a
+    // CJK-derived id. Skip the re-creation rather than let it become a ghost
+    // empty twin at the top of the canvas.
+    if (type === 'container' && declaredName) {
+      const twin = currentNodes.find(
+        (n) => n.type === 'container' && (n.data as { name?: string }).name === declaredName
+      )
+      if (twin) {
+        return { nodes: currentNodes, edges: currentEdges }
+      }
+    }
+
+    // Dedupe: if id already exists (different type or different name), append -2, -3 etc.
     if (currentNodes.some((n) => n.id === id)) {
       let suffix = 2
       while (currentNodes.some((n) => n.id === `${id}-${suffix}`)) suffix++
