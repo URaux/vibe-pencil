@@ -21,7 +21,8 @@ type CanvasNode = Node<CanvasNodeData>
 function applyActionToSnapshot(
   action: CanvasAction,
   currentNodes: CanvasNode[],
-  currentEdges: Edge[]
+  currentEdges: Edge[],
+  droppedEdges?: { source: string; target: string; reason: string }[]
 ): { nodes: CanvasNode[]; edges: Edge[] } {
   if (action.action === 'add-node') {
     const node = action.node ?? {}
@@ -197,7 +198,18 @@ function applyActionToSnapshot(
     const resolvedTarget = resolveNodeId(edge.target)
 
     if (!resolvedSource || !resolvedTarget) {
-      // Skip edges referencing non-existent nodes instead of throwing
+      // Skip edges referencing non-existent nodes instead of throwing,
+      // but record the drop so the UI can surface it instead of silently losing the edge.
+      if (droppedEdges) {
+        const missing: string[] = []
+        if (!resolvedSource) missing.push(`source="${edge.source}"`)
+        if (!resolvedTarget) missing.push(`target="${edge.target}"`)
+        droppedEdges.push({
+          source: edge.source,
+          target: edge.target,
+          reason: `unresolved ${missing.join(' + ')}`,
+        })
+      }
       return { nodes: currentNodes, edges: currentEdges }
     }
 
@@ -237,6 +249,7 @@ export function useCanvasActions() {
     try {
       let workingNodes: CanvasNode[] = [...canvasBefore.nodes]
       let workingEdges: Edge[] = [...canvasBefore.edges]
+      const droppedEdges: { source: string; target: string; reason: string }[] = []
 
       for (const rawAction of rawActions) {
         const parsed = tryRepairJson(rawAction)
@@ -260,7 +273,7 @@ export function useCanvasActions() {
           return 0
         })
         for (const action of actions) {
-          const result = applyActionToSnapshot(action, workingNodes, workingEdges)
+          const result = applyActionToSnapshot(action, workingNodes, workingEdges, droppedEdges)
           workingNodes = result.nodes
           workingEdges = result.edges
         }
@@ -302,7 +315,22 @@ export function useCanvasActions() {
 
       setActionErrors((current) => {
         const next = { ...current }
-        delete next[errorKey]
+        if (droppedEdges.length > 0) {
+          const knownIds = arranged.nodes
+            .filter((n) => n.type === 'block')
+            .map((n) => n.id)
+            .slice(0, 20)
+          const lines = droppedEdges.map(
+            (d) => `  • ${d.source} → ${d.target} (${d.reason})`
+          )
+          next[errorKey] = [
+            `${droppedEdges.length} edge(s) dropped — referenced block IDs not found:`,
+            ...lines,
+            `Known block IDs (first 20): ${knownIds.join(', ')}`,
+          ].join('\n')
+        } else {
+          delete next[errorKey]
+        }
         return next
       })
     } catch (applyError) {
