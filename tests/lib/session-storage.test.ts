@@ -81,6 +81,47 @@ describe('session-storage', () => {
     await expect(loadSessions()).resolves.toEqual([])
   })
 
+  it('strips trailing empty assistant messages on load', async () => {
+    const sessions: ChatSession[] = [
+      {
+        id: 'session-stale',
+        title: 'Stale',
+        messages: [
+          { role: 'user', content: 'Hello' },
+          { role: 'assistant', content: '' }, // interrupted turn — should be dropped
+        ],
+        createdAt: 1700000000000,
+        updatedAt: 1700000001000,
+        phase: 'brainstorm',
+      },
+      {
+        id: 'session-clean',
+        title: 'Clean',
+        messages: [
+          { role: 'user', content: 'Hi' },
+          { role: 'assistant', content: 'Hey!' },
+        ],
+        createdAt: 1700000002000,
+        updatedAt: 1700000003000,
+        phase: 'iterate',
+      },
+    ]
+    window.localStorage.setItem('vp-chat-sessions', JSON.stringify(sessions))
+
+    const loaded = await loadSessions()
+
+    // Stale trailing empty message must be removed
+    const stale = loaded.find((s) => s.id === 'session-stale')
+    expect(stale).toBeDefined()
+    expect(stale!.messages).toHaveLength(1)
+    expect(stale!.messages[0]).toMatchObject({ role: 'user', content: 'Hello' })
+
+    // Clean session must be untouched
+    const clean = loaded.find((s) => s.id === 'session-clean')
+    expect(clean).toBeDefined()
+    expect(clean!.messages).toHaveLength(2)
+  })
+
   it('debounces rapid saves into a single localStorage write', async () => {
     const sessions = makeSessions()
     const setItemSpy = vi.spyOn(Storage.prototype, 'setItem')

@@ -1,6 +1,6 @@
 'use client'
 
-import { Fragment, useState, type ReactNode } from 'react'
+import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react'
 import { useAppStore } from '@/lib/store'
 
 interface Option {
@@ -19,6 +19,17 @@ interface OptionCardsProps {
   onSelect: (text: string) => void
   /** Multi-select callback: emits a structured form submission (no chat message). */
   onSubmitMulti?: (payload: MultiSubmission) => void
+  /**
+   * Multi-select live-staging callback. Fires whenever the internal draft
+   * selection changes (pick/unpick, custom input, indifferent toggle).
+   * Lets the parent persist the current draft without requiring a submit —
+   * critical when the user navigates between cards in a multi-card turn
+   * via arrows instead of pressing 提交 on each card.
+   *
+   * Called with `null` when the card has no selection (so the parent can
+   * clear any prior staged entry).
+   */
+  onStage?: (payload: MultiSubmission | null) => void
   disabled?: boolean
   /** Single-mode trace highlight (the option that was already selected). */
   selectedText?: string
@@ -80,6 +91,7 @@ export function OptionCards({
   options,
   onSelect,
   onSubmitMulti,
+  onStage,
   disabled,
   selectedText,
   selectedTexts,
@@ -98,7 +110,8 @@ export function OptionCards({
   // ordered implies multi
   const ordered = !!orderedProp
   const multi = !!multiProp || ordered
-  const hardMax = max ?? options.length + (allowCustom ? 1 : 0) + (allowIndifferent ? 1 : 0)
+  const hardMax =
+    max ?? options.length + (allowCustom !== false ? 1 : 0) + (allowIndifferent ? 1 : 0)
   const softMin = min ?? 1
 
   // Single-mode loose custom input (preserves legacy behaviour)
@@ -138,7 +151,7 @@ export function OptionCards({
                 {opt.number}
               </span>
               <span
-                className={`flex-1 ${isSelected ? 'text-orange-700 font-medium' : 'text-slate-700'}`}
+                className={`min-w-0 flex-1 break-words ${isSelected ? 'text-orange-700 font-medium' : 'text-slate-700'}`}
               >
                 {renderOptionInner(opt.text)}
               </span>
@@ -218,6 +231,38 @@ export function OptionCards({
       ? [...picked, customTrim]
       : picked
 
+  // Keep latest onStage in a ref so effect deps can ignore it (parent may
+  // pass a fresh inline lambda each render).
+  const onStageRef = useRef(onStage)
+  useEffect(() => { onStageRef.current = onStage })
+
+  // Guard: the submit handler resets picked/indifferent/custom to empty so
+  // a re-render can't double-submit. That reset triggers the live-stage
+  // effect with an empty selection, which would otherwise fire
+  // handler(null) and wipe the just-committed pending entry in the parent.
+  // We set this flag in onSubmit and the effect skips the next empty call.
+  const skipNextStageRef = useRef(false)
+
+  // Live-stage the current draft selection to the parent. Skip while the
+  // card is disabled (historical / sending / already-submitted) so we don't
+  // overwrite a just-committed submission with an empty draft when the
+  // parent resets our internal state (see submit click below).
+  const draftKey = JSON.stringify({ i: indifferentPicked, p: picked, c: customTrim, l: indifferentLabel })
+  useEffect(() => {
+    if (!multi) return
+    if (disabled) return
+    const handler = onStageRef.current
+    if (!handler) return
+    if (skipNextStageRef.current && effectiveSelections.length === 0) {
+      skipNextStageRef.current = false
+      return
+    }
+    handler(effectiveSelections.length > 0 ? { selections: effectiveSelections, ordered } : null)
+    // effectiveSelections and ordered are derived from the dep below;
+    // hashing them into draftKey keeps the dep array stable-shaped.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draftKey, multi, disabled, ordered])
+
   const submitDisabled =
     disabled ||
     effectiveSelections.length === 0 ||
@@ -274,7 +319,7 @@ export function OptionCards({
               {opt.number}
             </span>
             <span
-              className={`flex-1 ${showSelected ? 'text-orange-700 font-medium' : 'text-slate-700'}`}
+              className={`min-w-0 flex-1 break-words ${showSelected ? 'text-orange-700 font-medium' : 'text-slate-700'}`}
             >
               {renderOptionInner(opt.text)}
             </span>
@@ -287,7 +332,7 @@ export function OptionCards({
         )
       })}
 
-      {allowCustom ? (
+      {allowCustom !== false ? (
         <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2">
           <span className="text-slate-300 text-sm">✏️</span>
           <input
@@ -332,6 +377,7 @@ export function OptionCards({
               if (!onSubmitMulti) return
               onSubmitMulti({ selections: effectiveSelections, ordered })
               // reset internal state after submission so re-renders don't double-submit
+              skipNextStageRef.current = true
               setPicked([])
               setIndifferentPicked(false)
               setCustomDraft('')

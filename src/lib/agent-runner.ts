@@ -1,7 +1,8 @@
 import fs from 'fs'
 import path from 'path'
-import { spawn } from 'child_process'
+import { execFileSync, spawn } from 'child_process'
 import { EventEmitter } from 'events'
+import { createRequire } from 'module'
 import type { Writable } from 'stream'
 import { StringDecoder } from 'string_decoder'
 import { getClaudeCliInvocation, getChildIsolationArgs, scrubChildEnv } from '@/lib/claude-cli'
@@ -36,6 +37,10 @@ interface AgentRecord {
   process: SpawnedProcess
 }
 
+const nodeRequire = createRequire(import.meta.url)
+let cachedGlobalNpmRoot: string | null | undefined
+let didWarnAboutCodexShellFallback = false
+
 function getGeminiWindowsScriptPath() {
   const localGeminiScript = path.join(
     /* turbopackIgnore: true */ process.cwd(),
@@ -61,6 +66,74 @@ function getGeminiWindowsScriptPath() {
   )
 }
 
+/**
+ * Resolve the real codex JS entry so we can invoke it directly with
+ * `process.execPath` and keep `shell: false`.
+ *
+ * Why not just `spawn('codex', ...)` on Windows? Node's spawn can't find
+ * `.cmd`/`.ps1` shim files without `shell: true`, so bare `codex` fails
+ * with ENOENT — which is what surfaces to the user as "spawn codex ENOENT".
+ * We used to set shell:true as a bandaid but that re-exposes the old CJK
+ * word-splitting problem whenever any arg has spaces. Running the bundled
+ * JS with node avoids both traps.
+ */
+function getCachedGlobalNpmRoot(): string | null {
+  if (cachedGlobalNpmRoot !== undefined) {
+    return cachedGlobalNpmRoot
+  }
+
+  try {
+    const npmCmd = process.platform === 'win32' ? 'npm.cmd' : 'npm'
+    const output = execFileSync(npmCmd, ['root', '-g'], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+      windowsHide: true,
+    })
+    cachedGlobalNpmRoot = output.trim() || null
+  } catch {
+    cachedGlobalNpmRoot = null
+  }
+
+  return cachedGlobalNpmRoot
+}
+
+function warnCodexShellFallbackOnce() {
+  if (didWarnAboutCodexShellFallback) {
+    return
+  }
+
+  didWarnAboutCodexShellFallback = true
+  console.warn('[agent-runner] Unable to resolve @openai/codex/bin/codex.js; falling back to codex.cmd with shell=true on Windows.')
+}
+
+export function resolveCodexScriptPath(
+  resolveModule: (request: string) => string = (request) => nodeRequire.resolve(request)
+): string | null {
+  try {
+    return resolveModule('@openai/codex/bin/codex.js')
+  } catch {
+    const globalNpmRoot = getCachedGlobalNpmRoot()
+    if (!globalNpmRoot) {
+      return null
+    }
+
+    const globalCodexScript = path.join(
+      /* turbopackIgnore: true */ globalNpmRoot,
+      '@openai',
+      'codex',
+      'bin',
+      'codex.js'
+    )
+
+    return fs.existsSync(globalCodexScript) ? globalCodexScript : null
+  }
+}
+
+export function resetAgentRunnerTestState() {
+  cachedGlobalNpmRoot = undefined
+  didWarnAboutCodexShellFallback = false
+}
+
 export interface CustomApiConfig {
   customApiBase: string
   customApiKey: string
@@ -69,15 +142,39 @@ export interface CustomApiConfig {
 
 function getCommand(backend: AgentBackend, prompt: string, model?: string, ccSessionId?: string, systemPrompt?: string) {
   if (backend === 'codex') {
-    if (ccSessionId) {
-      // Resume existing Codex session
-      const args = ['resume', ccSessionId, prompt]
-      if (model) args.push('--config', `model=${model}`)
-      return { command: 'codex', args, pipeStdin: false, useShell: undefined }
+    // Prompt is always piped via stdin — never positional — to avoid Windows
+    // word-splitting of CJK text (see prior "unexpected argument '本次'" bug).
+    const codexArgs = ccSessionId
+      ? (() => {
+          const a = ['resume', ccSessionId]
+          if (model) a.push('--config', `model=${model}`)
+          return a
+        })()
+      : (() => {
+          const a = ['exec', '--full-auto', '--json', '-']
+          if (model) a.push('--model', model)
+          return a
+        })()
+
+    if (process.platform === 'win32') {
+      // On Windows, spawn with shell:false can't resolve the `codex.cmd` shim,
+      // which surfaces as "spawn codex ENOENT". Resolve the bundled codex.js
+      // and launch it with node directly — bypasses PATH shim lookup and
+      // keeps shell:false so no re-exposure of arg-splitting issues.
+      const codexScript = resolveCodexScriptPath()
+      if (codexScript) {
+        return {
+          command: process.execPath,
+          args: [codexScript, ...codexArgs],
+          pipeStdin: true,
+          useShell: false,
+        }
+      }
+      warnCodexShellFallbackOnce()
+      return { command: 'codex', args: codexArgs, pipeStdin: true, useShell: true }
     }
-    const args = ['exec', '--full-auto', '--json', '-']
-    if (model) args.push('--model', model)
-    return { command: 'codex', args, pipeStdin: true, useShell: undefined }
+
+    return { command: 'codex', args: codexArgs, pipeStdin: true, useShell: false }
   }
 
   if (backend === 'gemini') {

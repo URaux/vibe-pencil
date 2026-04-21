@@ -21,7 +21,8 @@ type CanvasNode = Node<CanvasNodeData>
 function applyActionToSnapshot(
   action: CanvasAction,
   currentNodes: CanvasNode[],
-  currentEdges: Edge[]
+  currentEdges: Edge[],
+  droppedEdges?: { source: string; target: string; reason: string }[]
 ): { nodes: CanvasNode[]; edges: Edge[] } {
   if (action.action === 'add-node') {
     const node = action.node ?? {}
@@ -38,7 +39,40 @@ function applyActionToSnapshot(
         : kebabFromName
           ? kebabFromName
           : `${type}-${typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : Date.now()}`
-    // Dedupe: if id already exists, append -2, -3 etc.
+
+    // Skip re-creation: if a node with the same id AND same type already
+    // exists, treat this as a duplicate emission (LLM often re-sends the
+    // same container/block across turns) and keep the existing one. This
+    // prevents the ghost-empty-duplicate-at-top pattern the user hit.
+    const existingSameId = currentNodes.find((n) => n.id === id)
+    const declaredName =
+      typeof rawName === 'string' && rawName
+        ? rawName
+        : ''
+    if (existingSameId && existingSameId.type === type) {
+      const existingName = (existingSameId.data as { name?: string }).name ?? ''
+      // Same id + same name → pure duplicate, skip outright.
+      // Same id + different name → LLM reused an id for a different thing,
+      // fall through to suffix-dedupe so both entities survive.
+      if (!declaredName || existingName === declaredName) {
+        return { nodes: currentNodes, edges: currentEdges }
+      }
+    }
+
+    // Also catch "same name, different id" for containers: the LLM sometimes
+    // picks a fresh English id for a container that already exists under a
+    // CJK-derived id. Skip the re-creation rather than let it become a ghost
+    // empty twin at the top of the canvas.
+    if (type === 'container' && declaredName) {
+      const twin = currentNodes.find(
+        (n) => n.type === 'container' && (n.data as { name?: string }).name === declaredName
+      )
+      if (twin) {
+        return { nodes: currentNodes, edges: currentEdges }
+      }
+    }
+
+    // Dedupe: if id already exists (different type or different name), append -2, -3 etc.
     if (currentNodes.some((n) => n.id === id)) {
       let suffix = 2
       while (currentNodes.some((n) => n.id === `${id}-${suffix}`)) suffix++
@@ -197,7 +231,18 @@ function applyActionToSnapshot(
     const resolvedTarget = resolveNodeId(edge.target)
 
     if (!resolvedSource || !resolvedTarget) {
-      // Skip edges referencing non-existent nodes instead of throwing
+      // Skip edges referencing non-existent nodes instead of throwing,
+      // but record the drop so the UI can surface it instead of silently losing the edge.
+      if (droppedEdges) {
+        const missing: string[] = []
+        if (!resolvedSource) missing.push(`source="${edge.source}"`)
+        if (!resolvedTarget) missing.push(`target="${edge.target}"`)
+        droppedEdges.push({
+          source: edge.source,
+          target: edge.target,
+          reason: `unresolved ${missing.join(' + ')}`,
+        })
+      }
       return { nodes: currentNodes, edges: currentEdges }
     }
 
@@ -237,6 +282,7 @@ export function useCanvasActions() {
     try {
       let workingNodes: CanvasNode[] = [...canvasBefore.nodes]
       let workingEdges: Edge[] = [...canvasBefore.edges]
+      const droppedEdges: { source: string; target: string; reason: string }[] = []
 
       for (const rawAction of rawActions) {
         const parsed = tryRepairJson(rawAction)
@@ -260,7 +306,7 @@ export function useCanvasActions() {
           return 0
         })
         for (const action of actions) {
-          const result = applyActionToSnapshot(action, workingNodes, workingEdges)
+          const result = applyActionToSnapshot(action, workingNodes, workingEdges, droppedEdges)
           workingNodes = result.nodes
           workingEdges = result.edges
         }
@@ -302,7 +348,22 @@ export function useCanvasActions() {
 
       setActionErrors((current) => {
         const next = { ...current }
-        delete next[errorKey]
+        if (droppedEdges.length > 0) {
+          const knownIds = arranged.nodes
+            .filter((n) => n.type === 'block')
+            .map((n) => n.id)
+            .slice(0, 20)
+          const lines = droppedEdges.map(
+            (d) => `  • ${d.source} → ${d.target} (${d.reason})`
+          )
+          next[errorKey] = [
+            `${droppedEdges.length} edge(s) dropped — referenced block IDs not found:`,
+            ...lines,
+            `Known block IDs (first 20): ${knownIds.join(', ')}`,
+          ].join('\n')
+        } else {
+          delete next[errorKey]
+        }
         return next
       })
     } catch (applyError) {

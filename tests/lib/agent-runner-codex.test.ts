@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { AgentRunner } from '@/lib/agent-runner'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { AgentRunner, resetAgentRunnerTestState, resolveCodexScriptPath } from '@/lib/agent-runner'
 
 type FakeProcess = {
   stdout: any
@@ -12,8 +12,10 @@ type FakeProcess = {
   emit: (event: string, ...args: unknown[]) => boolean
 }
 
-const { spawnMock } = vi.hoisted(() => ({
+const { spawnMock, execFileSyncMock, existsSyncMock } = vi.hoisted(() => ({
   spawnMock: vi.fn(),
+  execFileSyncMock: vi.fn(),
+  existsSyncMock: vi.fn(),
 }))
 
 vi.mock('child_process', () => {
@@ -32,30 +34,61 @@ vi.mock('child_process', () => {
 
   return {
     default: { spawn: spawnMock },
+    execFileSync: execFileSyncMock,
     spawn: spawnMock,
   }
 })
 
+vi.mock('fs', () => ({
+  default: { existsSync: existsSyncMock },
+  existsSync: existsSyncMock,
+}))
+
 const tick = () => new Promise((resolve) => setTimeout(resolve, 0))
+const originalPlatform = process.platform
+
+function mockPlatform(platform: NodeJS.Platform) {
+  Object.defineProperty(process, 'platform', {
+    configurable: true,
+    value: platform,
+  })
+}
 
 describe('AgentRunner codex backend', () => {
   let runner: AgentRunner
 
   beforeEach(() => {
     spawnMock.mockClear()
+    execFileSyncMock.mockReset()
+    existsSyncMock.mockReset()
+    resetAgentRunnerTestState()
     runner = new AgentRunner()
   })
 
+  afterEach(() => {
+    mockPlatform(originalPlatform)
+  })
+
   it('uses codex exec with stdin for a fresh session', () => {
+    const expectedCommand = process.platform === 'win32' ? process.execPath : 'codex'
+    const expectedArgs = process.platform === 'win32'
+      ? ['E:/tools/npm-global/node_modules/@openai/codex/bin/codex.js', 'exec', '--full-auto', '--json', '-']
+      : ['exec', '--full-auto', '--json', '-']
+
+    if (process.platform === 'win32') {
+      execFileSyncMock.mockReturnValue('E:/tools/npm-global/node_modules\n')
+      existsSyncMock.mockReturnValue(true)
+    }
+
     runner.spawnAgent('svc-1', 'implement backend', 'codex', '/tmp')
     const child = spawnMock.mock.results[0]?.value as FakeProcess
 
     expect(spawnMock).toHaveBeenCalledWith(
-      'codex',
-      ['exec', '--full-auto', '--json', '-'],
+      expectedCommand,
+      expectedArgs,
       expect.objectContaining({
         cwd: '/tmp',
-        shell: process.platform === 'win32',
+        shell: false,
         stdio: ['pipe', 'pipe', 'pipe'],
       })
     )
@@ -63,21 +96,52 @@ describe('AgentRunner codex backend', () => {
     expect(child.stdin.end).toHaveBeenCalled()
   })
 
-  it('uses codex resume with the prompt as an argument', () => {
+  it('uses codex resume with the prompt piped on stdin', () => {
+    const expectedCommand = process.platform === 'win32' ? process.execPath : 'codex'
+    const expectedArgs = process.platform === 'win32'
+      ? ['E:/tools/npm-global/node_modules/@openai/codex/bin/codex.js', 'resume', 'session-123']
+      : ['resume', 'session-123']
+
+    if (process.platform === 'win32') {
+      execFileSyncMock.mockReturnValue('E:/tools/npm-global/node_modules\n')
+      existsSyncMock.mockReturnValue(true)
+    }
+
     runner.spawnAgent('svc-2', 'resume this task', 'codex', '/tmp', undefined, undefined, 'session-123')
     const child = spawnMock.mock.results[0]?.value as FakeProcess
 
     expect(spawnMock).toHaveBeenCalledWith(
-      'codex',
-      ['resume', 'session-123', 'resume this task'],
+      expectedCommand,
+      expectedArgs,
       expect.objectContaining({
         cwd: '/tmp',
-        shell: process.platform === 'win32',
+        shell: false,
         stdio: ['pipe', 'pipe', 'pipe'],
       })
     )
-    expect(child.stdin.write).not.toHaveBeenCalled()
+    expect(child.stdin.write).toHaveBeenCalledWith('resume this task')
     expect(child.stdin.end).toHaveBeenCalled()
+  })
+
+  it('resolves the global codex script from npm root -g and caches the result', () => {
+    const missingLocal = () => {
+      throw new Error('not installed locally')
+    }
+
+    execFileSyncMock.mockReturnValue('E:/tools/npm-global/node_modules\n')
+    existsSyncMock.mockReturnValue(true)
+
+    expect(resolveCodexScriptPath(missingLocal)).toBe('E:/tools/npm-global/node_modules/@openai/codex/bin/codex.js')
+    expect(resolveCodexScriptPath(missingLocal)).toBe('E:/tools/npm-global/node_modules/@openai/codex/bin/codex.js')
+    expect(execFileSyncMock).toHaveBeenCalledTimes(1)
+    expect(execFileSyncMock).toHaveBeenCalledWith(
+      process.platform === 'win32' ? 'npm.cmd' : 'npm',
+      ['root', '-g'],
+      expect.objectContaining({
+        encoding: 'utf8',
+        windowsHide: true,
+      })
+    )
   })
 
   it('builds codex waves in order and batches by maxParallel', async () => {

@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@xyflow/react": "^12.10.1",
+    "archiver": "^7.0.1",
     "elkjs": "^0.11.1",
     "graphology": "^0.26.0",
     "graphology-communities-louvain": "^2.0.2",
@@ -37,6 +38,7 @@
     "@tailwindcss/postcss": "^4",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
+    "@types/archiver": "^7.0.0",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",

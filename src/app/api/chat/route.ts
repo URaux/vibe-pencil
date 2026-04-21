@@ -47,8 +47,16 @@ interface ChatRequest {
    * ("[form] question: ... | selections: [...]") and uses it as the latest
    * user input. The frontend should NOT push the raw selections into its
    * visible chat transcript.
+   *
+   * Use `formSubmission` for a single card; `formSubmissions` for batched
+   * multi-card turns. Both are accepted; `formSubmissions` takes priority.
    */
   formSubmission?: FormSubmission
+  /**
+   * Batched multi-card form submissions emitted when all cards in a turn are
+   * answered at once. Takes priority over the singular `formSubmission` alias.
+   */
+  formSubmissions?: FormSubmission[]
   history?: ChatMessage[]
   nodeContext?: string
   selectedNodeId?: string
@@ -196,6 +204,14 @@ async function buildSplitPrompt(
   signal?: AbortSignal,
   ir?: Ir | null,
   brainstormState?: BrainstormState | null,
+  /**
+   * When true, signals the caller delivers this prompt via a real `system`
+   * role (direct-api / custom-api). Takes priority over the UI's backend
+   * label for prompt-shape selection — a payload tagged `backend: 'codex'`
+   * routed through VIBE_LLM_* direct API still gets the long API variant,
+   * not the compact CLI one.
+   */
+  deliversAsSystemRole = false,
 ): Promise<{ system: string; user: string }> {
   const {
     message,
@@ -226,7 +242,9 @@ async function buildSplitPrompt(
     brainstormRound: phase === 'brainstorm'
       ? (history ?? []).filter(m => m.role === 'assistant').length + 1
       : undefined,
-    backend: payload.backend,
+    // For api-role delivery, mask out the UI backend label so the prompt
+    // builder picks the long variant (we have system-role control here).
+    backend: deliversAsSystemRole ? undefined : payload.backend,
     ir,
   })
 
@@ -278,7 +296,7 @@ async function handleDirectApiChat(
   ir?: Ir | null,
   brainstormState?: BrainstormState | null,
 ) {
-  const { system, user } = await buildSplitPrompt(payload, request.signal, ir, brainstormState)
+  const { system, user } = await buildSplitPrompt(payload, request.signal, ir, brainstormState, true)
 
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
@@ -332,7 +350,7 @@ async function handleCustomApiChat(
   const apiBase = (payload.customApiBase ?? '').replace(/\/+$/, '')
   const apiKey = payload.customApiKey ?? ''
   const apiModel = payload.customApiModel || payload.model || 'gpt-4o'
-  const { system, user } = await buildSplitPrompt(payload, request.signal, ir, brainstormState)
+  const { system, user } = await buildSplitPrompt(payload, request.signal, ir, brainstormState, true)
 
   if (!apiBase || !apiKey) {
     return Response.json({ error: 'Custom API base URL and key are required.' }, { status: 400 })
@@ -476,9 +494,19 @@ async function handlePersistentChat(
   // archviber-canvas skill. CC loads them natively (no injected system
   // prompt), and the skill supplies the canvas-action contract only when
   // the user actually asks to edit the diagram.
+  const reqId = `chat-${Date.now().toString(36).slice(-6)}`
+  // Use process.stdout.write with explicit UTF-8 to avoid Windows GBK console
+  // re-encoding Chinese characters from CC stderr into mojibake (Bug #2).
+  const log = (stage: string, extra?: Record<string, unknown>) => {
+    const line = `[chat] ${reqId} ${stage}${extra ? ' ' + JSON.stringify(extra) : ''}\n`
+    process.stdout.write(Buffer.from(line, 'utf8'))
+  }
+
   const workDir = backend === 'claude-code'
     ? await ensureCanvasChatScaffold()
     : process.cwd()
+  log('scaffold-ready', { workDir })
+
   const agent = getPersistentAgent({
     backend,
     workDir,
@@ -488,9 +516,15 @@ async function handlePersistentChat(
   const prompt = agent.hasConversation()
     ? await buildPrompt({ ...payload, history: [] }, request.signal, ir, brainstormState)
     : await buildPrompt(payload, request.signal, ir, brainstormState)
+  log('prompt-built', { promptChars: prompt.length, hasConversation: agent.hasConversation(), resumeSessionId: payload.ccSessionId ?? null })
 
   if (!agent.isAlive()) {
+    log('agent-starting')
+    const startedAt = Date.now()
     await agent.start()
+    log('agent-started', { ms: Date.now() - startedAt })
+  } else {
+    log('agent-alive')
   }
 
   const stream = new ReadableStream<Uint8Array>({
@@ -519,26 +553,53 @@ async function handlePersistentChat(
         controller.enqueue(encodeEvent(event))
       }
 
+      let firstEventAt = 0
+      // Track which assistant-message id -> longest text we've already emitted
+      // for THAT message's text block. CC stream-json semantics: each unique
+      // message (by `message.id`) owns its own text. Within a single message,
+      // subsequent events of the same id may deliver cumulative snapshots —
+      // so we emit only the delta inside a message. Across different messages
+      // (e.g., after a tool round), text is additive — emit it all fresh.
+      const messageTextSeen = new Map<string, number>()
       const onEvent = (event: Record<string, unknown>) => {
         if (closed) return
+        if (firstEventAt === 0) {
+          firstEventAt = Date.now()
+          log('first-event', { type: event['type'], hasSessionId: typeof event['session_id'] === 'string' })
+        }
 
         if (!sentSessionId && typeof event['session_id'] === 'string') {
           push({ type: 'session', ccSessionId: event['session_id'] })
           sentSessionId = true
         }
 
-        // Claude stream-json: assistant messages carry content blocks with text
+        // Claude stream-json: assistant messages carry content blocks with text.
+        // A conversation can span multiple assistant messages (tool rounds, etc.);
+        // each message has its own id and its own text payload. Key the delta
+        // accounting per-message-id so later messages' text is always forwarded
+        // instead of being swallowed by a smaller .length check against a global
+        // accumulator.
         if (event['type'] === 'assistant') {
           const message = event['message'] as Record<string, unknown> | undefined
           const content = message?.['content']
+          const messageId = typeof message?.['id'] === 'string' ? (message['id'] as string) : '__no_id__'
           if (Array.isArray(content)) {
+            // Concatenate all text blocks within this message (CC may split a
+            // single assistant turn into multiple text blocks interleaved with
+            // tool_use). For text-only outputs this just returns the whole text.
+            let messageText = ''
             for (const block of content as Array<Record<string, unknown>>) {
               if (block['type'] === 'text' && typeof block['text'] === 'string') {
-                const fullText = block['text'] as string
-                if (fullText.length > textAccumulated.length) {
-                  push({ type: 'chunk', text: fullText.slice(textAccumulated.length) })
-                  textAccumulated = fullText
-                }
+                messageText += block['text'] as string
+              }
+            }
+            if (messageText.length > 0) {
+              const alreadySent = messageTextSeen.get(messageId) ?? 0
+              if (messageText.length > alreadySent) {
+                const delta = messageText.slice(alreadySent)
+                push({ type: 'chunk', text: delta })
+                textAccumulated += delta
+                messageTextSeen.set(messageId, messageText.length)
               }
             }
           }
@@ -546,6 +607,7 @@ async function handlePersistentChat(
       }
 
       const onDone = () => {
+        log('response-done', { totalChars: textAccumulated.length, msSinceFirstEvent: firstEventAt ? Date.now() - firstEventAt : null })
         persistAndCleanup()
         push({ type: 'done' })
         close()
@@ -562,11 +624,89 @@ async function handlePersistentChat(
         { once: true }
       )
 
-      agent.sendMessage(prompt).catch((err: unknown) => {
-        const msg = err instanceof Error ? err.message : String(err)
-        push({ type: 'error', error: `Failed to send message: ${msg}` })
-        close()
-      })
+      log('sending-to-agent', { promptChars: prompt.length })
+      const sentAt = Date.now()
+
+      // Resilience layer around agent.sendMessage covering two distinct
+      // failure modes we've observed in the wild:
+      //
+      //   1. "No conversation found with session ID: X" — the stored
+      //      ccSessionId points at a CC session that no longer exists
+      //      (CC state wiped, process restart, cache cleanup). Needs a
+      //      full agent reset without --resume + 'session-reset' event
+      //      so the client clears its stored id.
+      //
+      //   2. Transient upstream failures surfaced as the CC result event's
+      //      error text, e.g. "API Error: ... ECONNRESET", "fetch failed",
+      //      504, "overloaded_error". A single retry usually works; the
+      //      agent itself is fine, session id is fine.
+      const isStaleResumeError = (msg: string) =>
+        /no conversation found/i.test(msg) ||
+        /session(?: id)?.*not found/i.test(msg)
+
+      const isTransientUpstreamError = (msg: string) =>
+        /ECONNRESET|ETIMEDOUT|EAI_AGAIN|socket hang up/i.test(msg) ||
+        /API Error:/i.test(msg) ||
+        /overloaded_error|rate_limit|503|504/i.test(msg) ||
+        /fetch failed/i.test(msg)
+
+      const sendWithRecovery = async () => {
+        try {
+          await agent.sendMessage(prompt)
+          log('send-resolved', { ms: Date.now() - sentAt })
+          return
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err)
+
+          if (isStaleResumeError(msg) && payload.ccSessionId) {
+            log('stale-resume-detected', { staleSessionId: payload.ccSessionId })
+            agent.kill()
+            const freshAgent = getPersistentAgent({
+              backend,
+              workDir,
+              model: payload.model,
+              resumeSessionId: undefined,
+            })
+            freshAgent.on('event', onEvent)
+            freshAgent.on('response-done', onDone)
+            push({ type: 'session-reset', staleSessionId: payload.ccSessionId })
+            await freshAgent.start()
+            try {
+              await freshAgent.sendMessage(prompt)
+              log('send-resolved-after-reset', { ms: Date.now() - sentAt })
+              return
+            } catch (retryErr) {
+              const rmsg = retryErr instanceof Error ? retryErr.message : String(retryErr)
+              log('send-error-after-reset', { err: rmsg })
+              push({ type: 'error', error: `Failed to send message: ${rmsg}` })
+              close()
+              return
+            }
+          }
+
+          if (isTransientUpstreamError(msg)) {
+            // Back off briefly then retry once with the same agent + session.
+            log('transient-upstream-retry', { firstError: msg })
+            await new Promise((r) => setTimeout(r, 1500))
+            try {
+              await agent.sendMessage(prompt)
+              log('send-resolved-after-retry', { ms: Date.now() - sentAt })
+              return
+            } catch (retryErr) {
+              const rmsg = retryErr instanceof Error ? retryErr.message : String(retryErr)
+              log('send-error-after-retry', { err: rmsg, firstError: msg })
+              push({ type: 'error', error: `Failed to send message: ${rmsg}` })
+              close()
+              return
+            }
+          }
+
+          log('send-error', { err: msg })
+          push({ type: 'error', error: `Failed to send message: ${msg}` })
+          close()
+        }
+      }
+      void sendWithRecovery()
     },
     cancel() {
       agent.removeListener('event', () => undefined)
@@ -584,9 +724,13 @@ async function handlePersistentChat(
 }
 
 /**
- * Convert a structured FormSubmission into the synthetic user message the
- * model will see. Kept deterministic so the model can detect "this came from
- * a UI form" and respond accordingly (e.g., not echo back the choices).
+ * Convert one or more structured FormSubmission(s) into the synthetic user
+ * message the model will see. Kept deterministic so the model can detect
+ * "this came from a UI form" and respond accordingly.
+ *
+ * - Single submission: same format as before (`[form-submission] …`).
+ * - Multiple submissions: each card gets its own block, separated by a blank
+ *   line, so the model sees all card answers in one user turn.
  */
 function renderFormSubmission(sub: FormSubmission, fallbackMessage: string): string {
   const orderedTag = sub.ordered ? ' (ordered)' : ''
@@ -599,13 +743,31 @@ function renderFormSubmission(sub: FormSubmission, fallbackMessage: string): str
   return lines.join('\n')
 }
 
+function renderFormSubmissions(subs: FormSubmission[], fallbackMessage: string): string {
+  if (subs.length === 1) return renderFormSubmission(subs[0], fallbackMessage)
+  return subs
+    .map((sub, i) => {
+      const orderedTag = sub.ordered ? ' (ordered)' : ''
+      const lines = [
+        `[form-submission${orderedTag} card:${i}]`,
+        sub.questionId ? `question_id: ${sub.questionId}` : null,
+        `selections: ${JSON.stringify(sub.selections)}`,
+      ].filter(Boolean)
+      return lines.join('\n')
+    })
+    .join('\n\n')
+}
+
 export async function POST(request: Request) {
   const payload = (await request.json()) as ChatRequest
 
   // Materialize structured form submissions into a synthetic user message
   // BEFORE the empty-message guard, so multi-select cards can submit without
   // any chat-text payload.
-  if (payload.formSubmission && Array.isArray(payload.formSubmission.selections)) {
+  // `formSubmissions` (array) takes priority over singular `formSubmission`.
+  if (Array.isArray(payload.formSubmissions) && payload.formSubmissions.length > 0) {
+    payload.message = renderFormSubmissions(payload.formSubmissions, payload.message ?? '')
+  } else if (payload.formSubmission && Array.isArray(payload.formSubmission.selections)) {
     payload.message = renderFormSubmission(payload.formSubmission, payload.message ?? '')
   }
 
@@ -694,8 +856,9 @@ export async function POST(request: Request) {
 
   if (finalStatus.status === 'error') {
     const rawErr = finalStatus.errorMessage ? stripAnsi(finalStatus.errorMessage) : ''
-    console.error('[chat] CC agent error:', rawErr.slice(0, 500))
-    console.error('[chat] CC agent output:', stripAnsi(finalStatus.output ?? '').slice(0, 500))
+    // Write via process.stderr with explicit UTF-8 to avoid Windows GBK mojibake on Chinese error text.
+    process.stderr.write(Buffer.from(`[chat] CC agent error: ${rawErr.slice(0, 500)}\n`, 'utf8'))
+    process.stderr.write(Buffer.from(`[chat] CC agent output: ${stripAnsi(finalStatus.output ?? '').slice(0, 500)}\n`, 'utf8'))
     const errorMsg = rawErr
       ? `Backend error: ${rawErr.slice(0, 200)}`
       : 'The AI backend encountered an error.'

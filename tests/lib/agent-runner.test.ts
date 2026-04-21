@@ -1,8 +1,10 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { AgentRunner } from '@/lib/agent-runner'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { AgentRunner, resetAgentRunnerTestState } from '@/lib/agent-runner'
 
-const { spawnMock } = vi.hoisted(() => ({
+const { spawnMock, execFileSyncMock, existsSyncMock } = vi.hoisted(() => ({
   spawnMock: vi.fn(),
+  execFileSyncMock: vi.fn(),
+  existsSyncMock: vi.fn(),
 }))
 
 vi.mock('child_process', () => {
@@ -25,16 +27,38 @@ vi.mock('child_process', () => {
 
   return {
     default: { spawn: spawnMock },
+    execFileSync: execFileSyncMock,
     spawn: spawnMock,
   }
 })
+
+vi.mock('fs', () => ({
+  default: { existsSync: existsSyncMock },
+  existsSync: existsSyncMock,
+}))
+
+const originalPlatform = process.platform
+
+function mockPlatform(platform: NodeJS.Platform) {
+  Object.defineProperty(process, 'platform', {
+    configurable: true,
+    value: platform,
+  })
+}
 
 describe('AgentRunner', () => {
   let runner: AgentRunner
 
   beforeEach(() => {
     spawnMock.mockClear()
+    execFileSyncMock.mockReset()
+    existsSyncMock.mockReset()
+    resetAgentRunnerTestState()
     runner = new AgentRunner()
+  })
+
+  afterEach(() => {
+    mockPlatform(originalPlatform)
   })
 
   it('spawns a claude-code agent and tracks status', async () => {
@@ -59,20 +83,48 @@ describe('AgentRunner', () => {
   })
 
   it('spawns a codex agent with JSON output and prompt on stdin', () => {
+    const expectedCommand = process.platform === 'win32' ? process.execPath : 'codex'
+    const expectedArgs = process.platform === 'win32'
+      ? ['E:/tools/npm-global/node_modules/@openai/codex/bin/codex.js', 'exec', '--full-auto', '--json', '-']
+      : ['exec', '--full-auto', '--json', '-']
+
+    if (process.platform === 'win32') {
+      execFileSyncMock.mockReturnValue('E:/tools/npm-global/node_modules\n')
+      existsSyncMock.mockReturnValue(true)
+    }
+
     runner.spawnAgent('svc-2', 'implement backend', 'codex', '/tmp')
     const child = spawnMock.mock.results[0]?.value
 
     expect(spawnMock).toHaveBeenCalledWith(
-      'codex',
-      ['exec', '--full-auto', '--json', '-'],
+      expectedCommand,
+      expectedArgs,
       expect.objectContaining({
         cwd: '/tmp',
-        shell: process.platform === 'win32',
+        shell: false,
         stdio: ['pipe', 'pipe', 'pipe'],
       })
     )
     expect(child.stdin.write).toHaveBeenCalledWith('implement backend')
     expect(child.stdin.end).toHaveBeenCalled()
+  })
+
+  it('spawns codex via node on Windows when the global script is resolved', () => {
+    mockPlatform('win32')
+    execFileSyncMock.mockReturnValue('E:/tools/npm-global/node_modules\n')
+    existsSyncMock.mockReturnValue(true)
+
+    runner.spawnAgent('svc-win', 'implement backend', 'codex', 'E:/repo')
+
+    expect(spawnMock).toHaveBeenCalledWith(
+      process.execPath,
+      ['E:/tools/npm-global/node_modules/@openai/codex/bin/codex.js', 'exec', '--full-auto', '--json', '-'],
+      expect.objectContaining({
+        cwd: 'E:/repo',
+        shell: false,
+        stdio: ['pipe', 'pipe', 'pipe'],
+      })
+    )
   })
 
   it('builds waves sequentially', async () => {

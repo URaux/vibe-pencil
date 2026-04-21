@@ -88,9 +88,12 @@ describe('POST /api/chat', () => {
     const response = await responsePromise
 
     expect(agentRunnerMock.spawnAgent).toHaveBeenCalledTimes(1)
+    // Codex CLI eats the prompt as stdin and competes with its own persona,
+    // so it gets the compact task-framed variant rather than the long
+    // protocol doc. "This Round" is the compact variant's canonical header.
     expect(agentRunnerMock.spawnAgent).toHaveBeenCalledWith(
       'chat',
-      expect.stringContaining('Brainstorm Phase (v2 Protocol)'),
+      expect.stringContaining('## This Round'),
       'codex',
       process.cwd(),
       'codex-mini',

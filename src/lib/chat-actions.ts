@@ -1,3 +1,5 @@
+import { inferMultiSelect } from '@/lib/choice-mode'
+
 const CANVAS_ACTION_FENCE = /```json:canvas-action/i
 const CANVAS_ACTION_BLOCK = /```json:canvas-action\s*([\s\S]*?)```/gi
 
@@ -133,8 +135,11 @@ export function extractUserChoices(content: string): UserChoice[] {
       }
       if (parsed.question && Array.isArray(parsed.options) && parsed.options.length >= 2) {
         const choice: UserChoice = { question: parsed.question, options: parsed.options }
-        // ordered implies multi
-        const isMulti = parsed.multi === true || parsed.ordered === true
+        // ordered implies multi; otherwise infer multi for preference/feature/stack cards.
+        const isMulti =
+          parsed.multi === true ||
+          parsed.ordered === true ||
+          inferMultiSelect(parsed.question, parsed.options)
         if (isMulti) choice.multi = true
         if (parsed.ordered === true) choice.ordered = true
         if (typeof parsed.min === 'number' && parsed.min > 0) choice.min = parsed.min

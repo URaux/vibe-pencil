@@ -18,7 +18,7 @@ import { promises as fs } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 
-const SCAFFOLD_VERSION = 7
+const SCAFFOLD_VERSION = 8
 
 // ---------------------------------------------------------------------------
 // Canvas chat — brainstorm / design / iterate with the user
@@ -29,7 +29,7 @@ const CANVAS_CLAUDE_MD = `# ArchViber 画布代理
 帮用户讨论并演化架构图。每轮会把当前架构以 YAML 块传给你。
 
 ## 思维
-第一性原理。奥卡姆剃刀。苏格拉底式追问。
+第一性原理。奥卡姆剃刀。YAGNI。Conway 定律。Brooks 的本质复杂度。苏格拉底式追问。
 
 ## 阶段路由（强制）
 第一件事：读取 prompt 中 "Phase:" 或 brainstorm-state 注入块来确认当前阶段，然后立刻加载对应技能，不要先寒暄。
@@ -130,25 +130,28 @@ description: Use when the user starts a new architecture discussion or has not y
 
 \`\`\`json:user-choice
 {
-  "question": "你最想解决什么问题？",
+  "question": "你最想解决什么问题？（按重要度排序，可多选）",
   "options": ["个人笔记和知识管理", "团队文档协同", "给 AI 提供上下文记忆", "其他"],
-  "multi": false
+  "multi": true,
+  "ordered": true
 }
 \`\`\`
 
 \`\`\`json:user-choice
 {
-  "question": "谁来用？预期规模？",
+  "question": "谁来用？预期规模？（按相关度排序，可多选）",
   "options": ["只有我", "3-10 人小团队", "50+ 人团队", "公开对所有人"],
-  "multi": false
+  "multi": true,
+  "ordered": true
 }
 \`\`\`
 
 \`\`\`json:user-choice
 {
-  "question": "核心功能选 3-5 个",
+  "question": "核心功能选 3-5 个（按优先级排序）",
   "options": ["全文搜索", "语义搜索", "AI 问答", "自动摘要", "标签/目录", "协作评论", "版本历史", "不懂，请解释"],
   "multi": true,
+  "ordered": true,
   "min": 3,
   "max": 5
 }
@@ -173,11 +176,13 @@ description: Use when the user starts a new architecture discussion or has not y
 
 ### 字段规则
 
-- \`multi\`: false → radio；true → checkbox 列表
+- **默认 \`multi: true, ordered: true\`** — 大多数需求梳理题都是"按重要度/相关度排序选几个"，排序本身就是信号。功能、偏好、集成、库选择、技术栈组成题都应保持多选，不要因为存在一个主选项就硬压成单选。单选仅用于真正互斥的题（是/否、非此即彼、严格互斥的模式）。
+- \`multi\`: false → radio（仅用于互斥题）；true → checkbox 列表
+- \`ordered: true\` → 多选项带序号 ①②③，代表用户按重要度/优先级排的顺序；**绝大多数多选题都该开**
 - \`min\`: 软提示；\`max\`: 硬上限（前端校验，超出禁止提交）
 - \`allowCustom: true\` → 追加「其他（自己填）」文本输入；选项不可能穷举时用
 - \`allowIndifferent: true\` → 追加「无所谓」选项（置底）；维度题用户可能没偏好时用
-- \`ordered: true\` → 多选项带序号 ①②③，**仅当顺序有语义**（如「优先级排序」）才开
+- 如果题目在问功能、偏好、集成、库、技术栈部件，优先显式写 \`multi: true\`
 - 选项里禁止再嵌问题；问题写在 \`question\`
 - 每张卡建议至少 1 个「不懂，请解释」或「其他」兜底项（NOVICE 必带）
 
@@ -263,7 +268,7 @@ const ORCHESTRATOR_CLAUDE_MD = `# ArchViber 构建编排代理
 负责把整张架构图构建出来。你不写业务代码，派 builder 和 reviewer 子代理做。
 
 ## 思维
-第一性原理。奥卡姆剃刀。苏格拉底式追问。
+第一性原理。奥卡姆剃刀。YAGNI。Conway 定律。Brooks 的本质复杂度。苏格拉底式追问。
 
 ## 主循环
 1. 读图，为每块生成完整输入 —— 用 \`archviber-harness-gen\` 技能取字段细则。
@@ -326,7 +331,7 @@ const BUILDER_CLAUDE_MD = `# ArchViber 构建器子代理
 实现架构图中的一块。编排代理的任务消息会给你完整输入。
 
 ## 思维
-第一性原理。奥卡姆剃刀。苏格拉底式追问。
+第一性原理。奥卡姆剃刀。YAGNI。Conway 定律。Brooks 的本质复杂度。苏格拉底式追问。
 
 ## 停止信号（任意时刻触发）
 - 超出 Write 范围 → 停，输出 \`SCOPE_VIOLATION: <路径> — <原因>\`。
@@ -361,7 +366,7 @@ const REVIEWER_CLAUDE_MD = `# ArchViber 审查代理
 审查 builder 产出或整体 PR。任务消息会给你审查范围、画布规格、builder 自报状态。
 
 ## 思维
-第一性原理。奥卡姆剃刀。苏格拉底式追问。
+第一性原理。奥卡姆剃刀。YAGNI。Conway 定律。Brooks 的本质复杂度。苏格拉底式追问。
 
 ## 规则
 - 只读。禁止写文件、派生子代理。

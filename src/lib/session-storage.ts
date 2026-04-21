@@ -181,11 +181,23 @@ export async function loadSessions(): Promise<ChatSession[]> {
   const withPhaseDefault = (arr: ChatSession[]): ChatSession[] =>
     arr.map((s) => ({ ...s, phase: s.phase ?? ('iterate' as SessionPhase) }))
 
+  // Drop trailing empty assistant messages — they represent interrupted turns
+  // that never completed. On a fresh page load there is no in-flight request,
+  // so showing a spinner for these is always wrong.
+  const sanitize = (arr: ChatSession[]): ChatSession[] =>
+    arr.map((s) => {
+      const last = s.messages.at(-1)
+      if (last && last.role === 'assistant' && !last.content?.trim()) {
+        return { ...s, messages: s.messages.slice(0, -1) }
+      }
+      return s
+    })
+
   try {
     // 1. Server file — the authoritative source.
     const serverSessions = await serverLoadSessions()
     if (serverSessions && serverSessions.length > 0) {
-      const sessions = withPhaseDefault(serverSessions)
+      const sessions = sanitize(withPhaseDefault(serverSessions))
       // Seed IDB so subsequent tab loads have a fast local cache.
       idbSaveSessions(sessions).catch(() => {})
       return sessions
@@ -196,7 +208,7 @@ export async function loadSessions(): Promise<ChatSession[]> {
     // existing data isn't left stranded in the browser on first upgrade.
     const idbSessions = await idbLoadSessions()
     if (idbSessions && idbSessions.length > 0) {
-      const sessions = withPhaseDefault(idbSessions)
+      const sessions = sanitize(withPhaseDefault(idbSessions))
       serverSaveSessions(sessions).catch(() => {})
       return sessions
     }
@@ -204,7 +216,7 @@ export async function loadSessions(): Promise<ChatSession[]> {
     // 3. LS fallback — same promotion treatment.
     const lsSessions = lsLoadSessions()
     if (lsSessions && lsSessions.length > 0) {
-      const sessions = withPhaseDefault(lsSessions)
+      const sessions = sanitize(withPhaseDefault(lsSessions))
       idbSaveSessions(sessions).catch(() => {})
       serverSaveSessions(sessions).catch(() => {})
       return sessions
@@ -221,7 +233,7 @@ export async function loadSessions(): Promise<ChatSession[]> {
     return []
   } catch {
     const lsSessions = lsLoadSessions()
-    return lsSessions ? withPhaseDefault(lsSessions) : []
+    return lsSessions ? sanitize(withPhaseDefault(lsSessions)) : []
   }
 }
 

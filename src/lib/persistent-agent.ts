@@ -32,6 +32,8 @@ class PersistentAgent extends EventEmitter {
   private isReady = false
   private outputBuffer = ''
   private stderrTail = ''
+
+  private stderrLogCount = 0
   private sessionId: string | null = null
   private completedTurns = 0
   private idleTimer: ReturnType<typeof setTimeout> | null = null
@@ -84,15 +86,35 @@ class PersistentAgent extends EventEmitter {
       shell: useShell ?? (process.platform === 'win32'),
       stdio: ['pipe', 'pipe', 'pipe'],
     })
+    console.log('[persistent-agent] spawned pid', this.process.pid, 'cwd', this.config.workDir)
 
+    let firstStdoutAt = 0
     this.process.stdout?.on('data', (data: Buffer | string) => {
       const text = typeof data === 'string' ? data : this.stdoutDecoder.write(data)
+      if (firstStdoutAt === 0) {
+        firstStdoutAt = Date.now()
+        console.log('[persistent-agent]', this.process?.pid, 'first-stdout', JSON.stringify(text.slice(0, 200)))
+      }
       this.outputBuffer += text
       this.processBuffer()
     })
 
     this.process.stderr?.on('data', (data: Buffer | string) => {
       const text = typeof data === 'string' ? data : this.stderrDecoder.write(data)
+      // Surface CC child stderr live — without this, a silent process hang is
+      // invisible and we can only see "[chat] phase" with no follow-up logs.
+      // Throttle to the first 4 chunks so a storm doesn't flood the server log.
+      // Use process.stderr.write with explicit UTF-8 encoding rather than
+      // console.warn — on Windows the default console codepage (GBK/cp936)
+      // will re-encode the already-decoded UTF-8 string and produce mojibake
+      // for any Chinese characters (e.g. "上下文太长" → "������̫����").
+      if (!this.stderrLogCount) this.stderrLogCount = 0
+      if (this.stderrLogCount < 4) {
+        this.stderrLogCount++
+        const pid = this.process?.pid
+        const snippet = JSON.stringify(text.slice(0, 500))
+        process.stderr.write(Buffer.from(`[persistent-agent] ${pid} stderr ${snippet}\n`, 'utf8'))
+      }
       this.stderrTail = (this.stderrTail + text).slice(-16_384)
     })
 
@@ -169,11 +191,31 @@ class PersistentAgent extends EventEmitter {
 
         if (event.type === 'result') {
           if (event.is_error) {
-            const errors = Array.isArray(event.errors)
-              ? event.errors.map((entry) => String(entry)).join('\n')
-              : ''
+            // CC surfaces API / turn failures here. The useful message can
+            // live in `errors`, `result`, or `message.content` depending on
+            // the CC version — pull the first one that carries text so the
+            // user sees "API Error: ... ECONNRESET" rather than the meaningless
+            // fallback "Claude Code turn failed (success)".
+            const pieces: string[] = []
+            if (Array.isArray(event.errors)) {
+              pieces.push(...event.errors.map((entry) => String(entry)))
+            }
+            if (typeof event.result === 'string' && event.result.trim()) {
+              pieces.push(event.result.trim())
+            }
+            const maybeContent = (event as { message?: { content?: unknown } }).message?.content
+            if (typeof maybeContent === 'string' && maybeContent.trim()) {
+              pieces.push(maybeContent.trim())
+            }
+            // Include any trailing stderr so transport-layer failures are
+            // attributable (ECONNRESET, DNS, proxy).
+            const stderrSnippet = this.stderrTail.trim().slice(-500)
+            const message = pieces.filter(Boolean).join('\n').trim()
+            const detail = stderrSnippet ? `\nstderr: ${stderrSnippet}` : ''
             this.rejectActiveTurn(
-              new Error(errors || `Claude Code turn failed (${event.subtype ?? 'error'})`)
+              new Error(
+                (message || `Claude Code turn failed (${event.subtype ?? 'error'})`) + detail
+              )
             )
             continue
           }

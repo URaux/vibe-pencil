@@ -1,0 +1,10 @@
+{
+  "extends": "./tsconfig.json",
+  "exclude": [
+    "node_modules",
+    "output",
+    "workspace",
+    "tests/fixtures",
+    "tests/e2e"
+  ]
+}

@@ -1,9 +1,13 @@
-import { execSync } from 'child_process'
+import archiver from 'archiver'
 import fs from 'fs'
-import os from 'os'
 import path from 'path'
 
 export const runtime = 'nodejs'
+
+function isWithin(root: string, candidate: string) {
+  const rel = path.relative(root, candidate)
+  return !rel.startsWith('..') && !path.isAbsolute(rel)
+}
 
 export async function POST(request: Request) {
   const { workDir, projectName } = (await request.json()) as {
@@ -11,13 +15,24 @@ export async function POST(request: Request) {
     projectName: string
   }
 
-  if (!workDir || !fs.existsSync(workDir)) {
+  if (typeof workDir !== 'string' || !workDir) {
+    return Response.json({ error: 'workDir required' }, { status: 400 })
+  }
+
+  const resolved = path.resolve(workDir)
+  if (!fs.existsSync(resolved) || !fs.statSync(resolved).isDirectory()) {
     return Response.json({ error: 'workDir not found' }, { status: 400 })
   }
 
-  // Auto-generate README if missing
-  const readmePath = path.join(workDir, 'README.md')
-  if (!fs.existsSync(readmePath)) {
+  // Defense-in-depth: refuse to archive filesystem roots or system directories.
+  // A request for C:\ or / would ZIP the entire disk, which is never intended.
+  const parsed = path.parse(resolved)
+  if (resolved === parsed.root) {
+    return Response.json({ error: 'workDir must not be a filesystem root' }, { status: 400 })
+  }
+
+  const readmePath = path.join(resolved, 'README.md')
+  if (isWithin(resolved, readmePath) && !fs.existsSync(readmePath)) {
     const readme = [
       `# ${projectName}`,
       '',
@@ -36,31 +51,33 @@ export async function POST(request: Request) {
   }
 
   const safeName =
-    (projectName?.replace(/[^a-zA-Z0-9\u4e00-\u9fff-]/g, '-') || 'project').replace(/-+/g, '-').replace(/^-|-$/g, '') || 'project'
-
-  // Write zip to OS temp dir to avoid polluting workDir parent
-  const zipPath = path.join(os.tmpdir(), `${safeName}-${Date.now()}.zip`)
+    (projectName?.replace(/[^a-zA-Z0-9\u4e00-\u9fff-]/g, '-') || 'project')
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '') || 'project'
 
   try {
-    execSync(
-      `powershell -Command "Compress-Archive -Path '${workDir}\\*' -DestinationPath '${zipPath}' -Force"`,
-      { timeout: 30000 }
-    )
+    const zipBuffer = await new Promise<Buffer>((resolve, reject) => {
+      const chunks: Buffer[] = []
+      const archive = archiver('zip', { zlib: { level: 9 } })
+      archive.on('data', (chunk: Buffer) => chunks.push(chunk))
+      archive.on('warning', (err) => {
+        if ((err as NodeJS.ErrnoException).code === 'ENOENT') return
+        reject(err)
+      })
+      archive.on('error', reject)
+      archive.on('end', () => resolve(Buffer.concat(chunks)))
+
+      archive.directory(resolved, false)
+      void archive.finalize()
+    })
+
+    return new Response(new Uint8Array(zipBuffer), {
+      headers: {
+        'Content-Type': 'application/zip',
+        'Content-Disposition': `attachment; filename="${safeName}.zip"`,
+      },
+    })
   } catch {
     return Response.json({ error: 'Failed to create archive' }, { status: 500 })
   }
-
-  let zipBuffer: Buffer
-  try {
-    zipBuffer = fs.readFileSync(zipPath)
-  } finally {
-    try { fs.unlinkSync(zipPath) } catch { /* ignore */ }
-  }
-
-  return new Response(new Uint8Array(zipBuffer), {
-    headers: {
-      'Content-Type': 'application/zip',
-      'Content-Disposition': `attachment; filename="${safeName}.zip"`,
-    },
-  })
 }
