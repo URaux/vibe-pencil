@@ -35,17 +35,24 @@ export function useAutoSave(dir: string | null) {
 
     let active = true
     const timeoutId = window.setTimeout(() => {
-      void fetch('/api/project/save', {
+      fetch('/api/project/save', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ dir, project }),
-      }).finally(() => {
-        if (active) {
-          setSaveState('saved')
-        }
       })
+        .then((res) => {
+          if (!active) return
+          if (res.ok) {
+            setSaveState('saved')
+          } else {
+            setSaveState('error')
+          }
+        })
+        .catch(() => {
+          if (active) setSaveState('error')
+        })
     }, 1000)
 
     return () => {

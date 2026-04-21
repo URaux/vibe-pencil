@@ -63,8 +63,18 @@ export function StatusBar({ onOpenSettings }: StatusBarProps) {
             {projectName}
           </button>
         )}
-        <span className="rounded-full border border-slate-200 bg-white px-2 py-1 text-xs uppercase tracking-wide text-slate-500">
-          {saveState === 'saving' ? t('saving') : t('saved')}
+        <span
+          className={`rounded-full border px-2 py-1 text-xs uppercase tracking-wide ${
+            saveState === 'error'
+              ? 'border-rose-300 bg-rose-50 text-rose-700'
+              : 'border-slate-200 bg-white text-slate-500'
+          }`}
+        >
+          {saveState === 'saving'
+            ? t('saving')
+            : saveState === 'error'
+              ? t('save_failed')
+              : t('saved')}
         </span>
       </div>
       <div className="flex flex-wrap items-center gap-4 text-xs uppercase tracking-[0.2em] text-slate-500">

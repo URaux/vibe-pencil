@@ -16,7 +16,7 @@ import { getLocale, setLocale as setI18nLocale, translate, type Locale } from '.
 import type { BuildStatus, CanvasNodeData, HistoryEntry, ProjectConfig } from './types'
 import { cloneCanvas } from './canvas-utils'
 
-type SaveState = 'saved' | 'saving'
+type SaveState = 'saved' | 'saving' | 'error'
 
 interface BuildState {
   active: boolean

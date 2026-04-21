@@ -9,7 +9,8 @@
     "build": "next build",
     "start": "next start",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:verify-real": "vitest run tests/lib/ingest/facts-verify-real.test.ts tests/lib/ingest/name-verify-real.test.ts"
   },
   "dependencies": {
     "@xyflow/react": "^12.10.1",

@@ -5,14 +5,24 @@ import path from 'path'
 import os from 'os'
 
 describe('project-store', () => {
-  let tmpDir: string
+  let tmpRoot: string
+  let originalRoot: string | undefined
 
   beforeEach(() => {
-    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'vp-test-'))
+    tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'vp-test-'))
+    originalRoot = process.env.ARCHVIBER_PROJECT_ROOT
+    // Scope all save/load operations to the per-test tmp root so the
+    // cwd-containment guard in project-store doesn't reject OS-tmpdir paths.
+    process.env.ARCHVIBER_PROJECT_ROOT = tmpRoot
   })
 
   afterEach(() => {
-    fs.rmSync(tmpDir, { recursive: true })
+    if (originalRoot === undefined) {
+      delete process.env.ARCHVIBER_PROJECT_ROOT
+    } else {
+      process.env.ARCHVIBER_PROJECT_ROOT = originalRoot
+    }
+    fs.rmSync(tmpRoot, { recursive: true })
   })
 
   it('saves and loads a project', () => {
@@ -24,13 +34,18 @@ describe('project-store', () => {
       history: [],
     }
 
-    saveProject(tmpDir, project)
+    saveProject('proj', project)
 
-    const loaded = loadProject(tmpDir)
+    const loaded = loadProject('proj')
     expect(loaded).toEqual(project)
   })
 
   it('returns null for nonexistent project', () => {
-    expect(loadProject('/nonexistent/path')).toBeNull()
+    expect(loadProject('does-not-exist')).toBeNull()
+  })
+
+  it('rejects paths that climb outside the project root', () => {
+    expect(() => loadProject('../escape')).toThrow(/inside/i)
+    expect(() => saveProject('../escape', {} as never)).toThrow(/inside/i)
   })
 })

@@ -8,7 +8,11 @@ interface LoadProjectRequest {
 
 export async function POST(request: Request) {
   const { dir } = (await request.json()) as LoadProjectRequest
-  const project = loadProject(dir)
-
-  return Response.json({ project })
+  try {
+    const project = loadProject(dir)
+    return Response.json({ project })
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'load failed'
+    return Response.json({ error: message }, { status: 400 })
+  }
 }

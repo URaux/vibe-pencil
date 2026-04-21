@@ -68,9 +68,13 @@ export async function POST(request: Request) {
   const unread: string[] = []
 
   for (const file of prioritized) {
-    // Prevent path traversal
+    // Prevent path traversal. A naive `startsWith(resolvedWorkDir)` check is
+    // unsafe because `/tmp/foo2` starts with `/tmp/foo` — sibling-prefix paths
+    // leak. Use `path.relative` and reject any relative path that climbs out
+    // (`..`) or stays absolute (different drive / root).
     const filePath = path.resolve(resolvedWorkDir, file)
-    if (!filePath.startsWith(resolvedWorkDir)) {
+    const rel = path.relative(resolvedWorkDir, filePath)
+    if (rel.startsWith('..') || path.isAbsolute(rel)) {
       continue
     }
 

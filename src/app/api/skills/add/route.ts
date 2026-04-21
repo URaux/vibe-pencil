@@ -4,6 +4,24 @@ import { invalidateSkillIndex } from '@/lib/skill-loader'
 
 export const runtime = 'nodejs'
 
+// Allowlisted hosts for URL imports. The skill-import path previously fetched
+// any http(s) URL the caller supplied, which let the ArchViber server be used
+// as an SSRF probe into internal networks (cloud metadata endpoints, private
+// IPs, internal APIs). All legitimate remote imports today resolve to one of
+// these GitHub-family hosts.
+const URL_ALLOWLIST = new Set([
+  'github.com',
+  'raw.githubusercontent.com',
+  'api.github.com',
+  'gist.github.com',
+  'gist.githubusercontent.com',
+])
+
+function isHostAllowed(host: string): boolean {
+  const lowered = host.toLowerCase()
+  return URL_ALLOWLIST.has(lowered)
+}
+
 interface ImportRequest {
   source: string
 }
@@ -128,6 +146,23 @@ export async function POST(request: Request) {
     const imported: ImportedSkill[] = []
 
     if (source.startsWith('http://') || source.startsWith('https://')) {
+      // URL import — validate host against allowlist before any fetch.
+      let sourceUrl: URL
+      try {
+        sourceUrl = new URL(source)
+      } catch {
+        return Response.json({ error: 'Invalid URL' }, { status: 400 })
+      }
+      if (sourceUrl.protocol !== 'https:' && sourceUrl.protocol !== 'http:') {
+        return Response.json({ error: 'Only http(s) URLs are supported' }, { status: 400 })
+      }
+      if (!isHostAllowed(sourceUrl.hostname)) {
+        return Response.json(
+          { error: `Host not allowed: ${sourceUrl.hostname}. Allowed: ${[...URL_ALLOWLIST].join(', ')}` },
+          { status: 400 },
+        )
+      }
+
       // URL import — detect if it's a repo/directory or a single file
       const ghMatch = /github\.com\/([^/]+)\/([^/]+)(?:\/(?:tree|blob)\/([^/]+)\/?(.*?))?$/
         .exec(source)
@@ -167,8 +202,21 @@ export async function POST(request: Request) {
           imported.push(processContent(content, file.name, file.download_url!, 'github'))
         }
       } else {
-        // Single file URL
+        // Single file URL — re-validate after toRawGitHubUrl() rewrite, since
+        // that may swap github.com → raw.githubusercontent.com.
         const rawUrl = source.includes('github.com') ? toRawGitHubUrl(source) : source
+        let rawParsed: URL
+        try {
+          rawParsed = new URL(rawUrl)
+        } catch {
+          return Response.json({ error: 'Invalid raw URL' }, { status: 400 })
+        }
+        if (!isHostAllowed(rawParsed.hostname)) {
+          return Response.json(
+            { error: `Host not allowed after rewrite: ${rawParsed.hostname}` },
+            { status: 400 },
+          )
+        }
         const res = await fetch(rawUrl)
         if (!res.ok) {
           return Response.json({ error: `Failed to fetch URL: ${res.status} ${res.statusText}` }, { status: 400 })

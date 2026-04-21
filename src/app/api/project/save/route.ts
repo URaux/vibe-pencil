@@ -11,7 +11,12 @@ interface SaveProjectRequest {
 export async function POST(request: Request) {
   const { dir, project } = (await request.json()) as SaveProjectRequest
 
-  saveProject(dir, project)
+  try {
+    saveProject(dir, project)
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'save failed'
+    return Response.json({ error: message }, { status: 400 })
+  }
 
   return Response.json({ ok: true })
 }

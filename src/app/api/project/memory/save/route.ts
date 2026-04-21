@@ -11,6 +11,21 @@ interface SaveMemoryRequest {
   nodeSummaries: Record<string, BuildSummary>
 }
 
+// Serialize writes per absolute memory.json path. Each completed node fires an
+// independent POST, so two nearby completions otherwise both read the same old
+// file then both write — second write wins, first node's summary lost.
+const saveLocks: Map<string, Promise<unknown>> = new Map()
+
+function withMemoryLock<T>(key: string, fn: () => Promise<T>): Promise<T> {
+  const prior = saveLocks.get(key) ?? Promise.resolve()
+  const next = prior.then(() => fn(), () => fn())
+  saveLocks.set(key, next)
+  next.finally(() => {
+    if (saveLocks.get(key) === next) saveLocks.delete(key)
+  }).catch(() => undefined)
+  return next
+}
+
 export async function POST(request: Request) {
   let body: SaveMemoryRequest
   try {
@@ -29,30 +44,36 @@ export async function POST(request: Request) {
     // Resolve relative paths from CWD (same convention as agent-runner)
     const resolvedDir = path.isAbsolute(workDir) ? workDir : path.join(process.cwd(), workDir)
 
-    // Ensure directory exists
-    fs.mkdirSync(resolvedDir, { recursive: true })
-
     const memoryPath = path.join(resolvedDir, 'memory.json')
 
-    // Merge with existing memory so partial saves don't overwrite other nodes
-    let existing: ProjectMemory | null = null
-    try {
-      const raw = fs.readFileSync(memoryPath, 'utf8')
-      existing = JSON.parse(raw) as ProjectMemory
-    } catch {
-      // No existing file — start fresh
-    }
+    await withMemoryLock(memoryPath, async () => {
+      // Ensure directory exists
+      fs.mkdirSync(resolvedDir, { recursive: true })
 
-    const updated: ProjectMemory = {
-      projectName: projectName ?? existing?.projectName ?? '',
-      updatedAt: new Date().toISOString(),
-      nodeSummaries: {
-        ...(existing?.nodeSummaries ?? {}),
-        ...nodeSummaries,
-      },
-    }
+      // Merge with existing memory so partial saves don't overwrite other nodes
+      let existing: ProjectMemory | null = null
+      try {
+        const raw = fs.readFileSync(memoryPath, 'utf8')
+        existing = JSON.parse(raw) as ProjectMemory
+      } catch {
+        // No existing file — start fresh
+      }
 
-    fs.writeFileSync(memoryPath, JSON.stringify(updated, null, 2), 'utf8')
+      const updated: ProjectMemory = {
+        projectName: projectName ?? existing?.projectName ?? '',
+        updatedAt: new Date().toISOString(),
+        nodeSummaries: {
+          ...(existing?.nodeSummaries ?? {}),
+          ...nodeSummaries,
+        },
+      }
+
+      // Atomic write: temp file then rename, so a mid-write crash leaves the
+      // prior file intact rather than a half-JSON stub.
+      const tmpPath = `${memoryPath}.${process.pid}.${Date.now()}.tmp`
+      fs.writeFileSync(tmpPath, JSON.stringify(updated, null, 2), 'utf8')
+      fs.renameSync(tmpPath, memoryPath)
+    })
 
     return Response.json({ ok: true })
   } catch (err) {
