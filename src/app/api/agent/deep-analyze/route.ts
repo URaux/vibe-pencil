@@ -20,14 +20,25 @@ function encodeNdjson(event: unknown) {
 }
 
 export async function POST(request: Request) {
-  const payload = (await request.json()) as DeepAnalyzeRequest
-
   return new Response(
     new ReadableStream<Uint8Array>({
       async start(controller) {
         const push = (event: unknown) => controller.enqueue(encodeNdjson(event))
 
         try {
+          let payload: DeepAnalyzeRequest
+          try {
+            payload = (await request.json()) as DeepAnalyzeRequest
+          } catch (parseError) {
+            const message =
+              parseError instanceof Error
+                ? `Invalid JSON body: ${parseError.message}`
+                : 'Invalid JSON body'
+            push({ type: 'error', message })
+            controller.close()
+            return
+          }
+
           const ir = irSchema.parse(payload?.ir)
           const workDir = typeof ensureCanvasChatScaffold === 'function'
             ? await ensureCanvasChatScaffold()
