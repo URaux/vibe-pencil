@@ -7,6 +7,9 @@ import type { IrBlock, IrContainer, IrEdge } from '@/lib/ir/schema'
 function block(id: string): IrBlock {
   return { id, name: id, description: '', status: 'idle', container_id: null, code_anchors: [] }
 }
+function blockWithFile(id: string, filePath: string): IrBlock {
+  return { id, name: id, description: '', status: 'idle', container_id: null, code_anchors: [{ files: [{ path: filePath, symbols: [] }] }] }
+}
 function container(id: string): IrContainer {
   return { id, name: id, color: 'blue' }
 }
@@ -82,5 +85,37 @@ describe('applyDriftIgnore', () => {
     const policy = { drift: { ...DEFAULT_POLICY.drift, ignoreBlockIds: ['b1'] } }
     applyDriftIgnore(r, policy)
     expect(r.addedBlocks).toHaveLength(2)
+  })
+
+  it('glob: * matches within a single path segment — drops blocks referencing matching files', () => {
+    const r = reportWith({
+      addedBlocks: [
+        blockWithFile('gen1', 'src/generated/api.ts'),
+        blockWithFile('real', 'src/core/service.ts'),
+      ],
+    })
+    const policy = { drift: { ...DEFAULT_POLICY.drift, ignoreFileGlobs: ['src/generated/*.ts'] } }
+    const filtered = applyDriftIgnore(r, policy)
+    expect(filtered.addedBlocks.map((b) => b.id)).toEqual(['real'])
+  })
+
+  it('glob: ** matches across path segments — drops all blocks in a subtree', () => {
+    const r = reportWith({
+      removedBlocks: [
+        blockWithFile('auto1', 'dist/server/index.js'),
+        blockWithFile('auto2', 'dist/client/bundle.js'),
+        blockWithFile('src', 'src/index.ts'),
+      ],
+    })
+    const policy = { drift: { ...DEFAULT_POLICY.drift, ignoreFileGlobs: ['dist/**'] } }
+    const filtered = applyDriftIgnore(r, policy)
+    expect(filtered.removedBlocks.map((b) => b.id)).toEqual(['src'])
+  })
+
+  it('glob: block with no anchors is never dropped by file glob', () => {
+    const r = reportWith({ addedBlocks: [block('no-anchors')] })
+    const policy = { drift: { ...DEFAULT_POLICY.drift, ignoreFileGlobs: ['**/*.gen.ts'] } }
+    const filtered = applyDriftIgnore(r, policy)
+    expect(filtered.addedBlocks).toHaveLength(1)
   })
 })

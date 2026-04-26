@@ -29,6 +29,8 @@ export const driftPolicySchema = z
     ignoreBlockIds: z.array(z.string()).default([]),
     ignoreContainerIds: z.array(z.string()).default([]),
     ignoreEdgeIds: z.array(z.string()).default([]),
+    /** File-path globs — blocks whose code_anchors reference any matching file are dropped. */
+    ignoreFileGlobs: z.array(z.string()).default([]),
   })
   .strict()
 
@@ -52,5 +54,6 @@ export const DEFAULT_POLICY: Policy = {
     ignoreBlockIds: [],
     ignoreContainerIds: [],
     ignoreEdgeIds: [],
+    ignoreFileGlobs: [],
   },
 }
