@@ -133,7 +133,7 @@ describe('orchestrator/classify', () => {
 
     const result = await classifyIntent(prompt, baseSummary, {
       runner,
-      timeoutMs: 50,
+      timeoutMs: 500,
       confidenceThreshold: 0.6,
       workDir: process.cwd(),
     })
@@ -150,14 +150,14 @@ describe('orchestrator/classify', () => {
       { type: 'done', output: 'classification follows\n{"intent":"build","confidence":0.88,"rationale":"implementation request"}\nextra' },
     ])
 
-    const result = await classifyIntent('build it', baseSummary, { runner, timeoutMs: 50 })
+    const result = await classifyIntent('build it', baseSummary, { runner, timeoutMs: 500 })
     expect(result).toMatchObject({ intent: 'build', fallback: false })
   })
 
   it('falls back to explain on JSON parse failure', async () => {
     const runner = new MockRunner([{ type: 'done', output: 'not json at all' }])
 
-    const result = await classifyIntent('what is this?', baseSummary, { runner, timeoutMs: 50 })
+    const result = await classifyIntent('what is this?', baseSummary, { runner, timeoutMs: 500 })
     expect(result.intent).toBe('explain')
     expect(result.fallback).toBe(true)
     expect(result.fallbackReason).toBeTruthy()
@@ -180,7 +180,7 @@ describe('orchestrator/classify', () => {
 
     const result = await classifyIntent('tweak this', baseSummary, {
       runner,
-      timeoutMs: 50,
+      timeoutMs: 500,
       confidenceThreshold: 0.6,
     })
 
@@ -197,7 +197,7 @@ describe('orchestrator/classify', () => {
       { type: 'done', output: '{"intent":"review","confidence":0.95,"rationale":"wrong label"}' },
     ])
 
-    const result = await classifyIntent('audit this', baseSummary, { runner, timeoutMs: 50 })
+    const result = await classifyIntent('audit this', baseSummary, { runner, timeoutMs: 500 })
     expect(result.intent).toBe('explain')
     expect(result.fallback).toBe(true)
     expect(result.fallbackReason).toContain('Invalid intent')

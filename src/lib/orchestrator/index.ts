@@ -1,9 +1,11 @@
 import './classify'
+import './dispatch'
 import './log'
 import './summarize'
 import './types'
 
 export * from './classify'
+export * from './dispatch'
 export * from './log'
 export * from './summarize'
 export * from './types'

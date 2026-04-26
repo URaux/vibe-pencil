@@ -67,6 +67,8 @@ describe('POST /api/chat — IR integration', () => {
     vi.stubEnv('VIBE_LLM_API_BASE', 'https://direct.example.com')
     vi.stubEnv('VIBE_LLM_API_KEY', 'test-key')
     vi.stubEnv('VIBE_LLM_MODEL', 'test-model')
+    // Disable orchestrator path so this test exercises the legacy IR-injection flow
+    vi.stubEnv('ARCHVIBER_ORCHESTRATOR', '0')
   })
 
   afterEach(() => {

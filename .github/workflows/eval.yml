@@ -1,0 +1,58 @@
+# W3 Eval Gate — Intent Classifier + Dispatch Coverage
+#
+# Advisory (non-blocking) until W3.D10 adds threshold enforcement.
+# Runs the offline eval harness (no live LLM calls) and uploads metrics
+# artifacts for review on every PR and push to main.
+#
+# Artifacts produced:
+#   eval-vitest.json   — Vitest JSON reporter output (test pass/fail)
+#   eval-results.json  — Eval harness metrics (classifier accuracy, dispatch coverage)
+
+name: Eval Gate (W3)
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  eval:
+    name: Eval — classifier + dispatch metrics
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run eval tests (vitest)
+        run: >
+          npx vitest run
+          -c vitest.eval.config.ts
+          --reporter=default
+          --reporter=json
+          --outputFile=eval-vitest.json
+
+      - name: Emit eval metrics (run-eval-ci)
+        run: node scripts/run-eval-ci.mjs
+
+      - name: Upload eval artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: eval-metrics
+          path: |
+            eval-vitest.json
+            eval-results.json
+          retention-days: 30

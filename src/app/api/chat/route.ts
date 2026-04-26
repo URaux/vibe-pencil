@@ -19,6 +19,8 @@ import {
   applyAssistantControl,
   type BrainstormState,
 } from '@/lib/brainstorm/state'
+import type { ChatRequest, FormSubmission } from './types'
+import { runOrchestratorTurn } from './orchestrator-turn'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -26,59 +28,6 @@ export const dynamic = 'force-dynamic'
 interface ChatMessage {
   role: 'user' | 'assistant'
   content: string
-}
-
-/**
- * Structured form submission emitted by multi-select OptionCards.
- * NOT a user chat turn — injected as a system-flavoured user message so the
- * model sees the structured selection without polluting the chat transcript.
- */
-interface FormSubmission {
-  questionId?: string
-  selections: string[]
-  ordered: boolean
-}
-
-interface ChatRequest {
-  message: string
-  /**
-   * When set, this request is a structured form submission rather than a free
-   * chat turn. The server materializes a deterministic synthetic user message
-   * ("[form] question: ... | selections: [...]") and uses it as the latest
-   * user input. The frontend should NOT push the raw selections into its
-   * visible chat transcript.
-   *
-   * Use `formSubmission` for a single card; `formSubmissions` for batched
-   * multi-card turns. Both are accepted; `formSubmissions` takes priority.
-   */
-  formSubmission?: FormSubmission
-  /**
-   * Batched multi-card form submissions emitted when all cards in a turn are
-   * answered at once. Takes priority over the singular `formSubmission` alias.
-   */
-  formSubmissions?: FormSubmission[]
-  history?: ChatMessage[]
-  nodeContext?: string
-  selectedNodeId?: string
-  codeContext?: string
-  buildSummaryContext?: string
-  architecture_yaml: string
-  backend?: AgentBackend
-  model?: string
-  locale?: Locale
-  phase?: SessionPhase
-  customApiBase?: string
-  customApiKey?: string
-  customApiModel?: string
-  ccSessionId?: string  // CC session ID for resume — eliminates prompt cache cold start on follow-up turns
-  /**
-   * ArchViber-side chat session id. When present and `phase === 'brainstorm'`,
-   * the route maintains a persistent BrainstormState file at
-   * `.archviber/brainstorm-state/<sessionId>.json` and injects a short prompt
-   * prefix so the LLM stays anchored across long novice conversations.
-   * Missing → all brainstorm-state logic is skipped silently (legacy clients).
-   */
-  sessionId?: string
 }
 
 /* ------------------------------------------------ brainstorm-state plumbing --- */
@@ -779,6 +728,12 @@ export async function POST(request: Request) {
 
   // Load canonical IR from disk once per request. Non-blocking: null on any failure.
   const ir = await tryLoadIr()
+
+  if (process.env.ARCHVIBER_ORCHESTRATOR !== '0' && ir) {
+    const orchestratorResponse = await runOrchestratorTurn({ payload, ir, request })
+    if (orchestratorResponse) return orchestratorResponse
+    // null → fall through to legacy path (handler returned not_implemented)
+  }
 
   // Load (or initialize) per-session brainstorm state for novice/long-conversation
   // anchoring. Returns null when phase !== 'brainstorm' or sessionId missing.
