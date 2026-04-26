@@ -4,6 +4,7 @@ import { tryRepairJson } from '@/lib/canvas-action-types'
 import type { AgentRunnerLike } from '../classify'
 import type { Handler, HandlerContext, HandlerResult } from '../types'
 import { planRename } from '@/lib/modify/rename'
+import { planExtract } from '@/lib/modify/extract'
 import { runSandbox } from '@/lib/modify/sandbox'
 import { createRenamePr } from '@/lib/modify/pr'
 
@@ -12,8 +13,12 @@ const DEFAULT_BACKEND: AgentBackend = 'codex'
 const DEFAULT_MODEL = 'gpt-5-codex-mini'
 const POLL_INTERVAL_MS = 25
 
+// W3.D6: now detects both rename and extract verbs.
 const EXTRACT_SYSTEM_PROMPT =
-  'Extract a rename request from the user\'s message and IR summary. Output ONLY JSON: {"symbol":"OldName","newName":"NewName"}. Both must be valid JavaScript identifiers. If the user is not asking for a rename, output {"error":"not-a-rename"}.'
+  'Classify the user\'s modify request as one of: rename or extract. Output ONLY JSON. ' +
+  'For rename: {"verb":"rename","symbol":"OldName","newName":"NewName"} (both valid JS identifiers). ' +
+  'For extract method: {"verb":"extract","filePath":"src/foo.ts","startLine":12,"endLine":20,"newFunctionName":"helperName"}. ' +
+  'If neither: {"error":"not-a-modify-verb"}.'
 
 export interface ModifyOptions {
   runner?: AgentRunnerLike
@@ -118,50 +123,92 @@ export function makeModifyHandler(opts: ModifyOptions = {}): Handler {
 
     const extraction = parsed as Record<string, unknown>
 
-    if (extraction['error'] === 'not-a-rename') {
+    if (extraction['error'] === 'not-a-rename' || extraction['error'] === 'not-a-modify-verb') {
       return {
         intent: 'modify',
         status: 'error',
-        error: 'not a rename request — try: rename X to Y',
+        error: 'not a modify request — try: rename X to Y, or extract lines N-M as fooHelper',
       }
     }
 
-    const symbol = extraction['symbol']
-    const newName = extraction['newName']
-
-    if (typeof symbol !== 'string' || !symbol || typeof newName !== 'string' || !newName) {
-      return {
-        intent: 'modify',
-        status: 'error',
-        error: 'Modify parse failed: extraction JSON missing symbol or newName',
-      }
-    }
-
-    // Validate identifiers before they reach git branch names or ts-morph queries.
-    // SEV2 fixup #1: blocks LLM hallucinations like "../../../etc" from polluting branch refs.
+    const verb = extraction['verb'] ?? 'rename' // backward-compat: missing verb means rename
     const IDENTIFIER_RE = /^[A-Za-z_$][A-Za-z0-9_$]*$/
-    if (!IDENTIFIER_RE.test(symbol) || !IDENTIFIER_RE.test(newName)) {
-      return {
-        intent: 'modify',
-        status: 'error',
-        error: `invalid identifier: symbol "${symbol}" / newName "${newName}" must match /^[A-Za-z_$][A-Za-z0-9_$]*$/`,
-      }
-    }
 
     let plan
-    try {
-      plan = await planRename(workDir, symbol, newName)
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err)
-      return { intent: 'modify', status: 'error', error: `planRename failed: ${message}` }
+    let prSubject: { symbol: string; newName: string }
+
+    if (verb === 'extract') {
+      const filePath = extraction['filePath']
+      const startLine = extraction['startLine']
+      const endLine = extraction['endLine']
+      const newFunctionName = extraction['newFunctionName']
+      if (
+        typeof filePath !== 'string' ||
+        !filePath ||
+        typeof startLine !== 'number' ||
+        typeof endLine !== 'number' ||
+        typeof newFunctionName !== 'string' ||
+        !newFunctionName
+      ) {
+        return {
+          intent: 'modify',
+          status: 'error',
+          error: 'Modify parse failed: extract requires filePath/startLine/endLine/newFunctionName',
+        }
+      }
+      if (!IDENTIFIER_RE.test(newFunctionName)) {
+        return {
+          intent: 'modify',
+          status: 'error',
+          error: `invalid identifier: newFunctionName "${newFunctionName}"`,
+        }
+      }
+      try {
+        plan = await planExtract(workDir, { filePath, startLine, endLine, newFunctionName })
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err)
+        return { intent: 'modify', status: 'error', error: `planExtract failed: ${message}` }
+      }
+      prSubject = { symbol: 'extract', newName: newFunctionName }
+    } else if (verb === 'rename') {
+      const symbol = extraction['symbol']
+      const newName = extraction['newName']
+
+      if (typeof symbol !== 'string' || !symbol || typeof newName !== 'string' || !newName) {
+        return {
+          intent: 'modify',
+          status: 'error',
+          error: 'Modify parse failed: extraction JSON missing symbol or newName',
+        }
+      }
+      if (!IDENTIFIER_RE.test(symbol) || !IDENTIFIER_RE.test(newName)) {
+        return {
+          intent: 'modify',
+          status: 'error',
+          error: `invalid identifier: symbol "${symbol}" / newName "${newName}" must match /^[A-Za-z_$][A-Za-z0-9_$]*$/`,
+        }
+      }
+      try {
+        plan = await planRename(workDir, symbol, newName)
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err)
+        return { intent: 'modify', status: 'error', error: `planRename failed: ${message}` }
+      }
+      prSubject = { symbol, newName }
+    } else {
+      return {
+        intent: 'modify',
+        status: 'error',
+        error: `Modify parse failed: unknown verb "${String(verb)}"`,
+      }
     }
 
     if (plan.conflicts.length > 0) {
       return {
         intent: 'modify',
         status: 'error',
-        error: `rename blocked: ${plan.conflicts[0].message}`,
-        payload: { plan, blocked: true },
+        error: `${verb} blocked: ${plan.conflicts[0].message}`,
+        payload: { plan, blocked: true, verb },
       }
     }
 
@@ -177,14 +224,14 @@ export function makeModifyHandler(opts: ModifyOptions = {}): Handler {
       return {
         intent: 'modify',
         status: 'error',
-        error: `rename breaks tsc: ${sandboxResult.errors[0] ?? 'unknown error'}`,
-        payload: { plan, sandboxResult },
+        error: `${verb} breaks tsc: ${sandboxResult.errors[0] ?? 'unknown error'}`,
+        payload: { plan, sandboxResult, verb },
       }
     }
 
     let prResult
     try {
-      prResult = await createRenamePr(workDir, plan, { symbol, newName })
+      prResult = await createRenamePr(workDir, plan, prSubject)
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
       return { intent: 'modify', status: 'error', error: `createRenamePr failed: ${message}` }
@@ -198,6 +245,7 @@ export function makeModifyHandler(opts: ModifyOptions = {}): Handler {
         sandboxResult,
         branch: prResult.branch,
         sha: prResult.sha,
+        verb,
       },
     }
   }

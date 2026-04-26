@@ -94,7 +94,9 @@ describe('modify handler', () => {
 
       expect(result.intent).toBe('modify')
       expect(result.status).toBe('error')
-      expect(result.error).toMatch(/not a rename/i)
+      // W3.D6: error wording changed from "not a rename" to "not a modify request"
+      // since the handler now also accepts extract.
+      expect(result.error).toMatch(/not a modify/i)
     }
   )
 
