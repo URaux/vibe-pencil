@@ -1,0 +1,59 @@
+# Live-LLM classifier eval — Phase 3
+#
+# Runs scripts/run-eval-live.mjs against the canned fixture set using a real
+# LLM (direct HTTP, no CLI dependency) and uploads the resulting snapshot.
+# Schedule: weekly on Mondays 03:00 UTC. Manual dispatch always available.
+#
+# Advisory by default; set the `enforce` input to `true` (or pass --enforce
+# in the run command) to fail the workflow on accuracy regression below
+# EVAL_LIVE_FAIL_AT (default 0.8).
+
+name: eval-live
+
+on:
+  schedule:
+    - cron: '0 3 * * 1'
+  workflow_dispatch:
+    inputs:
+      enforce:
+        description: Fail the workflow if accuracy drops below the threshold
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  eval-live:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Run live-LLM classifier eval
+        env:
+          VIBE_LLM_API_BASE: ${{ secrets.EVAL_LIVE_API_BASE }}
+          VIBE_LLM_API_KEY: ${{ secrets.EVAL_LIVE_API_KEY }}
+          VIBE_LLM_MODEL: ${{ secrets.EVAL_LIVE_MODEL }}
+          EVAL_LIVE_FAIL_AT: '0.8'
+          EVAL_LIVE_TIMEOUT: '20000'
+        run: |
+          ENFORCE=""
+          if [ "${{ inputs.enforce }}" = "true" ]; then ENFORCE="--enforce"; fi
+          node scripts/run-eval-live.mjs $ENFORCE
+
+      - name: Upload eval snapshot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: eval-live-results
+          path: eval-live-results.json
+          retention-days: 90
