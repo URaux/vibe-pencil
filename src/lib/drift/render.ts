@@ -9,6 +9,7 @@
  */
 
 import type { DriftReport, BlockChange } from './detect'
+import { renderSchemaDriftMarkdown } from './schema-diff'
 
 const MAX_PER_SECTION = 8
 
@@ -64,6 +65,15 @@ export function renderDriftMarkdown(report: DriftReport): string {
   if (report.changedBlocks.length > 0) {
     out.push('**Changed blocks**:')
     out.push(...truncatedList(report.changedBlocks, renderBlockChange))
+    // Phase 3: when a changed block has structured schema drift, render its
+    // table/column-level details as a sub-block beneath the bullet line.
+    for (const c of report.changedBlocks) {
+      if (c.schemaDrift && !c.schemaDrift.clean) {
+        out.push(`  schema drift on \`${c.before.id}\`:`)
+        const sub = renderSchemaDriftMarkdown(c.schemaDrift)
+        if (sub) out.push(sub)
+      }
+    }
     out.push('')
   }
 

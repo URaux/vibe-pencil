@@ -8,6 +8,7 @@
  */
 
 import type { Ir, IrBlock, IrContainer, IrEdge } from '@/lib/ir/schema'
+import { detectSchemaDrift, type SchemaDriftReport } from './schema-diff'
 
 export interface BlockChange {
   blockId: string
@@ -15,6 +16,8 @@ export interface BlockChange {
   after: IrBlock
   /** What changed (free-form short labels for the chat surface to render). */
   changes: string[]
+  /** Structured schema diff when the block's `schema` field changed. Phase 3 extension. */
+  schemaDrift?: SchemaDriftReport
 }
 
 export interface DriftReport {
@@ -105,6 +108,12 @@ function detectBlockChanges(before: IrBlock, after: IrBlock): string[] {
   return changes
 }
 
+/** Phase 3: structured schema drift on a block. Returns null when no schema change. */
+function detectBlockSchemaDrift(before: IrBlock, after: IrBlock): SchemaDriftReport | null {
+  const drift = detectSchemaDrift(before.schema, after.schema)
+  return drift.clean ? null : drift
+}
+
 export function detectDrift(baseIr: Ir, headIr: Ir): DriftReport {
   const blockDiff = diffArrays(baseIr.blocks, headIr.blocks)
   const containerDiff = diffArrays(baseIr.containers, headIr.containers)
@@ -113,8 +122,16 @@ export function detectDrift(baseIr: Ir, headIr: Ir): DriftReport {
   const changedBlocks: BlockChange[] = []
   for (const { before, after } of blockDiff.common) {
     const changes = detectBlockChanges(before, after)
+    const schemaDrift = detectBlockSchemaDrift(before, after)
+    if (schemaDrift) changes.push('schema changed')
     if (changes.length > 0) {
-      changedBlocks.push({ blockId: before.id, before, after, changes })
+      changedBlocks.push({
+        blockId: before.id,
+        before,
+        after,
+        changes,
+        ...(schemaDrift ? { schemaDrift } : {}),
+      })
     }
   }
 
