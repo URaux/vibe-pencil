@@ -17,9 +17,11 @@ import { pythonAdapter } from './python'
 import { goAdapter } from './go'
 import { javaAdapter } from './java'
 import { rustAdapter } from './rust'
+import { cppAdapter } from './cpp'
 
 registerAdapter(tsAdapter)
 registerAdapter(pythonAdapter)
 registerAdapter(goAdapter)
 registerAdapter(javaAdapter)
 registerAdapter(rustAdapter)
+registerAdapter(cppAdapter)
