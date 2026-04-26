@@ -30,6 +30,12 @@ export const CLASSIFIER_OUTCOMES: Record<string, MockOutcome> = Object.fromEntri
   ])
 )
 
+// baseSummary topContainers for the default fixtures: UI, API, Data.
+// The explain payload must cite at least one of these names.
+const EXPLAIN_CONTENT =
+  'The UI container handles all user-facing presentation, while the API container ' +
+  'coordinates requests between the UI and the Data layer, which stores persistent state.'
+
 /**
  * Dispatch mock map: each intent's handler is stubbed to return status='ok'.
  * Used by run-eval when exercising dispatchIntent.
@@ -39,5 +45,22 @@ export const DISPATCH_OUTCOMES: Record<Intent, HandlerResult> = {
   build: { intent: 'build', status: 'ok' },
   modify: { intent: 'modify', status: 'ok' },
   deep_analyze: { intent: 'deep_analyze', status: 'ok' },
-  explain: { intent: 'explain', status: 'ok' },
+  explain: {
+    intent: 'explain',
+    status: 'ok',
+    payload: { content: EXPLAIN_CONTENT, anchorRefs: ['UI', 'API', 'Data'] },
+  },
+}
+
+/**
+ * Explain shape-fail variant — canned outcome whose content contains a forbidden verb.
+ * Used by the ex-shape-fail fixture to verify explainShapeFails increments.
+ */
+export const EXPLAIN_SHAPE_FAIL_OUTCOME: HandlerResult = {
+  intent: 'explain',
+  status: 'ok',
+  payload: {
+    content: 'You should rename the UI container to improve clarity.',
+    anchorRefs: ['UI'],
+  },
 }

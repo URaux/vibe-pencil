@@ -67,10 +67,11 @@ describe('orchestrator/dispatch', () => {
   })
 
   it('routes explain intent to explain handler', async () => {
+    // No queued output → handler receives empty string → returns error (empty output check)
     const ctx = makeCtx({ classifyResult: makeClassify('explain') })
     const result = await dispatchIntent(ctx)
     expect(result.intent).toBe('explain')
-    expect(result.status).toBe('not_implemented')
+    expect(result.status).toBe('error')
   })
 
   it('routes deep_analyze intent to deep_analyze handler (no ir → error)', async () => {
@@ -81,10 +82,11 @@ describe('orchestrator/dispatch', () => {
   })
 
   it('routes to explain handler when fallback is true regardless of classified intent', async () => {
+    // No queued output → handler receives empty string → returns error (empty output check)
     const ctx = makeCtx({ classifyResult: makeClassify('build', true) })
     const result = await dispatchIntent(ctx)
     expect(result.intent).toBe('explain')
-    expect(result.status).toBe('not_implemented')
+    expect(result.status).toBe('error')
   })
 
   it('deep_analyze without ir returns status error', async () => {

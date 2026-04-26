@@ -1,3 +1,4 @@
+import path from 'node:path'
 import { classifyIntent } from '@/lib/orchestrator'
 import { dispatchIntent } from '@/lib/orchestrator/dispatch'
 import type { AgentRunnerLike } from '@/lib/orchestrator/classify'
@@ -5,6 +6,27 @@ import type { AgentBackend, AgentStatus } from '@/lib/agent-runner'
 import type { Intent, HandlerResult } from '@/lib/orchestrator/types'
 import { INTENTS } from '@/lib/orchestrator/types'
 import type { EvalFixture } from './load-fixtures'
+
+const EXPLAIN_FORBIDDEN_VERB_RE = /\b(rename|build|spawn|run|refactor|modify)\s+\w/i
+
+function computeExplainShape(
+  content: string,
+  fixture: EvalFixture,
+): ExplainShape {
+  const lower = content.toLowerCase()
+
+  const topNames = fixture.irSummary.topContainers.map((c) => c.name)
+  const anchorPaths: string[] = (fixture as EvalFixture & { anchorPaths?: string[] }).anchorPaths ?? []
+  const anchorBasenames = anchorPaths.map((p) => path.basename(p))
+
+  const hasAnchorRef =
+    topNames.some((n) => lower.includes(n.toLowerCase())) ||
+    anchorBasenames.some((b) => lower.includes(b.toLowerCase()))
+
+  const hasForbiddenVerb = EXPLAIN_FORBIDDEN_VERB_RE.test(content)
+
+  return { hasAnchorRef, hasForbiddenVerb }
+}
 
 export type MockOutcome =
   | { type: 'done'; output: string }
@@ -95,11 +117,17 @@ export interface IntentStats {
   pass: number
 }
 
+export interface ExplainShape {
+  hasAnchorRef: boolean
+  hasForbiddenVerb: boolean
+}
+
 export interface DispatchFixtureResult {
   id: string
   intent: Intent
   status: HandlerResult['status']
   error?: string
+  explainShape?: ExplainShape
 }
 
 export interface DispatchReport {
@@ -107,6 +135,7 @@ export interface DispatchReport {
   okCount: number
   notImplementedCount: number
   errorCount: number
+  explainShapeFails: number
   perFixture: DispatchFixtureResult[]
 }
 
@@ -211,11 +240,23 @@ export async function runEval(
       }))
     }
 
+    let explainShape: ExplainShape | undefined
+    if (
+      fixture.expectedIntent === 'explain' &&
+      dispatchResult.status === 'ok' &&
+      dispatchResult.payload &&
+      typeof (dispatchResult.payload as Record<string, unknown>)['content'] === 'string'
+    ) {
+      const content = (dispatchResult.payload as { content: string }).content
+      explainShape = computeExplainShape(content, fixture)
+    }
+
     dispatchPerFixture.push({
       id: fixture.id,
       intent: classifyResult.intent,
       status: dispatchResult.status,
       ...(dispatchResult.error ? { error: dispatchResult.error } : {}),
+      ...(explainShape !== undefined ? { explainShape } : {}),
     })
   }
 
@@ -223,6 +264,9 @@ export async function runEval(
   const okCount = dispatchPerFixture.filter((r) => r.status === 'ok').length
   const notImplementedCount = dispatchPerFixture.filter((r) => r.status === 'not_implemented').length
   const errorCount = dispatchPerFixture.filter((r) => r.status === 'error').length
+  const explainShapeFails = dispatchPerFixture.filter(
+    (r) => r.explainShape !== undefined && (!r.explainShape.hasAnchorRef || r.explainShape.hasForbiddenVerb)
+  ).length
 
   return {
     totalCount: fixtures.length,
@@ -235,6 +279,7 @@ export async function runEval(
       okCount,
       notImplementedCount,
       errorCount,
+      explainShapeFails,
       perFixture: dispatchPerFixture,
     },
   }

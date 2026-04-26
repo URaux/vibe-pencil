@@ -107,6 +107,18 @@ Both `eval-vitest.json` and `eval-results.json` are uploaded as the `eval-metric
 
 > **Advisory**: the gate is non-blocking until W3.D10 adds threshold enforcement.
 
+## Shape assertions
+
+Per-intent output shape rules run inline inside `runEval` whenever a fixture has status `ok` and the expected intent matches. Results are aggregated into `dispatch.explainShapeFails` in the report.
+
+**Explain shape rule** (applied to every `explain` fixture whose dispatch result is `ok` with a `payload.content` string):
+- `hasAnchorRef` — the content must contain at least one `irSummary.topContainers[*].name` or a basename from `anchorPaths`. Failure means the response is ungrounded.
+- `hasForbiddenVerb` — the content must NOT match `/\b(rename|build|spawn|run|refactor|modify)\s+\w/i`. Failure means the response used a tool-action verb.
+
+A fixture fails shape if `!hasAnchorRef || hasForbiddenVerb`. The count is in `report.dispatch.explainShapeFails`.
+
+**Adding a shape rule for a new intent**: add a helper function `compute<Intent>Shape` in `run-eval.ts` mirroring `computeExplainShape`, extend `DispatchFixtureResult` with `<intent>Shape?: ...`, compute and attach it in the dispatch loop, and add the fail-count to `DispatchReport` and the `explainShapeFails` aggregation block.
+
 ## Roadmap
 
 - **D8** ✓ — metric reporting: emit a JSON report for CI consumption.

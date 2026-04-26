@@ -57,7 +57,8 @@ async function main() {
   console.log(
     `[run-eval-ci] Dispatch: ok=${report.dispatch.okCount} ` +
       `not_implemented=${report.dispatch.notImplementedCount} ` +
-      `error=${report.dispatch.errorCount}`
+      `error=${report.dispatch.errorCount} ` +
+      `explainShapeFails=${report.dispatch.explainShapeFails}`
   )
 
   console.log(`[run-eval-ci] Writing ${outPath}...`)

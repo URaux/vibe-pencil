@@ -40,6 +40,11 @@ export function stringifyHandlerResult(result: HandlerResult): string {
     )
   }
 
+  if (result.intent === 'explain' && result.status === 'ok') {
+    const payload = result.payload as { content: string; anchorRefs: string[] } | undefined
+    return payload?.content ?? ''
+  }
+
   return `${result.intent}\n${JSON.stringify(result.payload, null, 2)}`
 }
 
