@@ -93,6 +93,23 @@ jobs:
             /tmp/drift/comment.md
             /tmp/drift/result.json
 
+      - name: Run architecture review (optional, when VIBE_LLM_* secrets set)
+        if: env.skip != '1'
+        env:
+          VIBE_LLM_API_BASE: ${{ secrets.REVIEW_LLM_API_BASE }}
+          VIBE_LLM_API_KEY: ${{ secrets.REVIEW_LLM_API_KEY }}
+          VIBE_LLM_MODEL: ${{ secrets.REVIEW_LLM_MODEL }}
+        run: |
+          if [ -z "$VIBE_LLM_API_KEY" ]; then
+            echo "REVIEW_LLM_* not configured — skipping architectural review"
+            : > /tmp/drift/review.md
+          else
+            node scripts/drift-review.mjs \
+              --drift /tmp/drift/result.json \
+              --ir ${{ env.HEAD_IR }} \
+              --output /tmp/drift/review.md
+          fi
+
       - name: Comment on PR (or update existing comment)
         if: env.skip != '1' && github.event_name == 'pull_request'
         env:
@@ -106,7 +123,12 @@ jobs:
 
           PR=${{ github.event.pull_request.number }}
           MARKER="<!-- archviber-drift-check -->"
-          BODY=$(printf '%s\n%s\n' "$MARKER" "$(cat /tmp/drift/comment.md)")
+          REVIEW_MD=$(cat /tmp/drift/review.md 2>/dev/null || true)
+          if [ -n "$REVIEW_MD" ]; then
+            BODY=$(printf '%s\n%s\n\n---\n\n%s\n' "$MARKER" "$(cat /tmp/drift/comment.md)" "$REVIEW_MD")
+          else
+            BODY=$(printf '%s\n%s\n' "$MARKER" "$(cat /tmp/drift/comment.md)")
+          fi
 
           # Find a previous drift comment by this bot and update it; else create.
           EXISTING=$(gh api "repos/${{ github.repository }}/issues/${PR}/comments" \
