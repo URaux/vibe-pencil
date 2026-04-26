@@ -64,11 +64,24 @@ jobs:
       - name: Run drift check
         if: env.skip != '1'
         run: |
+          ENFORCE=""
+          if [ -f .archviber/policy.yaml ]; then
+            echo "policy.yaml found — enforcing"
+            ENFORCE="--enforce-policy"
+          fi
+          # Run for the JSON artifact + side-output the markdown. We deliberately
+          # don't fail this step on policy violation — that lets the comment
+          # step run first. The dedicated 'Enforce policy' step below fails
+          # the workflow.
+          set +e
           node scripts/drift-check.mjs \
             --base /tmp/drift/base-ir.yaml \
             --head ${{ env.HEAD_IR }} \
             --output /tmp/drift/comment.md \
-            --json > /tmp/drift/result.json
+            --json $ENFORCE > /tmp/drift/result.json
+          DRIFT_EXIT=$?
+          set -e
+          echo "drift_exit=$DRIFT_EXIT" >> $GITHUB_ENV
           cat /tmp/drift/result.json | head -20
 
       - name: Upload drift artifacts
@@ -108,3 +121,9 @@ jobs:
             echo "Creating new drift comment"
             gh pr comment "$PR" --body "$BODY"
           fi
+
+      - name: Enforce policy (fail step if drift-check exited non-zero)
+        if: env.skip != '1' && env.drift_exit != '0'
+        run: |
+          echo "drift-check exited with code ${{ env.drift_exit }} — failing workflow per .archviber/policy.yaml"
+          exit 1

@@ -140,4 +140,66 @@ describe('scripts/drift-check.mjs', () => {
     },
     30_000,
   )
+
+  it(
+    '--enforce-policy exits 1 when policy violated',
+    async () => {
+      const baseYaml = makeIrYaml([{ id: 'b1' }, { id: 'b2' }])
+      const headYaml = makeIrYaml([{ id: 'b1' }]) // b2 removed
+      const basePath = await writeYaml('base-pol.yaml', baseYaml)
+      const headPath = await writeYaml('head-pol.yaml', headYaml)
+      const policyPath = path.join(tmpDir, 'policy.yaml')
+      await fs.writeFile(policyPath, 'drift:\n  failOnRemoved: true\n', 'utf8')
+
+      await expect(
+        exec(
+          'node',
+          [
+            SCRIPT,
+            '--base',
+            basePath,
+            '--head',
+            headPath,
+            '--enforce-policy',
+            '--policy',
+            policyPath,
+            '--quiet',
+          ],
+          { cwd: REPO_ROOT },
+        ),
+      ).rejects.toMatchObject({ code: 1 })
+    },
+    30_000,
+  )
+
+  it(
+    '--enforce-policy exits 0 when within thresholds',
+    async () => {
+      const baseYaml = makeIrYaml([{ id: 'b1' }])
+      const headYaml = makeIrYaml([{ id: 'b1' }, { id: 'b2' }, { id: 'b3' }]) // 2 added
+      const basePath = await writeYaml('base-ok.yaml', baseYaml)
+      const headPath = await writeYaml('head-ok.yaml', headYaml)
+      const policyPath = path.join(tmpDir, 'policy-ok.yaml')
+      await fs.writeFile(policyPath, 'drift:\n  maxAddedBlocks: 5\n', 'utf8')
+
+      // No throw → exit 0
+      const { stdout: _ } = await exec(
+        'node',
+        [
+          SCRIPT,
+          '--base',
+          basePath,
+          '--head',
+          headPath,
+          '--enforce-policy',
+          '--policy',
+          policyPath,
+          '--quiet',
+        ],
+        { cwd: REPO_ROOT },
+      )
+      expect(_).toBeDefined()
+    },
+    30_000,
+  )
 })

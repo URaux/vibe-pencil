@@ -1,0 +1,23 @@
+# ArchViber policy file — W3.D5
+#
+# Copy or rename this file to `.archviber/policy.yaml` and adjust the values
+# below to opt-in to blocking behavior. The drift workflow respects this
+# file and will exit 1 (failing the PR) when any rule fires.
+#
+# By default (no policy file at .archviber/policy.yaml) the drift workflow
+# is advisory — it posts a PR comment but does not block merge.
+
+drift:
+  # Boolean rules — fire on ANY occurrence of the named drift kind.
+  failOnRemoved: false             # any removed block → fail
+  failOnAdded: false               # any added block → fail
+  failOnChanged: false             # any block change (rename/container/anchor) → fail
+  failOnRemovedContainers: false   # any container removal → fail
+  failOnRemovedEdges: false        # any edge removal → fail
+
+  # Threshold rules — fire when the count exceeds the limit. Omit a field to
+  # disable the rule entirely. Setting a value to 0 means "block any change of
+  # this kind"; equivalent to the corresponding boolean rule.
+  # maxAddedBlocks: 10
+  # maxRemovedBlocks: 0
+  # maxChangedBlocks: 5
