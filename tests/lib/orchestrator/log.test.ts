@@ -1,4 +1,4 @@
-import { promises as fs } from 'node:fs'
+﻿import { promises as fs } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -59,7 +59,7 @@ describe('orchestrator/log', () => {
 })
 
 // ---------------------------------------------------------------------------
-// Persistent telemetry tests — Phase 3
+// Persistent telemetry tests -- Phase 3
 // ---------------------------------------------------------------------------
 
 import {
@@ -83,6 +83,7 @@ describe('persistent telemetry (Phase 3)', () => {
   afterEach(() => {
     delete process.env.ARCHVIBER_TELEMETRY_FILE
     delete process.env.ARCHVIBER_TELEMETRY
+    delete process.env.ARCHVIBER_TELEMETRY_MAX_BYTES
   })
 
   it('persistTurn appends a JSONL line', async () => {
@@ -183,5 +184,61 @@ describe('persistent telemetry (Phase 3)', () => {
     expect(latest.userPromptHash).toBe('e2e-hash')
     expect(latest.intent).toBe('explain')
     expect(latest.dispatchStatus).toBe('ok')
+  })
+
+  it('rotates the log file when it exceeds max size', async () => {
+    // Pre-fill the log with 200 bytes of junk; threshold is 100 bytes.
+    // After persistTurn appends a new line, the file will exceed 100 bytes
+    // and be renamed to .1.
+    await fs.mkdir(path.dirname(logFile), { recursive: true })
+    await fs.writeFile(logFile, 'x'.repeat(200), 'utf8')
+
+    process.env.ARCHVIBER_TELEMETRY_MAX_BYTES = '175'
+
+    await persistTurn({
+      timestamp: '2026-04-26T00:00:00Z',
+      userPromptHash: 'rotation-trigger',
+      irBlocks: 1,
+    })
+
+    // The .1 file must exist -- the over-limit log was rotated there.
+    const rotatedPath = `${logFile}.1`
+    await expect(fs.access(rotatedPath)).resolves.toBeUndefined()
+  })
+
+  it('subsequent writes after rotation go to a fresh file', async () => {
+    // Implementation appends then checks size, so rotation happens after the
+    // first write that pushes the file over the limit.  The rotated .1 file
+    // will contain the pre-fill junk PLUS the first entry; the main log will
+    // contain only the second entry written after rotation.
+    const junk = 'x'.repeat(200)
+    await fs.mkdir(path.dirname(logFile), { recursive: true })
+    await fs.writeFile(logFile, junk, 'utf8')
+
+    process.env.ARCHVIBER_TELEMETRY_MAX_BYTES = '175'
+
+    const base = {
+      timestamp: '2026-04-26T00:00:00Z',
+      userPromptHash: 'h',
+      irBlocks: 1,
+      intent: 'explain' as const,
+      confidence: 0.9,
+      fallback: false,
+      dispatchStatus: 'ok' as const,
+    }
+
+    // First call: appends 'first', file > 100 bytes -> rotates to .1.
+    await persistTurn({ ...base, userPromptHash: 'first' })
+    // Second call: appends 'second' to the new (empty) log file.
+    await persistTurn({ ...base, userPromptHash: 'second' })
+
+    // Main file must have exactly 1 JSONL line ('second').
+    const mainText = await fs.readFile(logFile, 'utf8')
+    const mainLines = mainText.split('\n').filter((l) => l.length > 0)
+    expect(mainLines).toHaveLength(1)
+    expect(JSON.parse(mainLines[0]).userPromptHash).toBe('second')
+
+    // .1 file must exist (it holds the pre-rotation content + first entry).
+    await expect(fs.access(`${logFile}.1`)).resolves.toBeUndefined()
   })
 })
