@@ -64,6 +64,7 @@ const { renderDriftMarkdown } = require(path.join(repoRoot, 'src/lib/drift/rende
 const { irSchema } = require(path.join(repoRoot, 'src/lib/ir/schema.ts'))
 const { policySchema, DEFAULT_POLICY } = require(path.join(repoRoot, 'src/lib/policy/schema.ts'))
 const { checkDriftPolicy } = require(path.join(repoRoot, 'src/lib/policy/check.ts'))
+const { applyDriftIgnore } = require(path.join(repoRoot, 'src/lib/policy/filter.ts'))
 const yaml = require(path.join(repoRoot, 'node_modules/yaml/dist/index.js'))
 
 function loadIr(p) {
@@ -110,13 +111,18 @@ function loadPolicySync(p) {
 const baseIr = loadIr(basePath)
 const headIr = loadIr(headPath)
 
-const report = detectDrift(baseIr, headIr)
+const rawReport = detectDrift(baseIr, headIr)
+
+// Apply ignore filters unconditionally when a policy file exists (noise suppression
+// is separate from --enforce-policy; ignores are always applied).
+const policy = loadPolicySync(policyPath)
+const report = applyDriftIgnore(rawReport, policy)
+
 const summary = summarizeDrift(report)
 const markdown = renderDriftMarkdown(report)
 
 let violations = []
 if (enforcePolicy) {
-  const policy = loadPolicySync(policyPath)
   violations = checkDriftPolicy(policy, summary)
 }
 

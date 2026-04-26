@@ -173,6 +173,28 @@ describe('scripts/drift-check.mjs', () => {
   )
 
   it(
+    'ignoreBlockIds in policy.yaml suppresses ignored blocks from JSON summary',
+    async () => {
+      const baseYaml = makeIrYaml([{ id: 'b1' }])
+      const headYaml = makeIrYaml([{ id: 'b1' }, { id: 'noisy' }]) // noisy added
+      const basePath = await writeYaml('base-ign.yaml', baseYaml)
+      const headPath = await writeYaml('head-ign.yaml', headYaml)
+      const policyPath = path.join(tmpDir, 'policy-ign.yaml')
+      await fs.writeFile(policyPath, 'drift:\n  ignoreBlockIds:\n    - noisy\n', 'utf8')
+
+      const { stdout } = await exec(
+        'node',
+        [SCRIPT, '--base', basePath, '--head', headPath, '--json', '--policy', policyPath],
+        { cwd: REPO_ROOT },
+      )
+      const parsed = JSON.parse(stdout)
+      expect(parsed.summary.addedBlocks).toBe(0)
+      expect(parsed.report.clean).toBe(true)
+    },
+    30_000,
+  )
+
+  it(
     '--enforce-policy exits 0 when within thresholds',
     async () => {
       const baseYaml = makeIrYaml([{ id: 'b1' }])
