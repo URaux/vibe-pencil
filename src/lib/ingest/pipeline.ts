@@ -177,6 +177,8 @@ export async function ingestPolyglotProject(
     'jsx',
     'python',
     'go',
+    'java',
+    'rust',
   ])
   const languageByPath = new Map<string, FactLanguage>()
   for (const m of modules) {

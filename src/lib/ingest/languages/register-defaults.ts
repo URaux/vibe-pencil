@@ -15,7 +15,9 @@ import { registerAdapter } from './registry'
 import { tsAdapter } from './typescript'
 import { pythonAdapter } from './python'
 import { goAdapter } from './go'
+import { javaAdapter } from './java'
 
 registerAdapter(tsAdapter)
 registerAdapter(pythonAdapter)
 registerAdapter(goAdapter)
+registerAdapter(javaAdapter)

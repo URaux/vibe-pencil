@@ -32,6 +32,8 @@ export type FactLanguage =
   | 'jsx'
   | 'python'
   | 'go'
+  | 'java'
+  | 'rust'
 
 export interface FactModuleNode {
   kind: 'module'
@@ -174,6 +176,8 @@ const EXT_TO_LANGUAGE: Readonly<Record<string, FactLanguage>> = {
   '.py': 'python',
   '.pyi': 'python',
   '.go': 'go',
+  '.java': 'java',
+  '.rs': 'rust',
 }
 
 function inferLanguage(
