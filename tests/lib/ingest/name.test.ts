@@ -553,3 +553,85 @@ describe('_internals.parseLlmResponse', () => {
     expect(r?.description).toBeUndefined()
   })
 })
+
+// ---------------------------------------------------------------------------
+// W2.D4: cross-language prompt rendering tests
+// ---------------------------------------------------------------------------
+
+import { inferLanguageFromPath } from '../../../src/lib/ingest/name'
+
+describe('inferLanguageFromPath (W2.D4)', () => {
+  it('detects typescript / python / go / java / rust', () => {
+    expect(inferLanguageFromPath('src/foo.ts')).toBe('typescript')
+    expect(inferLanguageFromPath('src/foo.tsx')).toBe('typescript')
+    expect(inferLanguageFromPath('src/main.py')).toBe('python')
+    expect(inferLanguageFromPath('src/main.go')).toBe('go')
+    expect(inferLanguageFromPath('App.java')).toBe('java')
+    expect(inferLanguageFromPath('main.rs')).toBe('rust')
+  })
+
+  it('returns null for extension-less or unknown files', () => {
+    expect(inferLanguageFromPath('Makefile')).toBeNull()
+    expect(inferLanguageFromPath('foo.unknownext')).toBeNull()
+  })
+})
+
+describe('renderUserPrompt language line (W2.D4)', () => {
+  it('emits "Languages (multi):" for clusters spanning multiple languages', () => {
+    const cluster = makeCluster({ id: 'c1', files: ['svc/api.py', 'svc/worker.go'], pathPrefix: 'svc' })
+    const clusters = makeClusterResult([cluster])
+    const anchors = makeAnchors(clusters, {
+      c1: [
+        { path: 'svc/api.py', symbols: ['App'] },
+        { path: 'svc/worker.go', symbols: ['Worker'] },
+      ],
+    })
+    const built = _internals.buildPromptClusters(clusters, anchors)
+    expect(built).toHaveLength(1)
+    expect(built[0].languages).toEqual(['go', 'python'])
+    const rendered = _internals.renderUserPrompt('test-proj', built[0])
+    expect(rendered).toContain('Languages (multi): go, python')
+  })
+
+  it('emits "Language:" (singular) for single-language clusters', () => {
+    const cluster = makeCluster({ id: 'c1', files: ['svc/api.py'], pathPrefix: 'svc' })
+    const clusters = makeClusterResult([cluster])
+    const anchors = makeAnchors(clusters, { c1: [{ path: 'svc/api.py', symbols: ['App'] }] })
+    const built = _internals.buildPromptClusters(clusters, anchors)
+    expect(built[0].languages).toEqual(['python'])
+    const rendered = _internals.renderUserPrompt('test-proj', built[0])
+    expect(rendered).toContain('Language: python')
+    expect(rendered).not.toContain('Languages (multi):')
+  })
+
+  it('omits language line when all files have unknown extensions', () => {
+    const cluster = makeCluster({ id: 'c1', files: ['Makefile', 'README'], pathPrefix: '' })
+    const clusters = makeClusterResult([cluster])
+    const anchors = makeAnchors(clusters, {
+      c1: [
+        { path: 'Makefile', symbols: [] },
+        { path: 'README', symbols: [] },
+      ],
+    })
+    const built = _internals.buildPromptClusters(clusters, anchors)
+    expect(built[0].languages).toEqual([])
+    const rendered = _internals.renderUserPrompt('test-proj', built[0])
+    expect(rendered).not.toMatch(/Language(s \(multi\))?:/)
+  })
+
+  it('language detection scans ALL files, not just the prompt-capped subset', () => {
+    // Build a cluster with > MAX_FILES_IN_PROMPT (10) files spanning python + go.
+    // The first 10 are python; the 11th is go. We want to confirm 'go' still
+    // appears in languages even though it's beyond the prompt cap.
+    const files: string[] = []
+    for (let i = 0; i < 10; i++) files.push(`svc/py${i}.py`)
+    files.push('svc/worker.go')
+    const cluster = makeCluster({ id: 'c1', files, pathPrefix: 'svc' })
+    const clusters = makeClusterResult([cluster])
+    const anchors = makeAnchors(clusters, {
+      c1: files.map((p) => ({ path: p, symbols: [] })),
+    })
+    const built = _internals.buildPromptClusters(clusters, anchors)
+    expect(built[0].languages).toEqual(['go', 'python'])
+  })
+})

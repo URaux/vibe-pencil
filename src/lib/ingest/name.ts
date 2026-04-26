@@ -88,7 +88,40 @@ const MAX_NAME_LEN = 60
 const MAX_DESCRIPTION_LEN = 200
 
 const SYSTEM_PROMPT =
-  'You name software architecture clusters. Given a list of files + exported symbols, respond with a JSON object {"name": "...", "description": "...", "confidence": 0.xx}. Name must be 2-4 words, descriptive of the cluster\'s role. Description must be one sentence.'
+  'You name software architecture clusters. Given a list of files + exported symbols, respond with a JSON object {"name": "...", "description": "...", "confidence": 0.xx}. Name must be 2-4 words, descriptive of the cluster\'s role. Description must be one sentence. When the cluster spans multiple languages (e.g. Python + Go), the name should describe the responsibility regardless of language — avoid language-specific terms.'
+
+// W2.D4: language detection from file extension for cross-language cluster naming.
+// Mirrors the LanguageAdapter id values; not coupled to the registry to keep this
+// module independent of registration order.
+const LANG_BY_EXT: Record<string, string> = {
+  '.ts': 'typescript',
+  '.tsx': 'typescript',
+  '.js': 'javascript',
+  '.jsx': 'javascript',
+  '.mjs': 'javascript',
+  '.cjs': 'javascript',
+  '.py': 'python',
+  '.pyi': 'python',
+  '.go': 'go',
+  '.java': 'java',
+  '.kt': 'kotlin',
+  '.rs': 'rust',
+  '.rb': 'ruby',
+  '.php': 'php',
+  '.cs': 'csharp',
+  '.swift': 'swift',
+  '.scala': 'scala',
+  '.c': 'c',
+  '.h': 'c',
+  '.cpp': 'cpp',
+  '.cc': 'cpp',
+  '.hpp': 'cpp',
+}
+
+export function inferLanguageFromPath(filePath: string): string | null {
+  const ext = filePath.includes('.') ? filePath.slice(filePath.lastIndexOf('.')).toLowerCase() : ''
+  return LANG_BY_EXT[ext] ?? null
+}
 
 // ---------------------------------------------------------------------------
 // Prompt construction
@@ -97,6 +130,8 @@ const SYSTEM_PROMPT =
 interface PromptCluster {
   cluster: FactCluster
   filesWithSymbols: Array<{ path: string; symbols: string[] }>
+  /** W2.D4: distinct languages present in the cluster, sorted for stability. */
+  languages: string[]
 }
 
 function buildPromptClusters(
@@ -115,7 +150,15 @@ function buildPromptClusters(
         .map((s) => (s.length > MAX_SYMBOL_NAME_LEN ? s.slice(0, MAX_SYMBOL_NAME_LEN) : s))
       return { path: f.path, symbols }
     })
-    return { cluster, filesWithSymbols: capped }
+    // Collect distinct languages from ALL files in the cluster (not just capped),
+    // so a 100-file cluster's language mix isn't truncated by MAX_FILES_IN_PROMPT.
+    const langSet = new Set<string>()
+    for (const f of files) {
+      const lang = inferLanguageFromPath(f.path)
+      if (lang) langSet.add(lang)
+    }
+    const languages = Array.from(langSet).sort()
+    return { cluster, filesWithSymbols: capped, languages }
   })
 }
 
@@ -126,6 +169,13 @@ function renderUserPrompt(projectName: string, pc: PromptCluster): string {
     lines.push(`Cluster pathPrefix: ${pc.cluster.pathPrefix}`)
   } else {
     lines.push('Cluster pathPrefix: (none)')
+  }
+  // W2.D4: emit a Languages: line for clusters spanning multiple languages
+  // so the LLM picks a polyglot-appropriate name.
+  if (pc.languages.length > 1) {
+    lines.push(`Languages (multi): ${pc.languages.join(', ')}`)
+  } else if (pc.languages.length === 1) {
+    lines.push(`Language: ${pc.languages[0]}`)
   }
   lines.push(`Files (up to ${MAX_FILES_IN_PROMPT}):`)
   if (pc.filesWithSymbols.length === 0) {
@@ -578,4 +628,6 @@ export const _internals = {
   sequentialLabel,
   stripMarkdownFences,
   extractFirstJsonObject,
+  buildPromptClusters,
+  renderUserPrompt,
 } as const
