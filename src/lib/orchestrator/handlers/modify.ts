@@ -5,6 +5,7 @@ import type { AgentRunnerLike } from '../classify'
 import type { Handler, HandlerContext, HandlerResult } from '../types'
 import { planRename } from '@/lib/modify/rename'
 import { planExtract } from '@/lib/modify/extract'
+import { planMove } from '@/lib/modify/move'
 import { runSandbox } from '@/lib/modify/sandbox'
 import { createRenamePr } from '@/lib/modify/pr'
 
@@ -13,12 +14,13 @@ const DEFAULT_BACKEND: AgentBackend = 'codex'
 const DEFAULT_MODEL = 'gpt-5-codex-mini'
 const POLL_INTERVAL_MS = 25
 
-// W3.D6: now detects both rename and extract verbs.
+// W3.D6 + P3.modify-move: detects rename / extract / move verbs.
 const EXTRACT_SYSTEM_PROMPT =
-  'Classify the user\'s modify request as one of: rename or extract. Output ONLY JSON. ' +
+  'Classify the user\'s modify request as one of: rename, extract, or move. Output ONLY JSON. ' +
   'For rename: {"verb":"rename","symbol":"OldName","newName":"NewName"} (both valid JS identifiers). ' +
   'For extract method: {"verb":"extract","filePath":"src/foo.ts","startLine":12,"endLine":20,"newFunctionName":"helperName"}. ' +
-  'If neither: {"error":"not-a-modify-verb"}.'
+  'For move declaration: {"verb":"move","symbol":"FooService","fromFile":"src/api.ts","toFile":"src/services/foo.ts"}. ' +
+  'If none: {"error":"not-a-modify-verb"}.'
 
 export interface ModifyOptions {
   runner?: AgentRunnerLike
@@ -170,6 +172,38 @@ export function makeModifyHandler(opts: ModifyOptions = {}): Handler {
         return { intent: 'modify', status: 'error', error: `planExtract failed: ${message}` }
       }
       prSubject = { symbol: 'extract', newName: newFunctionName }
+    } else if (verb === 'move') {
+      const symbol = extraction['symbol']
+      const fromFile = extraction['fromFile']
+      const toFile = extraction['toFile']
+      if (
+        typeof symbol !== 'string' ||
+        !symbol ||
+        typeof fromFile !== 'string' ||
+        !fromFile ||
+        typeof toFile !== 'string' ||
+        !toFile
+      ) {
+        return {
+          intent: 'modify',
+          status: 'error',
+          error: 'Modify parse failed: move requires symbol/fromFile/toFile',
+        }
+      }
+      if (!IDENTIFIER_RE.test(symbol)) {
+        return {
+          intent: 'modify',
+          status: 'error',
+          error: `invalid identifier: symbol "${symbol}"`,
+        }
+      }
+      try {
+        plan = await planMove(workDir, { symbol, fromFile, toFile })
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err)
+        return { intent: 'modify', status: 'error', error: `planMove failed: ${message}` }
+      }
+      prSubject = { symbol, newName: 'moved' }
     } else if (verb === 'rename') {
       const symbol = extraction['symbol']
       const newName = extraction['newName']
