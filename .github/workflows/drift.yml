@@ -1,0 +1,110 @@
+# Drift detection on PR — W3.D4
+#
+# Compares the IR snapshot on the PR base branch against the IR snapshot on
+# the PR head. Posts (or updates) a single PR comment summarising drift.
+#
+# Advisory by default — does not fail the workflow on drift. To make drift
+# blocking, configure thresholds in `.archviber/policy.yaml` (W3.D5) and add
+# an explicit `exit 1` step gated on those thresholds.
+#
+# Required: `.archviber/ir.yaml` is checked into the repo. If your team
+# stores the IR elsewhere or generates it during build, override the
+# `BASE_IR` / `HEAD_IR` paths in the env block.
+
+name: drift
+
+on:
+  pull_request:
+    paths:
+      - '**.ts'
+      - '**.tsx'
+      - '**.py'
+      - '**.go'
+      - '**.java'
+      - '**.rs'
+      - '.archviber/ir.yaml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+env:
+  BASE_IR: .archviber/ir.yaml
+  HEAD_IR: .archviber/ir.yaml
+
+jobs:
+  drift:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout PR head
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Extract base-branch IR
+        run: |
+          mkdir -p /tmp/drift
+          if git show origin/${{ github.base_ref }}:${{ env.BASE_IR }} > /tmp/drift/base-ir.yaml 2>/dev/null; then
+            echo "base IR extracted from origin/${{ github.base_ref }}"
+          else
+            echo "no base IR on origin/${{ github.base_ref }} — skipping drift check"
+            echo "skip=1" >> $GITHUB_ENV
+          fi
+
+      - name: Run drift check
+        if: env.skip != '1'
+        run: |
+          node scripts/drift-check.mjs \
+            --base /tmp/drift/base-ir.yaml \
+            --head ${{ env.HEAD_IR }} \
+            --output /tmp/drift/comment.md \
+            --json > /tmp/drift/result.json
+          cat /tmp/drift/result.json | head -20
+
+      - name: Upload drift artifacts
+        if: env.skip != '1'
+        uses: actions/upload-artifact@v4
+        with:
+          name: drift-result
+          path: |
+            /tmp/drift/comment.md
+            /tmp/drift/result.json
+
+      - name: Comment on PR (or update existing comment)
+        if: env.skip != '1' && github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TOTAL=$(cat /tmp/drift/result.json | node -e "const fs=require('fs');const j=JSON.parse(fs.readFileSync(0,'utf8'));process.stdout.write(String(j.summary.total));")
+          if [ "$TOTAL" -eq 0 ]; then
+            echo "No drift — skipping comment."
+            exit 0
+          fi
+
+          PR=${{ github.event.pull_request.number }}
+          MARKER="<!-- archviber-drift-check -->"
+          BODY=$(printf '%s\n%s\n' "$MARKER" "$(cat /tmp/drift/comment.md)")
+
+          # Find a previous drift comment by this bot and update it; else create.
+          EXISTING=$(gh api "repos/${{ github.repository }}/issues/${PR}/comments" \
+            --jq ".[] | select(.body | startswith(\"$MARKER\")) | .id" | head -1)
+
+          if [ -n "$EXISTING" ]; then
+            echo "Updating existing comment $EXISTING"
+            gh api "repos/${{ github.repository }}/issues/comments/${EXISTING}" \
+              -X PATCH \
+              -f body="$BODY"
+          else
+            echo "Creating new drift comment"
+            gh pr comment "$PR" --body "$BODY"
+          fi
