@@ -53,17 +53,19 @@ describe('orchestrator/dispatch', () => {
   })
 
   it('routes build intent to build handler', async () => {
+    // No queued output → handler receives empty string → returns error (parse failure)
     const ctx = makeCtx({ classifyResult: makeClassify('build') })
     const result = await dispatchIntent(ctx)
     expect(result.intent).toBe('build')
-    expect(result.status).toBe('not_implemented')
+    expect(result.status).toBe('error')
   })
 
   it('routes modify intent to modify handler', async () => {
+    // No queued output → handler receives empty string → returns error (parse failure)
     const ctx = makeCtx({ classifyResult: makeClassify('modify') })
     const result = await dispatchIntent(ctx)
     expect(result.intent).toBe('modify')
-    expect(result.status).toBe('not_implemented')
+    expect(result.status).toBe('error')
   })
 
   it('routes explain intent to explain handler', async () => {
