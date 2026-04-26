@@ -17,6 +17,14 @@ export interface BlockChange {
   changes: string[]
 }
 
+export interface EdgeChange {
+  edgeId: string
+  before: IrEdge
+  after: IrEdge
+  /** Same shape as BlockChange.changes — free-form short labels. */
+  changes: string[]
+}
+
 export interface DriftReport {
   addedBlocks: IrBlock[]
   removedBlocks: IrBlock[]
@@ -27,6 +35,8 @@ export interface DriftReport {
 
   addedEdges: IrEdge[]
   removedEdges: IrEdge[]
+  /** Phase 3 extension: edges whose source / target / type / label changed without losing identity. */
+  changedEdges: EdgeChange[]
 
   /** Convenience flag — true when no diff at all. */
   clean: boolean
@@ -87,6 +97,23 @@ function anchorsEqual(a: IrBlock['code_anchors'], b: IrBlock['code_anchors']): b
   return true
 }
 
+function detectEdgeChanges(before: IrEdge, after: IrEdge): string[] {
+  const changes: string[] = []
+  if (before.source !== after.source) {
+    changes.push(`source: "${before.source}" → "${after.source}"`)
+  }
+  if (before.target !== after.target) {
+    changes.push(`target: "${before.target}" → "${after.target}"`)
+  }
+  if (before.type !== after.type) {
+    changes.push(`type: "${before.type}" → "${after.type}"`)
+  }
+  if ((before.label ?? '') !== (after.label ?? '')) {
+    changes.push(`label: "${before.label ?? '(none)'}" → "${after.label ?? '(none)'}"`)
+  }
+  return changes
+}
+
 function detectBlockChanges(before: IrBlock, after: IrBlock): string[] {
   const changes: string[] = []
 
@@ -118,6 +145,14 @@ export function detectDrift(baseIr: Ir, headIr: Ir): DriftReport {
     }
   }
 
+  const changedEdges: EdgeChange[] = []
+  for (const { before, after } of edgeDiff.common) {
+    const changes = detectEdgeChanges(before, after)
+    if (changes.length > 0) {
+      changedEdges.push({ edgeId: before.id, before, after, changes })
+    }
+  }
+
   const clean =
     blockDiff.added.length === 0 &&
     blockDiff.removed.length === 0 &&
@@ -125,7 +160,8 @@ export function detectDrift(baseIr: Ir, headIr: Ir): DriftReport {
     containerDiff.added.length === 0 &&
     containerDiff.removed.length === 0 &&
     edgeDiff.added.length === 0 &&
-    edgeDiff.removed.length === 0
+    edgeDiff.removed.length === 0 &&
+    changedEdges.length === 0
 
   return {
     addedBlocks: blockDiff.added,
@@ -135,6 +171,7 @@ export function detectDrift(baseIr: Ir, headIr: Ir): DriftReport {
     removedContainers: containerDiff.removed,
     addedEdges: edgeDiff.added,
     removedEdges: edgeDiff.removed,
+    changedEdges,
     clean,
   }
 }
@@ -147,6 +184,7 @@ export interface DriftSummary {
   removedContainers: number
   addedEdges: number
   removedEdges: number
+  changedEdges: number
   total: number
 }
 
@@ -159,6 +197,7 @@ export function summarizeDrift(report: DriftReport): DriftSummary {
     removedContainers: report.removedContainers.length,
     addedEdges: report.addedEdges.length,
     removedEdges: report.removedEdges.length,
+    changedEdges: report.changedEdges.length,
     total: 0,
   }
   summary.total =
@@ -168,6 +207,7 @@ export function summarizeDrift(report: DriftReport): DriftSummary {
     summary.addedContainers +
     summary.removedContainers +
     summary.addedEdges +
-    summary.removedEdges
+    summary.removedEdges +
+    summary.changedEdges
   return summary
 }

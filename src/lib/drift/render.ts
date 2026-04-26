@@ -8,7 +8,7 @@
  * chat with bullets.
  */
 
-import type { DriftReport, BlockChange } from './detect'
+import type { DriftReport, BlockChange, EdgeChange } from './detect'
 
 const MAX_PER_SECTION = 8
 
@@ -27,6 +27,13 @@ function renderBlockChange(c: BlockChange): string {
   return `${id} (${before}): ${changes}`
 }
 
+function renderEdgeChange(c: EdgeChange): string {
+  const id = c.before.id
+  const summary = `${c.before.source} → ${c.before.target}`
+  const changes = c.changes.length > 2 ? c.changes.slice(0, 2).join('; ') + ` (+${c.changes.length - 2} more)` : c.changes.join('; ')
+  return `${id} (${summary}): ${changes}`
+}
+
 export function renderDriftMarkdown(report: DriftReport): string {
   if (report.clean) {
     return 'Diagram and code are in sync. No drift detected.'
@@ -42,6 +49,7 @@ export function renderDriftMarkdown(report: DriftReport): string {
     report.removedContainers.length > 0 ? `−${report.removedContainers.length} containers` : '',
     report.addedEdges.length > 0 ? `+${report.addedEdges.length} edges` : '',
     report.removedEdges.length > 0 ? `−${report.removedEdges.length} edges` : '',
+    report.changedEdges.length > 0 ? `~${report.changedEdges.length} edges` : '',
   ]
     .filter((s) => s.length > 0)
     .join(', ')
@@ -88,6 +96,12 @@ export function renderDriftMarkdown(report: DriftReport): string {
   if (report.removedEdges.length > 0) {
     out.push('**Removed edges**:')
     out.push(...truncatedList(report.removedEdges, (e) => `\`${e.id}\` (${e.source} → ${e.target})`))
+    out.push('')
+  }
+
+  if (report.changedEdges.length > 0) {
+    out.push('**Changed edges**:')
+    out.push(...truncatedList(report.changedEdges, renderEdgeChange))
     out.push('')
   }
 

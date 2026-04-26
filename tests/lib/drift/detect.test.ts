@@ -161,4 +161,21 @@ describe('detectDrift', () => {
     const summary = summarizeDrift(report)
     expect(summary.total).toBe(4) // 1 added block + 1 changed + 1 added container + 1 removed edge
   })
+
+  it('detects changed edges (source/target/type/label)', () => {
+    const base = makeIr({
+      edges: [makeEdge('e1', 'a', 'b'), makeEdge('e2', 'c', 'd')],
+    })
+    const head = makeIr({
+      edges: [
+        { id: 'e1', source: 'X', target: 'b', type: 'sync' },
+        { id: 'e2', source: 'c', target: 'd', type: 'async' },
+      ],
+    })
+    const report = detectDrift(base, head)
+    expect(report.changedEdges).toHaveLength(2)
+    expect(report.changedEdges[0].changes.some((c) => c.includes('source:'))).toBe(true)
+    expect(report.changedEdges[1].changes.some((c) => c.includes('type:'))).toBe(true)
+    expect(report.clean).toBe(false)
+  })
 })

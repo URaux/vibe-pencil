@@ -28,6 +28,7 @@ function emptyReport(): DriftReport {
     removedContainers: [],
     addedEdges: [],
     removedEdges: [],
+    changedEdges: [],
     clean: true,
   }
 }
@@ -103,6 +104,7 @@ describe('renderDriftMarkdown', () => {
       removedContainers: [container('c-rem')],
       addedEdges: [edge('e-add', 'a', 'b')],
       removedEdges: [edge('e-rem', 'b', 'c')],
+      changedEdges: [],
       clean: false,
     }
     const md = renderDriftMarkdown(r)
