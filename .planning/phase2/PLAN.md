@@ -10,7 +10,7 @@
 
 | # | Question | Decision | Rationale |
 |---|---|---|---|
-| 1 | W2 path: polyglot ingest vs CRDT | **A: language-agnostic ingest (Py + Go reference, recipe for rest)** | User: "a 吧，b 暂时没条件做" + "尽量适配全语言". Reframed as pluggable adapter pattern — Java/Rust/etc. follow the recipe. CRDT moved to P3 backlog. |
+| 1 | W2 path: polyglot ingest vs CRDT | **A: language-agnostic ingest (Py/Go/Java/Rust reference + recipe)** | User: "a 吧，b 暂时没条件做" + "尽量适配全语言" + "rust 也加上吧". Pluggable adapter pattern — 4 reference impls cover scripting/JVM/native/compiled. CRDT moved to P3. |
 | 2 | Default-on threshold source | CI mock (fast/free) + weekly cron real-LLM holdout | Best of both — CI stays cheap, real accuracy still tracked |
 | 3 | Build handler scope | Plan-only (user confirms before build runs) | Safer for default-on; direct execution waits for P3 policy gates |
 | 4 | Drift on PR | Notify by default, opt-in to block via `.archviber/policy.yaml` | Avoids merge-blocking false positives early |
@@ -152,11 +152,11 @@ Goal: stop returning `not_implemented` for every intent except `deep_analyze`. E
 
 ---
 
-## 4. Week 2 — Language-agnostic ingest (Python + Go in W2; recipe for the rest)
+## 4. Week 2 — Language-agnostic ingest (Py/Go/Java/Rust in W2; recipe for the rest)
 
-LOCKED 2026-04-26 (v2: user asked to "适配全语言" — reframed as a pluggable architecture, not a per-language hand-crank).
+LOCKED 2026-04-26 (v3: user asked "rust 也加上吧" 2026-04-26 09:20 — Rust promoted from P3 to W2 reference set alongside Java).
 
-**Rationale**: ArchViber demos better with polyglot fixtures. Tree-sitter has grammars for 100+ languages; the bottleneck is ArchViber's adapter layer, not the parser. W2 ships Python + Go as the reference implementations and a `LanguageAdapter` interface so adding any new language is ~1 day of mechanical AST-query work.
+**Rationale**: ArchViber demos better with polyglot fixtures. Tree-sitter has grammars for 100+ languages; the bottleneck is ArchViber's adapter layer, not the parser. W2 ships Python + Go + Java + Rust as the four reference implementations (covering the major backend stacks: scripting, statically-typed/JVM, compiled-native) plus a `LanguageAdapter` interface so adding any new language is ~1 day of mechanical AST-query work.
 
 ### Design pattern
 
@@ -183,12 +183,12 @@ Adding a new language = implement one adapter file + register in `languages/regi
 - W2.D6 — Anchor coverage validator on polyglot fixture, target ≥ 70% per language (3h)
 - W2.D7 — Ingest pipeline: combined pass dispatches by file extension (TS+Py+Go in one ingest) (4h)
 - W2.D8 — Java adapter using the recipe (most-demanded "common" language after Py/Go); ~1 day mechanical AST-query work (5h)
-- W2.D9 — `docs/HOW-TO-ADD-A-LANGUAGE.md` recipe + eval-harness polyglot fixtures (4h)
-- W2.D10 — End-to-end test + handoff (3h)
+- W2.D9 — Rust adapter using the recipe (covers compiled-native ecosystem; cargo metadata = strong tech-stack signal) (5h)
+- W2.D10 — `docs/HOW-TO-ADD-A-LANGUAGE.md` recipe + eval-harness polyglot fixtures + handoff (4h)
 
-Budget: 40h. Risk: tree-sitter native bindings on Windows can be flaky — D1 pre-flight de-risks. If Java overruns into D9/D10 territory, drop Java to P3 (Py+Go ship + recipe is enough to honor "模块化插槽" intent).
+Budget: 45h. Real days: ~10 working days. Risk: tree-sitter native bindings on Windows can be flaky — D1 pre-flight de-risks. If Java OR Rust overruns, drop the slipping one to P3 (3 reference adapters + recipe still honors "模块化插槽" intent — recipe is the load-bearing deliverable, not the adapter count).
 
-**P3 backlog languages**: Rust, C/C++, C#, Ruby, PHP, Swift, Kotlin, Scala. Recipe lets future work pick these up without redesign — explicit goal: "适配全语言" handled via the plug-in slot, not by ArchViber shipping every adapter.
+**P3 backlog languages**: C/C++, C#, Ruby, PHP, Swift, Kotlin, Scala. Recipe lets future work pick these up without redesign — explicit goal: "适配全语言" handled via the plug-in slot, not by ArchViber shipping every adapter.
 
 ---
 
