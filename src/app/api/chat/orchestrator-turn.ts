@@ -1,7 +1,7 @@
 import type { Ir } from '@/lib/ir'
 import { summarizeIr, classifyIntent, dispatchIntent } from '@/lib/orchestrator'
 import { recordTurnStart, recordClassification, recordDispatch } from '@/lib/orchestrator/log'
-import type { HandlerResult } from '@/lib/orchestrator/types'
+import type { HandlerResult, Intent } from '@/lib/orchestrator/types'
 import type { ChatRequest } from './types'
 import crypto from 'node:crypto'
 
@@ -9,13 +9,72 @@ function hashPrompt(s: string): string {
   return crypto.createHash('sha1').update(s).digest('hex').slice(0, 8)
 }
 
-function clarifyMessage(classifyResult: { confidence: number; fallbackReason?: string }): string {
-  return (
-    "I'm not sure what you'd like — did you want to " +
-    '(a) edit the design, (b) build/run something, (c) modify a block, ' +
-    '(d) deep-analyze the code, or (e) get an explanation? ' +
-    'Tell me which and I\'ll proceed.'
-  )
+export interface TopIntent {
+  intent: Intent
+  confidence: number
+}
+
+/**
+ * Extracts the top-k intents from classifier rawOutput.
+ * If rawOutput contains `intent_scores: Record<Intent, number>`, uses those.
+ * Otherwise returns a single-entry array from the primary intent/confidence.
+ */
+export function getTopIntents(
+  rawOutput: string,
+  primaryIntent: Intent,
+  primaryConfidence: number,
+  k = 2,
+): TopIntent[] {
+  try {
+    const match = rawOutput.match(/\{[\s\S]*\}/)
+    if (match) {
+      const parsed = JSON.parse(match[0]) as Record<string, unknown>
+      const scores = parsed['intent_scores']
+      if (scores && typeof scores === 'object' && !Array.isArray(scores)) {
+        return Object.entries(scores as Record<string, number>)
+          .filter(([, v]) => typeof v === 'number')
+          .sort(([, a], [, b]) => b - a)
+          .slice(0, k)
+          .map(([intent, confidence]) => ({ intent: intent as Intent, confidence }))
+      }
+    }
+  } catch {
+    // fall through
+  }
+  return [{ intent: primaryIntent, confidence: primaryConfidence }]
+}
+
+const GENERIC_CLARIFY =
+  "I'm not sure what you'd like — did you want to " +
+  '(a) edit the design, (b) build/run something, (c) modify a block, ' +
+  '(d) deep-analyze the code, or (e) get an explanation? ' +
+  "Tell me which and I'll proceed."
+
+const INTENT_LABEL: Record<Intent, string> = {
+  design_edit: 'edit the design',
+  build: 'build/run something',
+  modify: 'modify a block',
+  deep_analyze: 'deep-analyze the code',
+  explain: 'get an explanation',
+}
+
+export function clarifyMessage(opts: {
+  topIntents?: TopIntent[]
+  confidence: number
+  fallbackReason?: string
+}): string {
+  const { topIntents, confidence } = opts
+  if (
+    topIntents &&
+    topIntents.length >= 2 &&
+    confidence >= 0.3
+  ) {
+    const [first, second] = topIntents
+    const a = INTENT_LABEL[first.intent] ?? first.intent
+    const b = INTENT_LABEL[second.intent] ?? second.intent
+    return `Did you mean to ${a} or ${b}? Reply with which and I'll proceed.`
+  }
+  return GENERIC_CLARIFY
 }
 
 export function stringifyHandlerResult(result: HandlerResult): string {
@@ -94,8 +153,13 @@ export async function runOrchestratorTurn({
   })
 
   if (classifyResult.fallback) {
+    const topIntents = getTopIntents(
+      classifyResult.rawOutput,
+      classifyResult.intent,
+      classifyResult.confidence,
+    )
     return Response.json({
-      content: clarifyMessage(classifyResult),
+      content: clarifyMessage({ topIntents, confidence: classifyResult.confidence, fallbackReason: classifyResult.fallbackReason }),
       orchestrator: {
         intent: 'clarify',
         confidence: classifyResult.confidence,
