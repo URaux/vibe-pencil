@@ -1,10 +1,9 @@
-/**
- * FactGraph builder — W2.D2.
+﻿/**
+ * FactGraph builder 鈥?W2.D2.
  *
  * Consumes parser output (from `ast-ts.ts` and/or `ast-treesitter.ts`) and
  * produces a polyglot fact graph: modules + symbols as nodes, imports and
- * containment as edges. This is a fact layer, not a visualization model —
- * keep it tight.
+ * containment as edges. This is a fact layer, not a visualization model 鈥? * keep it tight.
  *
  * Scope: W2.D2 only. No clustering (W2.D3), no code_anchors (W2.D4),
  * no call edges (follow-up once tree-sitter emits call sites).
@@ -34,6 +33,12 @@ export type FactLanguage =
   | 'go'
   | 'java'
   | 'rust'
+  | 'solidity'
+  | 'ocaml'
+  | 'bash'
+  | 'elm'
+  | 'rescript'
+  | 'objc'
 
 export interface FactModuleNode {
   kind: 'module'
@@ -80,7 +85,7 @@ export interface FactGraph {
 }
 
 /**
- * Input `ParsedModule` shape — a structural intersection of `ast-ts.ts`'s
+ * Input `ParsedModule` shape 鈥?a structural intersection of `ast-ts.ts`'s
  * `ParsedModule` and `ast-treesitter.ts`'s `TreeSitterParseResult`. Both
  * expose `file`, `imports`, `exports`, `symbols`; tree-sitter additionally
  * exposes `language`, which we accept when present.
@@ -114,7 +119,7 @@ export interface BuildFactGraphInput {
    */
   languageByPath?: Map<string, FactLanguage>
   /**
-   * Optional path aliases — same shape as `tsconfig.compilerOptions.paths`.
+   * Optional path aliases 鈥?same shape as `tsconfig.compilerOptions.paths`.
    * When a non-relative specifier matches an alias pattern, the resolver
    * tries each target in order and falls back to the standard ext/index
    * probe. Non-matching specifiers stay dropped per Phase 1 scope.
@@ -125,7 +130,7 @@ export interface BuildFactGraphInput {
 /**
  * Non-fatal diagnostics surfaced alongside the graph for callers that want
  * to surface them. The builder itself never throws for recoverable issues
- * (e.g. empty symbol names) — they're recorded here and the offending row
+ * (e.g. empty symbol names) 鈥?they're recorded here and the offending row
  * is skipped.
  */
 export interface FactGraphDiagnostics {
@@ -157,7 +162,7 @@ function moduleId(relPath: string): FactNodeId {
   return `module:${relPath}`
 }
 
-/** Stable symbol node id. `name` is trusted — caller must skip empty names. */
+/** Stable symbol node id. `name` is trusted 鈥?caller must skip empty names. */
 function symbolId(relPath: string, name: string): FactNodeId {
   return `symbol:${relPath}::${name}`
 }
@@ -178,6 +183,15 @@ const EXT_TO_LANGUAGE: Readonly<Record<string, FactLanguage>> = {
   '.go': 'go',
   '.java': 'java',
   '.rs': 'rust',
+  '.sol': 'solidity',
+  '.ml': 'ocaml',
+  '.mli': 'ocaml',
+  '.sh': 'bash',
+  '.bash': 'bash',
+  '.res': 'rescript',
+  '.resi': 'rescript',
+  '.elm': 'elm',
+  '.m': 'objc',
 }
 
 function inferLanguage(
@@ -223,9 +237,9 @@ interface CompiledAlias {
   prefix: string
   /** Suffix after `*`, e.g. `''` for `@/*`; rare in practice. */
   suffix: string
-  /** True when the pattern had no `*` — exact match only. */
+  /** True when the pattern had no `*` 鈥?exact match only. */
   exact: boolean
-  /** Targets, with `*` → `(.*)` capture position marked. */
+  /** Targets, with `*` 鈫?`(.*)` capture position marked. */
   targets: Array<{ prefix: string; suffix: string; exact: boolean }>
 }
 
@@ -315,7 +329,7 @@ function resolveRelativeSpecifier(
   const sourceDir = path.posix.dirname(sourceRelPath)
   const joinedRaw = path.posix.normalize(path.posix.join(sourceDir, specifier))
   // `path.posix.normalize('..')` can yield `..`; reject any path that climbs
-  // above the project root — we only match modules inside the project.
+  // above the project root 鈥?we only match modules inside the project.
   if (joinedRaw.startsWith('..')) return null
 
   // 1. Exact match (specifier with explicit extension).
@@ -347,16 +361,16 @@ interface ImportEdgeKey {
 }
 
 function importEdgeKey(k: ImportEdgeKey): string {
-  return `${k.source}\u0000${k.target}\u0000${k.specifier}`
+  return `${k.source} ${k.target} ${k.specifier}`
 }
 
 /**
  * Build a FactGraph from parser output.
  *
  * Deterministic in node/edge ordering given a deterministic input module
- * order — the caller controls ordering. Deduplicates symbols within a module
+ * order 鈥?the caller controls ordering. Deduplicates symbols within a module
  * (two symbols with the same name collapse to the first). Deduplicates
- * import edges sharing (source, target, specifier) — names are unioned.
+ * import edges sharing (source, target, specifier) 鈥?names are unioned.
  */
 export function buildFactGraph(input: BuildFactGraphInput): FactGraph {
   const { projectRoot, modules, languageByPath, pathAliases } = input
@@ -366,7 +380,7 @@ export function buildFactGraph(input: BuildFactGraphInput): FactGraph {
   const nodes = new Map<FactNodeId, FactNode>()
   const containsEdges: FactEdge[] = []
 
-  /** Project-relative POSIX path → moduleId. */
+  /** Project-relative POSIX path 鈫?moduleId. */
   const moduleRelPaths = new Set<string>()
   /** Language tally. */
   const byLanguage: Record<string, number> = {}
@@ -391,7 +405,7 @@ export function buildFactGraph(input: BuildFactGraphInput): FactGraph {
     const absFile = toPosixPath(mod.file)
     const relPath = projectRelative(absRoot, absFile)
 
-    // Guard against duplicate modules for the same path — take first write.
+    // Guard against duplicate modules for the same path 鈥?take first write.
     if (moduleRelPaths.has(relPath)) continue
     moduleRelPaths.add(relPath)
 
@@ -447,7 +461,7 @@ export function buildFactGraph(input: BuildFactGraphInput): FactGraph {
       } else if (compiledAliases.length > 0) {
         targetRel = resolveAliasSpecifier(specifier, compiledAliases, moduleRelPaths)
       }
-      // Package / stdlib imports that match no alias stay dropped — the
+      // Package / stdlib imports that match no alias stay dropped 鈥?the
       // package graph is a Phase 2 concern.
       if (!targetRel) continue
 
@@ -472,7 +486,7 @@ export function buildFactGraph(input: BuildFactGraphInput): FactGraph {
     }
   }
 
-  // Finalize import edges — attach the de-duplicated names array.
+  // Finalize import edges 鈥?attach the de-duplicated names array.
   const importEdges: FactEdge[] = []
   for (const { edge, names } of importEdgeIndex.values()) {
     edge.names = Array.from(names)
@@ -521,11 +535,11 @@ export function isSymbolNode(n: FactNode): n is FactSymbolNode {
 /**
  * Read `compilerOptions.paths` from `<projectRoot>/tsconfig.json` and return
  * it as a `PathAliasMap`. Returns `null` when the file is missing or has no
- * paths entry. Tolerant of JSON with trailing commas and line comments — uses
+ * paths entry. Tolerant of JSON with trailing commas and line comments 鈥?uses
  * a cheap pre-processor rather than pulling in a JSONC dependency.
  *
  * This is intentionally synchronous: callers typically already read the file
- * once at ingest start-up, and the tsconfig is ≤ a few KB.
+ * once at ingest start-up, and the tsconfig is 鈮?a few KB.
  */
 export function loadTsconfigPathAliases(projectRoot: string): PathAliasMap | null {
   const tsconfigPath = path.join(projectRoot, 'tsconfig.json')
@@ -536,11 +550,11 @@ export function loadTsconfigPathAliases(projectRoot: string): PathAliasMap | nul
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null
     throw error
   }
-  // Strip UTF-8 BOM — editors like VS Code on Windows sometimes save with BOM;
+  // Strip UTF-8 BOM 鈥?editors like VS Code on Windows sometimes save with BOM;
   // JSON.parse rejects it, which would silently fall through to null and
   // disable every path alias. (reviewer B1.)
   if (raw.charCodeAt(0) === 0xfeff) raw = raw.slice(1)
-  // Attempt strict parse first — most tsconfig.json files are valid JSON. Fall
+  // Attempt strict parse first 鈥?most tsconfig.json files are valid JSON. Fall
   // back to a light JSONC-tolerant pass that strips only // line comments and
   // trailing commas. We deliberately do NOT strip /* */ block comments because
   // tsconfig path patterns contain `/*` sequences (e.g. `"@/*"`, `"**/*.ts"`)
@@ -574,4 +588,4 @@ export function loadTsconfigPathAliases(projectRoot: string): PathAliasMap | nul
 
 // TODO(W2.D3): emit `call` edges once tree-sitter extractors yield call sites.
 // TODO(W2.D4): consume FactGraph in `src/lib/ingest/code-anchors.ts` to populate
-// `ir.code_anchors` per IR-SCHEMA §3.3.
+// `ir.code_anchors` per IR-SCHEMA 搂3.3.

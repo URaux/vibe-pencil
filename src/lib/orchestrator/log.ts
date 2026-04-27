@@ -91,4 +91,71 @@ export function recordDispatch(
   record.dispatchStatus = params.status
   record.error = params.error
   if (DEBUG) console.log('[orchestrator/telemetry] dispatch', params)
+
+  // Phase 3 persistent telemetry: append the finalized turn to disk.
+  // The ring buffer is in-memory only; for default-on production usage we
+  // need queryable history. Fire-and-forget — we don't await this in the
+  // hot chat path, and a write failure logs to stderr but never throws.
+  void persistTurn(record)
+}
+
+// ---------------------------------------------------------------------------
+// Persistent telemetry (Phase 3) — appends finalized turns to a JSONL file
+// at .archviber/cache/orchestrator-log.jsonl. Override the path via
+// ARCHVIBER_TELEMETRY_FILE; disable entirely with ARCHVIBER_TELEMETRY=0.
+// ---------------------------------------------------------------------------
+
+const DEFAULT_TELEMETRY_PATH = path.join('.archviber', 'cache', 'orchestrator-log.jsonl')
+
+function telemetryEnabled(): boolean {
+  return process.env.ARCHVIBER_TELEMETRY !== '0'
+}
+
+function telemetryPath(): string {
+  return process.env.ARCHVIBER_TELEMETRY_FILE ?? DEFAULT_TELEMETRY_PATH
+}
+
+export async function persistTurn(record: TurnRecord): Promise<void> {
+  if (!telemetryEnabled()) return
+  const target = telemetryPath()
+  try {
+    await fs.mkdir(path.dirname(target), { recursive: true })
+    await fs.appendFile(target, `${JSON.stringify(record)}\n`, 'utf8')
+  } catch (error) {
+    // Fire-and-forget; never break the chat path on a write failure.
+    if (DEBUG) console.warn('[orchestrator/telemetry] persistTurn failed', error)
+  }
+}
+
+/** Read the last N entries from the persistent log. Used by dashboards/tests. */
+export async function readRecentPersistedTurns(
+  limit = 100,
+  opts: { since?: string; until?: string; path?: string } = {}
+): Promise<TurnRecord[]> {
+  const target = opts.path ?? telemetryPath()
+  let text: string
+  try {
+    text = await fs.readFile(target, 'utf8')
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code
+    if (code === 'ENOENT') return []
+    throw err
+  }
+  const sinceMs = opts.since ? new Date(opts.since).getTime() : undefined
+  const untilMs = opts.until ? new Date(opts.until).getTime() : undefined
+  const lines = text.split('\n').filter((l) => l.length > 0)
+  const tail = lines.slice(Math.max(0, lines.length - limit))
+  const out: TurnRecord[] = []
+  for (const line of tail) {
+    try {
+      const record = JSON.parse(line) as TurnRecord
+      const ts = new Date(record.timestamp).getTime()
+      if (sinceMs !== undefined && ts < sinceMs) continue
+      if (untilMs !== undefined && ts > untilMs) continue
+      out.push(record)
+    } catch {
+      // Skip malformed lines silently — don't block reads on a stray bad write.
+    }
+  }
+  return out
 }

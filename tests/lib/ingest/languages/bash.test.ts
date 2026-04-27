@@ -1,0 +1,111 @@
+import { describe, it, expect, beforeAll } from 'vitest'
+import { bashAdapter } from '@/lib/ingest/languages/bash'
+import type { FactInputModule } from '@/lib/ingest/languages/types'
+import Parser from 'web-tree-sitter'
+
+let sharedParser: Parser | null = null
+let parserAvailable = false
+
+beforeAll(async () => {
+  try {
+    sharedParser = await bashAdapter.loadParser()
+    parserAvailable = true
+  } catch {
+    parserAvailable = false
+  }
+})
+
+const maybeIt = parserAvailable ? it : it.skip
+
+function parse(src: string): Parser.Tree {
+  return sharedParser!.parse(src)
+}
+
+function makeFact(imports: FactInputModule['imports']): FactInputModule {
+  return { file: 'test.sh', imports, exports: [], symbols: [], language: 'bash' }
+}
+
+describe('bashAdapter metadata', () => {
+  it('has id bash', () => expect(bashAdapter.id).toBe('bash'))
+  it('has .sh extension', () => expect(bashAdapter.fileExtensions).toContain('.sh'))
+  it('has .bash extension', () => expect(bashAdapter.fileExtensions).toContain('.bash'))
+
+  it('inferTechStack: plain Bash', () => {
+    const facts = [makeFact([])]
+    expect(bashAdapter.inferTechStack(facts)).toBe('Bash')
+  })
+
+  it('inferTechStack: Bash/Testing with bats import', () => {
+    const facts = [makeFact([{ from: '/usr/lib/bats/bats-core', names: ['*'] }])]
+    expect(bashAdapter.inferTechStack(facts)).toBe('Bash/Testing')
+  })
+
+  it('inferTechStack: Bash/Testing with kcov import', () => {
+    const facts = [makeFact([{ from: '/usr/bin/kcov', names: ['*'] }])]
+    expect(bashAdapter.inferTechStack(facts)).toBe('Bash/Testing')
+  })
+})
+
+describe('bashAdapter parser', () => {
+  maybeIt('extracts function_definition', () => {
+    const src = 'function greet() {\n  echo "hello"\n}\n'
+    const tree = parse(src)
+    const facts = bashAdapter.extractFacts(tree, 'test.sh')
+    const fn = facts.symbols.find((s) => s.name === 'greet')
+    expect(fn).toBeDefined()
+    expect(fn?.kind).toBe('function')
+  })
+
+  maybeIt('exports public functions (no underscore)', () => {
+    const src = 'function public_fn() {}\nfunction _private_fn() {}\n'
+    const tree = parse(src)
+    const facts = bashAdapter.extractFacts(tree, 'test.sh')
+    expect(facts.exports).toContain('public_fn')
+    expect(facts.exports).not.toContain('_private_fn')
+  })
+
+  maybeIt('private _ functions appear in symbols but not exports', () => {
+    const src = 'function _internal() { echo secret; }\n'
+    const tree = parse(src)
+    const facts = bashAdapter.extractFacts(tree, 'test.sh')
+    const sym = facts.symbols.find((s) => s.name === '_internal')
+    expect(sym).toBeDefined()
+    expect(facts.exports).not.toContain('_internal')
+  })
+
+  maybeIt('extracts source command as import', () => {
+    const src = 'source ./lib/utils.sh\necho hello\n'
+    const tree = parse(src)
+    const facts = bashAdapter.extractFacts(tree, 'test.sh')
+    expect(facts.imports.length).toBeGreaterThan(0)
+    expect(facts.imports[0].from).toContain('utils.sh')
+  })
+
+  maybeIt('extracts dot-builtin import (. file.sh)', () => {
+    const src = '. ./lib/helpers.sh\n'
+    const tree = parse(src)
+    const facts = bashAdapter.extractFacts(tree, 'test.sh')
+    expect(facts.imports.some((i) => i.from.includes('helpers.sh'))).toBe(true)
+  })
+
+  maybeIt('source import has wildcard names', () => {
+    const src = 'source ./config.sh\n'
+    const tree = parse(src)
+    const facts = bashAdapter.extractFacts(tree, 'test.sh')
+    expect(facts.imports[0].names).toContain('*')
+  })
+
+  maybeIt('language field is bash', () => {
+    const src = '#!/usr/bin/env bash\necho hi\n'
+    const tree = parse(src)
+    const facts = bashAdapter.extractFacts(tree, 'test.sh')
+    expect(facts.language).toBe('bash')
+  })
+
+  maybeIt('file path normalized to forward slashes', () => {
+    const src = '#!/usr/bin/env bash\necho hi\n'
+    const tree = parse(src)
+    const facts = bashAdapter.extractFacts(tree, 'scripts\\deploy.sh')
+    expect(facts.file).not.toContain('\\')
+  })
+})
