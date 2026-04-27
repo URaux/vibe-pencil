@@ -21,6 +21,7 @@ import {
 } from '@/lib/brainstorm/state'
 import type { ChatRequest, FormSubmission } from './types'
 import { runOrchestratorTurn } from './orchestrator-turn'
+import { checkRateLimit } from '@/lib/orchestrator/rate-limit'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -708,6 +709,9 @@ function renderFormSubmissions(subs: FormSubmission[], fallbackMessage: string):
 }
 
 export async function POST(request: Request) {
+  const rateLimitResponse = checkRateLimit(request)
+  if (rateLimitResponse) return rateLimitResponse
+
   const payload = (await request.json()) as ChatRequest
 
   // Materialize structured form submissions into a synthetic user message
