@@ -2,6 +2,7 @@ import type { Ir } from '@/lib/ir'
 import { summarizeIr, classifyIntent, dispatchIntent } from '@/lib/orchestrator'
 import { recordTurnStart, recordClassification, recordDispatch } from '@/lib/orchestrator/log'
 import type { HandlerResult } from '@/lib/orchestrator/types'
+import { pruneIrSummary } from '@/lib/orchestrator/prune'
 import type { ChatRequest } from './types'
 import crypto from 'node:crypto'
 
@@ -83,7 +84,7 @@ export async function runOrchestratorTurn({
     irBlocks: ir.blocks.length,
   })
 
-  const summary = summarizeIr(ir)
+  const summary = pruneIrSummary(summarizeIr(ir))
   const classifyResult = await classifyIntent(payload.message, summary)
 
   recordClassification(turnRecord, {
