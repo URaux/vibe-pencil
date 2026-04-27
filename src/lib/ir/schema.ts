@@ -88,6 +88,7 @@ export const irBlockSchema = z
     summary: z.string().optional(),
     error_message: z.string().optional(),
     code_anchors: z.array(codeAnchorSchema).default([]),
+    tags: z.array(z.string()).optional(),
   })
   .strict()
 
