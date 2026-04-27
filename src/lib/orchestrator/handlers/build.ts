@@ -1,6 +1,7 @@
-import { agentRunner } from '@/lib/agent-runner-instance'
+﻿import { agentRunner } from '@/lib/agent-runner-instance'
 import type { AgentBackend } from '@/lib/agent-runner'
 import { tryRepairJson } from '@/lib/canvas-action-types'
+import { topoSort } from '@/lib/topo-sort'
 import type { AgentRunnerLike } from '../classify'
 import type { Handler, HandlerContext, HandlerResult } from '../types'
 
@@ -11,6 +12,9 @@ const POLL_INTERVAL_MS = 25
 
 const BUILD_SYSTEM_PROMPT =
   'You are a build target classifier for ArchViber. Given a user request and IR summary, output JSON describing which blocks should be built. Output ONLY JSON: {"scope":"all"|"wave"|"blocks"|"none", "waveIndex":number?, "blockIds":string[]?, "reason":string}. If the user does not ask to build anything, scope="none".'
+
+const WAVE_CLARIFY_SYSTEM_PROMPT =
+  'You are a build wave selector for ArchViber. Given a user request and a list of candidate wave indices with block counts, extract which wave index the user refers to. Output ONLY JSON: {"waveIndex":number,"reason":string}. If you cannot determine the wave, output {"waveIndex":null,"reason":"<why>"}.'
 
 export type BuildScope = 'all' | 'wave' | 'blocks' | 'none'
 
@@ -29,6 +33,11 @@ export interface BuildOptions {
   model?: string
   workDir?: string
   timeoutMs?: number
+}
+
+export interface WaveCandidate {
+  waveIndex: number
+  blockCount: number
 }
 
 interface ParsedBuildOutput {
@@ -141,6 +150,97 @@ function summaryFor(plan: BuildPlan, ctx: HandlerContext): string {
   return plan.reason
 }
 
+export function computeWaveCandidates(ctx: HandlerContext): WaveCandidate[] {
+  if (!ctx.ir || ctx.ir.blocks.length === 0) return []
+  const waves = topoSort(ctx.ir.blocks, ctx.ir.edges)
+  return waves.map((wave, i) => ({ waveIndex: i, blockCount: wave.length }))
+}
+
+function buildWaveClarifyError(candidates: WaveCandidate[], detail: string): HandlerResult {
+  const indices = candidates.map((c) => c.waveIndex)
+  return {
+    intent: 'build',
+    status: 'error',
+    error: `${detail} Available waves: [${indices.join(', ')}]. Please specify which wave to build (e.g. "build wave 0").`,
+  }
+}
+
+async function handleWaveClarification(
+  runner: AgentRunnerLike,
+  ctx: HandlerContext,
+  backend: AgentBackend,
+  model: string,
+  workDir: string,
+  timeoutMs: number
+): Promise<HandlerResult> {
+  const candidates = computeWaveCandidates(ctx)
+
+  if (candidates.length === 0) {
+    return {
+      intent: 'build',
+      status: 'error',
+      error: 'wave scope requires waveIndex but no IR is available to derive candidate waves. Please specify which wave to build.',
+    }
+  }
+
+  const clarifyPrompt = JSON.stringify({
+    task: 'extract wave index',
+    userPrompt: ctx.userPrompt,
+    candidateWaves: candidates,
+    instruction: 'Which wave index (0-based) does the user want to build?',
+  })
+
+  const clarifyId = runner.spawnAgent(
+    'orchestrator-build-wave-clarify',
+    clarifyPrompt,
+    backend,
+    workDir,
+    model,
+    undefined,
+    undefined,
+    WAVE_CLARIFY_SYSTEM_PROMPT
+  )
+
+  const clarifyTerminal = await waitForTerminalStatus(runner, clarifyId, timeoutMs)
+
+  if (clarifyTerminal.type !== 'done') {
+    return buildWaveClarifyError(candidates, 'Wave clarification agent did not complete successfully.')
+  }
+
+  const clarifyParsed = tryRepairJson(clarifyTerminal.rawOutput)
+  if (clarifyParsed === null) {
+    return buildWaveClarifyError(candidates, 'Could not parse wave clarification response.')
+  }
+
+  const clarifyObj = clarifyParsed as Record<string, unknown>
+  const extractedIndex = clarifyObj['waveIndex']
+
+  if (
+    typeof extractedIndex !== 'number' ||
+    !Number.isInteger(extractedIndex) ||
+    extractedIndex < 0 ||
+    extractedIndex >= candidates.length
+  ) {
+    return buildWaveClarifyError(candidates, 'Could not determine which wave to build.')
+  }
+
+  const candidate = candidates[extractedIndex]
+  const dispatchBody: Record<string, unknown> = { wave: extractedIndex }
+  const plan: BuildPlan = {
+    scope: 'wave',
+    waveIndex: extractedIndex,
+    reason: typeof clarifyObj['reason'] === 'string' ? clarifyObj['reason'] : `Build wave ${extractedIndex}`,
+    dispatchUrl: DISPATCH_URL,
+    dispatchBody,
+  }
+
+  return {
+    intent: 'build',
+    status: 'ok',
+    payload: { plan, summary: `Build wave ${extractedIndex} (${candidate.blockCount} block(s))` },
+  }
+}
+
 export function makeBuildHandler(opts: BuildOptions = {}): Handler {
   return async (ctx: HandlerContext): Promise<HandlerResult> => {
     const runner = opts.runner ?? ctx.runner ?? agentRunner
@@ -185,10 +285,15 @@ export function makeBuildHandler(opts: BuildOptions = {}): Handler {
       return { intent: 'build', status: 'error', error: 'Build parse failed: could not extract JSON from agent output' }
     }
 
+    // When scope=wave but waveIndex is missing/invalid, attempt follow-up LLM extraction.
     let validated: ParsedBuildOutput
     try {
       validated = validateParsed(parsed)
     } catch (err) {
+      const rawParsed = parsed as Record<string, unknown>
+      if (rawParsed['scope'] === 'wave') {
+        return await handleWaveClarification(runner, ctx, backend, model, workDir, timeoutMs)
+      }
       const message = err instanceof Error ? err.message : String(err)
       return { intent: 'build', status: 'error', error: message }
     }
