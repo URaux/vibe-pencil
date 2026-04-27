@@ -197,6 +197,18 @@ export function makeBuildHandler(opts: BuildOptions = {}): Handler {
       return { intent: 'build', status: 'error', error: `not a build request: ${validated.reason}` }
     }
 
+    if (validated.scope === 'all' && ctx.irSummary.blockCount === 0) {
+      return { intent: 'build', status: 'error', error: 'Build failed: project has no blocks to build' }
+    }
+
+    if (validated.scope === 'wave' && ctx.irSummary.blockCount === 0) {
+      return {
+        intent: 'build',
+        status: 'error',
+        error: 'Build failed: project has no waves — add blocks before targeting a wave',
+      }
+    }
+
     if (validated.scope === 'blocks' && validated.blockIds) {
       const known = knownIds(ctx)
       const unknown = validated.blockIds.filter((id) => !known.has(id))

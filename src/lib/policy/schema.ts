@@ -25,6 +25,16 @@ export const driftPolicySchema = z
     maxAddedBlocks: z.number().int().nonnegative().optional(),
     maxRemovedBlocks: z.number().int().nonnegative().optional(),
     maxChangedBlocks: z.number().int().nonnegative().optional(),
+    /** Block / container / edge IDs to filter out of the report before reporting. */
+    ignoreBlockIds: z.array(z.string()).default([]),
+    ignoreContainerIds: z.array(z.string()).default([]),
+    ignoreEdgeIds: z.array(z.string()).default([]),
+    /**
+     * When set, only drift entries belonging to these containers are included.
+     * Edges are kept only when BOTH source and target blocks belong to included containers.
+     * Empty array = same as undefined (no-op).
+     */
+    includeOnlyContainers: z.array(z.string()).optional(),
   })
   .strict()
 
@@ -45,5 +55,9 @@ export const DEFAULT_POLICY: Policy = {
     failOnChanged: false,
     failOnRemovedContainers: false,
     failOnRemovedEdges: false,
+    ignoreBlockIds: [],
+    ignoreContainerIds: [],
+    ignoreEdgeIds: [],
+    includeOnlyContainers: undefined,
   },
 }
