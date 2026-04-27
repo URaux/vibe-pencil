@@ -17,9 +17,11 @@ import { pythonAdapter } from './python'
 import { goAdapter } from './go'
 import { javaAdapter } from './java'
 import { rustAdapter } from './rust'
+import { jsonConfigAdapter } from './json-config'
 
 registerAdapter(tsAdapter)
 registerAdapter(pythonAdapter)
 registerAdapter(goAdapter)
 registerAdapter(javaAdapter)
 registerAdapter(rustAdapter)
+registerAdapter(jsonConfigAdapter)
