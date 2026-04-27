@@ -29,6 +29,12 @@ export const driftPolicySchema = z
     ignoreBlockIds: z.array(z.string()).default([]),
     ignoreContainerIds: z.array(z.string()).default([]),
     ignoreEdgeIds: z.array(z.string()).default([]),
+    /**
+     * When set, only drift entries belonging to these containers are included.
+     * Edges are kept only when BOTH source and target blocks belong to included containers.
+     * Empty array = same as undefined (no-op).
+     */
+    includeOnlyContainers: z.array(z.string()).optional(),
   })
   .strict()
 
@@ -52,5 +58,6 @@ export const DEFAULT_POLICY: Policy = {
     ignoreBlockIds: [],
     ignoreContainerIds: [],
     ignoreEdgeIds: [],
+    includeOnlyContainers: undefined,
   },
 }

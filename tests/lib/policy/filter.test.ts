@@ -83,4 +83,58 @@ describe('applyDriftIgnore', () => {
     applyDriftIgnore(r, policy)
     expect(r.addedBlocks).toHaveLength(2)
   })
+
+  // --- cascade + includeOnlyContainers tests ---
+
+  it('ignoreContainerIds cascades to blocks whose container_id matches', () => {
+    const b1 = { ...block('b1'), container_id: 'c1' }
+    const b2 = { ...block('b2'), container_id: 'c2' }
+    const r = reportWith({ removedBlocks: [b1, b2] })
+    const policy = { drift: { ...DEFAULT_POLICY.drift, ignoreContainerIds: ['c1'] } }
+    const filtered = applyDriftIgnore(r, policy)
+    expect(filtered.removedBlocks.map((b) => b.id)).toEqual(['b2'])
+  })
+
+  it('cascade applies to changedBlocks via before.container_id', () => {
+    const b = { ...block('b1'), container_id: 'c1' }
+    const r = reportWith({
+      changedBlocks: [{ blockId: 'b1', before: b, after: b, changes: ['name'] }],
+    })
+    const policy = { drift: { ...DEFAULT_POLICY.drift, ignoreContainerIds: ['c1'] } }
+    const filtered = applyDriftIgnore(r, policy)
+    expect(filtered.changedBlocks).toHaveLength(0)
+  })
+
+  it('includeOnlyContainers keeps only blocks in listed containers', () => {
+    const b1 = { ...block('b1'), container_id: 'api' }
+    const b2 = { ...block('b2'), container_id: 'db' }
+    const r = reportWith({ addedBlocks: [b1, b2] })
+    const policy = { drift: { ...DEFAULT_POLICY.drift, includeOnlyContainers: ['api'] } }
+    const filtered = applyDriftIgnore(r, policy)
+    expect(filtered.addedBlocks.map((b) => b.id)).toEqual(['b1'])
+  })
+
+  it('includeOnlyContainers filters edges where source or target not in included containers', () => {
+    const b1 = { ...block('b1'), container_id: 'api' }
+    const b2 = { ...block('b2'), container_id: 'db' }
+    const eInternal: IrEdge = { id: 'e1', source: 'b1', target: 'b1', type: 'sync' }
+    const eCross: IrEdge = { id: 'e2', source: 'b1', target: 'b2', type: 'sync' }
+    const r = reportWith({
+      addedBlocks: [b1, b2],
+      addedEdges: [eInternal, eCross],
+    })
+    const policy = { drift: { ...DEFAULT_POLICY.drift, includeOnlyContainers: ['api'] } }
+    const filtered = applyDriftIgnore(r, policy)
+    // eCross target b2 is in 'db' not 'api' → filtered out
+    expect(filtered.addedEdges.map((e) => e.id)).toEqual(['e1'])
+  })
+
+  it('includeOnlyContainers with empty array keeps nothing', () => {
+    const b1 = { ...block('b1'), container_id: 'api' }
+    const r = reportWith({ addedBlocks: [b1] })
+    const policy = { drift: { ...DEFAULT_POLICY.drift, includeOnlyContainers: [] } }
+    const filtered = applyDriftIgnore(r, policy)
+    // empty includeOnly → no-op (same as undefined — must not filter everything)
+    expect(filtered.addedBlocks).toHaveLength(1)
+  })
 })
