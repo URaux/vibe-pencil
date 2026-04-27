@@ -44,12 +44,26 @@ class LRUCache<V> {
     this.map.set(key, value)
   }
 
+  has(key: string): boolean {
+    return this.map.has(key)
+  }
+
   get size(): number {
     return this.map.size
   }
 }
 
+export interface CacheStats {
+  hits: number
+  misses: number
+  evictions: number
+  size: number
+}
+
 let _cache: LRUCache<ClassifyResult> | null = null
+let _hits = 0
+let _misses = 0
+let _evictions = 0
 
 function getCache(): LRUCache<ClassifyResult> {
   if (!_cache) _cache = new LRUCache<ClassifyResult>(cacheSize())
@@ -59,18 +73,40 @@ function getCache(): LRUCache<ClassifyResult> {
 /** Exposed for tests to reset the singleton. */
 export function resetCache(): void {
   _cache = null
+  _hits = 0
+  _misses = 0
+  _evictions = 0
 }
 
 export function cacheGet(key: string): ClassifyResult | undefined {
   if (cacheSize() === 0) return undefined
-  return getCache().get(key)
+  const val = getCache().get(key)
+  if (val !== undefined) {
+    _hits++
+  } else {
+    _misses++
+  }
+  return val
 }
 
 export function cacheSet(key: string, result: ClassifyResult): void {
   if (cacheSize() === 0) return
-  getCache().set(key, result)
+  const cache = getCache()
+  const hadKey = cache.has(key)
+  const wasAtCapacity = !hadKey && cache.size >= (cacheSize())
+  if (wasAtCapacity) _evictions++
+  cache.set(key, result)
 }
 
 export function getCacheSize(): number {
   return _cache?.size ?? 0
+}
+
+export function getCacheStats(): CacheStats {
+  return {
+    hits: _hits,
+    misses: _misses,
+    evictions: _evictions,
+    size: _cache?.size ?? 0,
+  }
 }
