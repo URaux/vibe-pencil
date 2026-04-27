@@ -122,4 +122,74 @@ describe('build handler', () => {
     expect(result.status).toBe('error')
     expect(result.error).toMatch(/timeout/i)
   })
+
+  it('Test 8: wave scope with 0 blocks in IR returns error about no waves', async () => {
+    const emptySummary: IrSummary = { ...baseSummary, blockCount: 0 }
+    const runner = new MockRunner([
+      { type: 'done', output: '{"scope":"wave","waveIndex":0,"reason":"user asked wave 0"}' },
+    ])
+    const handler = makeBuildHandler({ runner, timeoutMs: 100 })
+    const ctx: HandlerContext = {
+      userPrompt: 'build wave 0',
+      irSummary: emptySummary,
+      classifyResult: makeClassify(),
+      runner,
+      workDir: process.cwd(),
+    }
+
+    const result = await handler(ctx)
+
+    expect(result.status).toBe('error')
+    expect(result.error).toMatch(/no waves|no blocks/i)
+  })
+
+  it('Test 9: blocks scope with mix of valid + invalid IDs rejects listing all unknown', async () => {
+    const runner = new MockRunner([
+      {
+        type: 'done',
+        output: '{"scope":"blocks","blockIds":["auth","ghost-id","api","phantom"],"reason":"named blocks"}',
+      },
+    ])
+    const handler = makeBuildHandler({ runner, timeoutMs: 100 })
+
+    const result = await handler(makeCtx('build auth and ghost', runner))
+
+    expect(result.status).toBe('error')
+    expect(result.error).toContain('ghost-id')
+    expect(result.error).toContain('phantom')
+    // known IDs (auth, api) should NOT appear in the error
+    expect(result.error).not.toContain('auth')
+  })
+
+  it('Test 10: all scope with 0 blocks in IR returns error about empty project', async () => {
+    const emptySummary: IrSummary = { ...baseSummary, blockCount: 0 }
+    const runner = new MockRunner([
+      { type: 'done', output: '{"scope":"all","reason":"build everything"}' },
+    ])
+    const handler = makeBuildHandler({ runner, timeoutMs: 100 })
+    const ctx: HandlerContext = {
+      userPrompt: 'build everything',
+      irSummary: emptySummary,
+      classifyResult: makeClassify(),
+      runner,
+      workDir: process.cwd(),
+    }
+
+    const result = await handler(ctx)
+
+    expect(result.status).toBe('error')
+    expect(result.error).toMatch(/no blocks|empty project/i)
+  })
+
+  it('Test 11: JSON with invalid scope field returns validation error', async () => {
+    const runner = new MockRunner([
+      { type: 'done', output: '{"scope":"EVERYTHING","reason":"build it all"}' },
+    ])
+    const handler = makeBuildHandler({ runner, timeoutMs: 100 })
+
+    const result = await handler(makeCtx('build everything', runner))
+
+    expect(result.status).toBe('error')
+    expect(result.error).toMatch(/invalid scope|parse/i)
+  })
 })
