@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll } from 'vitest'
 import { bashAdapter } from '@/lib/ingest/languages/bash'
+import type { BashParsedSymbol } from '@/lib/ingest/languages/bash'
 import type { FactInputModule } from '@/lib/ingest/languages/types'
 import Parser from 'web-tree-sitter'
 
@@ -72,5 +73,33 @@ describe('bashAdapter parser', () => {
     const tree = parse(src)
     const facts = bashAdapter.extractFacts(tree, 'scripts\\deploy.sh')
     expect(facts.file).not.toContain('\\')
+  })
+
+  // Tests for the fixed BashParsedSymbol fields: exported + line
+  maybeIt('symbol has exported=true for public function', () => {
+    const src = 'function deploy() {\n  echo "deploying"\n}\n'
+    const tree = parse(src)
+    const facts = bashAdapter.extractFacts(tree, 'test.sh')
+    const sym = facts.symbols.find((s) => s.name === 'deploy') as BashParsedSymbol | undefined
+    expect(sym).toBeDefined()
+    expect(sym!.exported).toBe(true)
+  })
+
+  maybeIt('symbol has exported=false for private function (underscore prefix)', () => {
+    const src = 'function _internal_helper() {\n  echo "private"\n}\n'
+    const tree = parse(src)
+    const facts = bashAdapter.extractFacts(tree, 'test.sh')
+    const sym = facts.symbols.find((s) => s.name === '_internal_helper') as BashParsedSymbol | undefined
+    expect(sym).toBeDefined()
+    expect(sym!.exported).toBe(false)
+  })
+
+  maybeIt('symbol carries correct 1-based line number', () => {
+    const src = '#!/usr/bin/env bash\n# comment\nfunction setup() {\n  echo ok\n}\n'
+    const tree = parse(src)
+    const facts = bashAdapter.extractFacts(tree, 'test.sh')
+    const sym = facts.symbols.find((s) => s.name === 'setup') as BashParsedSymbol | undefined
+    expect(sym).toBeDefined()
+    expect(sym!.line).toBe(3)
   })
 })

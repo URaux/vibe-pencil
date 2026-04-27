@@ -1,15 +1,15 @@
-/**
+﻿/**
  * Bash language adapter.
  *
  * Uses `tree-sitter-bash.wasm` (present in tree-sitter-wasms/out/).
  * Pre-flight: loadParser() throws if wasm is absent.
  *
  * Extracts:
- *   source_command / command (source/.) → ParsedImport
- *   function_definition               → 'function' symbol
+ *   source_command / command (source/.) 鈫?ParsedImport
+ *   function_definition               鈫?'function' symbol
  *
  * Visibility: names starting with '_' are treated as private (not exported).
- * inferTechStack: bats/kcov imports → 'Bash/Testing'; default 'Bash'.
+ * inferTechStack: bats/kcov imports 鈫?'Bash/Testing'; default 'Bash'.
  */
 
 import * as path from 'node:path'
@@ -85,6 +85,8 @@ async function getParser(): Promise<Parser> {
 type TsNode = Parser.SyntaxNode
 
 export interface BashParsedSymbol extends ParsedSymbol {
+  exported: boolean
+  line?: number
   attributes?: Record<string, string>
 }
 
