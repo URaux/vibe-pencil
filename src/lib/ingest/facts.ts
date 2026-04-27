@@ -37,6 +37,8 @@ export type FactLanguage =
   | 'solidity'
   | 'ocaml'
   | 'bash'
+  | 'elm'
+  | 'rescript'
 
 export interface FactModuleNode {
   kind: 'module'
@@ -186,6 +188,9 @@ const EXT_TO_LANGUAGE: Readonly<Record<string, FactLanguage>> = {
   '.mli': 'ocaml',
   '.sh': 'bash',
   '.bash': 'bash',
+  '.res': 'rescript',
+  '.resi': 'rescript',
+  '.elm': 'elm',
 }
 
 function inferLanguage(
