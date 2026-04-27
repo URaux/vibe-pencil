@@ -34,6 +34,7 @@ export type FactLanguage =
   | 'go'
   | 'java'
   | 'rust'
+  | 'elm'
 
 export interface FactModuleNode {
   kind: 'module'
@@ -178,6 +179,7 @@ const EXT_TO_LANGUAGE: Readonly<Record<string, FactLanguage>> = {
   '.go': 'go',
   '.java': 'java',
   '.rs': 'rust',
+  '.elm': 'elm',
 }
 
 function inferLanguage(
