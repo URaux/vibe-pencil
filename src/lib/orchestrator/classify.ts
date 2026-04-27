@@ -2,6 +2,7 @@ import { agentRunner } from '@/lib/agent-runner-instance'
 import type { AgentBackend, AgentStatus, CustomApiConfig } from '@/lib/agent-runner'
 import type { IrSummary, ClassifyResult, Intent } from './types'
 import { INTENTS } from './types'
+import { cacheGet, cacheSet, makeCacheKey } from './cache'
 
 const DEFAULT_TIMEOUT_MS = 10_000
 const DEFAULT_CONFIDENCE_THRESHOLD = 0.6
@@ -208,6 +209,10 @@ export async function classifyIntent(
   const timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS
   const confidenceThreshold = opts.confidenceThreshold ?? DEFAULT_CONFIDENCE_THRESHOLD
 
+  const cacheKey = makeCacheKey(userPrompt, summary.blockCount, summary.containerCount)
+  const cached = cacheGet(cacheKey)
+  if (cached) return cached
+
   const agentId = runner.spawnAgent(
     'orchestrator-classifier',
     buildUserPrompt(userPrompt, summary),
@@ -250,12 +255,14 @@ export async function classifyIntent(
       }
     }
 
-    return {
+    const result: ClassifyResult = {
       intent: parsed.intent,
       confidence: parsed.confidence,
       rawOutput: terminal.rawOutput,
       fallback: false,
     }
+    cacheSet(cacheKey, result)
+    return result
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
     return fallbackResult(terminal.rawOutput, message)
