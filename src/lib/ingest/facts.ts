@@ -36,6 +36,7 @@ export type FactLanguage =
   | 'rust'
   | 'solidity'
   | 'ocaml'
+  | 'bash'
 
 export interface FactModuleNode {
   kind: 'module'
