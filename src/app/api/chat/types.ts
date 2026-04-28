@@ -27,4 +27,5 @@ export interface ChatRequest {
   customApiModel?: string
   ccSessionId?: string
   sessionId?: string
+  stream?: boolean
 }
