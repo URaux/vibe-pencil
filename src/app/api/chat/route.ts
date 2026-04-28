@@ -21,6 +21,7 @@ import {
 } from '@/lib/brainstorm/state'
 import type { ChatRequest, FormSubmission } from './types'
 import { runOrchestratorTurn } from './orchestrator-turn'
+import { runStreamOrchestratorTurn } from '@/lib/orchestrator/stream'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -730,6 +731,9 @@ export async function POST(request: Request) {
   const ir = await tryLoadIr()
 
   if (process.env.ARCHVIBER_ORCHESTRATOR !== '0' && ir) {
+    if (payload.stream === true) {
+      return runStreamOrchestratorTurn({ prompt: payload.message, ir, signal: request.signal })
+    }
     const orchestratorResponse = await runOrchestratorTurn({ payload, ir, request })
     if (orchestratorResponse) return orchestratorResponse
     // null → fall through to legacy path (handler returned not_implemented)
