@@ -5,6 +5,7 @@ import type { AgentRunnerLike } from '../classify'
 import type { Handler, HandlerContext, HandlerResult } from '../types'
 import { planRename } from '@/lib/modify/rename'
 import { planExtract } from '@/lib/modify/extract'
+import { planAddExport } from '@/lib/modify/add-export'
 import { runSandbox } from '@/lib/modify/sandbox'
 import { createRenamePr } from '@/lib/modify/pr'
 
@@ -13,12 +14,14 @@ const DEFAULT_BACKEND: AgentBackend = 'codex'
 const DEFAULT_MODEL = 'gpt-5-codex-mini'
 const POLL_INTERVAL_MS = 25
 
-// W3.D6: now detects both rename and extract verbs.
+// W3.D6 + v0.4: detects rename, extract, and add-export verbs.
 const EXTRACT_SYSTEM_PROMPT =
-  'Classify the user\'s modify request as one of: rename or extract. Output ONLY JSON. ' +
+  'Classify the user\'s modify request as one of: rename, extract, or add-export. Output ONLY JSON. ' +
   'For rename: {"verb":"rename","symbol":"OldName","newName":"NewName"} (both valid JS identifiers). ' +
   'For extract method: {"verb":"extract","filePath":"src/foo.ts","startLine":12,"endLine":20,"newFunctionName":"helperName"}. ' +
-  'If neither: {"error":"not-a-modify-verb"}.'
+  'For add export: {"verb":"add-export","filePath":"src/foo.ts","symbolName":"MyFunction","kind":"function"}. ' +
+  'The kind field is optional (function|class|const|interface|type|enum); omit to auto-detect. ' +
+  'If none apply: {"error":"not-a-modify-verb"}.'
 
 export interface ModifyOptions {
   runner?: AgentRunnerLike
@@ -195,6 +198,37 @@ export function makeModifyHandler(opts: ModifyOptions = {}): Handler {
         return { intent: 'modify', status: 'error', error: `planRename failed: ${message}` }
       }
       prSubject = { symbol, newName }
+    } else if (verb === 'add-export') {
+      const filePath = extraction['filePath']
+      const symbolName = extraction['symbolName']
+      const kind = extraction['kind']
+
+      if (typeof filePath !== 'string' || !filePath || typeof symbolName !== 'string' || !symbolName) {
+        return {
+          intent: 'modify',
+          status: 'error',
+          error: 'Modify parse failed: add-export requires filePath/symbolName',
+        }
+      }
+      const validKinds = ['function', 'class', 'const', 'interface', 'type', 'enum']
+      if (kind !== undefined && (typeof kind !== 'string' || !validKinds.includes(kind))) {
+        return {
+          intent: 'modify',
+          status: 'error',
+          error: `add-export: invalid kind "${String(kind)}"; expected one of ${validKinds.join('|')}`,
+        }
+      }
+      try {
+        plan = await planAddExport(workDir, {
+          filePath,
+          symbolName,
+          kind: typeof kind === 'string' ? (kind as 'function' | 'class' | 'const' | 'interface' | 'type' | 'enum') : undefined,
+        })
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err)
+        return { intent: 'modify', status: 'error', error: `planAddExport failed: ${message}` }
+      }
+      prSubject = { symbol: symbolName, newName: `export ${symbolName}` }
     } else {
       return {
         intent: 'modify',
