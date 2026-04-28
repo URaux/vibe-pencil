@@ -5,6 +5,8 @@ import type { AgentRunnerLike } from '../classify'
 import type { Handler, HandlerContext, HandlerResult } from '../types'
 import { planRename } from '@/lib/modify/rename'
 import { planExtract } from '@/lib/modify/extract'
+import { planReplaceInFile } from '@/lib/modify/replace-in-file'
+import { planAddExport } from '@/lib/modify/add-export'
 import { runSandbox } from '@/lib/modify/sandbox'
 import { createRenamePr } from '@/lib/modify/pr'
 
@@ -13,12 +15,15 @@ const DEFAULT_BACKEND: AgentBackend = 'codex'
 const DEFAULT_MODEL = 'gpt-5-codex-mini'
 const POLL_INTERVAL_MS = 25
 
-// W3.D6: now detects both rename and extract verbs.
+// W3.D6 + v0.4: detects rename, extract, replace, and add-export verbs.
 const EXTRACT_SYSTEM_PROMPT =
-  'Classify the user\'s modify request as one of: rename or extract. Output ONLY JSON. ' +
+  'Classify the user\'s modify request as one of: rename, extract, replace, or add-export. Output ONLY JSON. ' +
   'For rename: {"verb":"rename","symbol":"OldName","newName":"NewName"} (both valid JS identifiers). ' +
   'For extract method: {"verb":"extract","filePath":"src/foo.ts","startLine":12,"endLine":20,"newFunctionName":"helperName"}. ' +
-  'If neither: {"error":"not-a-modify-verb"}.'
+  'For replace in file: {"verb":"replace","filePath":"src/foo.ts","pattern":"oldText","replacement":"newText","flags":"g"}. ' +
+  'For add export: {"verb":"add-export","filePath":"src/foo.ts","symbolName":"MyFunction","kind":"function"}. ' +
+  'The kind field is optional (function|class|const|interface|type|enum); omit to auto-detect. ' +
+  'If none apply: {"error":"not-a-modify-verb"}.'
 
 export interface ModifyOptions {
   runner?: AgentRunnerLike
@@ -195,6 +200,37 @@ export function makeModifyHandler(opts: ModifyOptions = {}): Handler {
         return { intent: 'modify', status: 'error', error: `planRename failed: ${message}` }
       }
       prSubject = { symbol, newName }
+    } else if (verb === 'replace') {
+      const filePath = extraction['filePath']
+      const pattern = extraction['pattern']
+      const replacement = extraction['replacement']
+      const flags = extraction['flags']
+
+      if (
+        typeof filePath !== 'string' ||
+        !filePath ||
+        typeof pattern !== 'string' ||
+        !pattern ||
+        typeof replacement !== 'string'
+      ) {
+        return {
+          intent: 'modify',
+          status: 'error',
+          error: 'Modify parse failed: replace requires filePath/pattern/replacement',
+        }
+      }
+      try {
+        plan = await planReplaceInFile(workDir, {
+          filePath,
+          pattern,
+          replacement,
+          flags: typeof flags === 'string' ? flags : undefined,
+        })
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err)
+        return { intent: 'modify', status: 'error', error: `planReplaceInFile failed: ${message}` }
+      }
+      prSubject = { symbol: pattern, newName: replacement }
     } else {
       return {
         intent: 'modify',
