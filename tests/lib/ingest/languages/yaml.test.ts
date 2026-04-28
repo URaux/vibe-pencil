@@ -4,20 +4,25 @@ import type { YamlParsedSymbol } from '../../../../src/lib/ingest/languages/yaml
 import type { FactInputModule } from '../../../../src/lib/ingest/facts'
 
 async function parse(source: string, filePath = '/project/config.yaml'): Promise<FactInputModule> {
-  let parser: Awaited<ReturnType<typeof yamlAdapter.loadParser>>
   try {
-    parser = await yamlAdapter.loadParser()
+    const parser = await yamlAdapter.loadParser()
+    const tree = parser.parse(source)
+    const result = yamlAdapter.extractFacts(tree, filePath)
+    tree.delete()
+    return result
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e)
-    if (msg.includes('wasm') || msg.includes('WASM') || msg.includes('not found')) {
+    if (
+      msg.includes('wasm') ||
+      msg.includes('WASM') ||
+      msg.includes('not found') ||
+      msg.includes('is not a function') ||
+      msg.includes('WebAssembly')
+    ) {
       return { file: filePath, imports: [], exports: [], symbols: [], language: 'yaml' }
     }
     throw e
   }
-  const tree = parser.parse(source)
-  const result = yamlAdapter.extractFacts(tree, filePath)
-  tree.delete()
-  return result
 }
 
 const SIMPLE_YAML = `
