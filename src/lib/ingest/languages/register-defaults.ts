@@ -17,9 +17,11 @@ import { pythonAdapter } from './python'
 import { goAdapter } from './go'
 import { javaAdapter } from './java'
 import { rustAdapter } from './rust'
+import { yamlAdapter } from './yaml'
 
 registerAdapter(tsAdapter)
 registerAdapter(pythonAdapter)
 registerAdapter(goAdapter)
 registerAdapter(javaAdapter)
 registerAdapter(rustAdapter)
+registerAdapter(yamlAdapter)
