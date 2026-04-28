@@ -47,8 +47,10 @@ export function registerAdapter(adapter: LanguageAdapter): void {
  */
 export function findAdapter(filePath: string): LanguageAdapter | null {
   const ext = path.extname(filePath).toLowerCase()
+  const base = path.basename(filePath)
   for (const adapter of adapters.values()) {
-    if (adapter.fileExtensions.includes(ext)) return adapter
+    if (ext && adapter.fileExtensions.includes(ext)) return adapter
+    if (!ext && adapter.fileExtensions.includes(base)) return adapter
   }
   return null
 }

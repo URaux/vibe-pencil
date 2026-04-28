@@ -34,6 +34,7 @@ export type FactLanguage =
   | 'go'
   | 'java'
   | 'rust'
+  | 'dockerfile'
 
 export interface FactModuleNode {
   kind: 'module'
@@ -178,6 +179,8 @@ const EXT_TO_LANGUAGE: Readonly<Record<string, FactLanguage>> = {
   '.go': 'go',
   '.java': 'java',
   '.rs': 'rust',
+  '.dockerfile': 'dockerfile',
+  Dockerfile: 'dockerfile',
 }
 
 function inferLanguage(
